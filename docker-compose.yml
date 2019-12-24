@@ -1,0 +1,15 @@
+version: "3.7"
+
+services:
+  haraqa:
+    image: haraqa/haraqa:latest
+    container_name: haraqa.broker
+    build:
+      context: .
+    ports:
+      - "4353:4353"
+      - "14353:14353"
+#    volumes:
+#      - "./.haraqa/1:/.haraqa1:cached"
+#      - "./.haraqa/2:/.haraqa2:cached"
+    command: ["--ballast","8000000000",".haraqa1", ".haraqa2"]

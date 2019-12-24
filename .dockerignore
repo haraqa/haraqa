@@ -1,0 +1,9 @@
+.dockerignore
+**Dockerfile
+**.png
+**.md
+LICENSE
+**.test
+**.haraqa
+docker-compose.yml
+profiles
