@@ -6,14 +6,11 @@ High Availability Routing And Queueing Application
 ![Mascot](mascot.png)
 
 [![GoDoc](https://godoc.org/github.com/haraqa/haraqa?status.svg)](https://godoc.org/github.com/haraqa/haraqa)
-[![Go Report Card](https://goreportcard.com/badge/github.com/haraqa/haraqa)](https://goreportcard.com/report/haraqa/protocol)
+[![Go Report Card](https://goreportcard.com/badge/github.com/haraqa/haraqa)](https://goreportcard.com/report/haraqa/haraqa)
 [![Release](https://img.shields.io/github/release/haraqa/haraqa.svg)](https://github.com/haraqa/haraqa/releases)
 [![License](https://img.shields.io/github/license/haraqa/haraqa.svg)](https://github.com/haraqa/haraqa/blob/master/LICENSE)
 [![stability-experimental](https://img.shields.io/badge/stability-experimental-orange.svg)](https://github.com/emersion/stability-badges#experimental)
-[![Build Status](https://travis-ci.org/haraqa/haraqa.svg?branch=master)](https://travis-ci.org/haraqa/haraqa)
 [![Docker Build](https://img.shields.io/docker/build/haraqa/haraqa.svg)](https://hub.docker.com/r/haraqa/haraqa/)
-[![Build Status](https://images.microbadger.com/badges/image/haraqa/haraqa.svg)](https://microbadger.com/images/haraqa/haraqa)
-[![Releases](https://img.shields.io/github/release/haraqa/haraqa.svg)](https://github.com/haraqa/haraqa/releases)
 
 **haraqa** is designed to be a developer friendly, highly scalable message queue for data persistence and communication between microservices.
 
@@ -23,7 +20,6 @@ High Availability Routing And Queueing Application
 * [Getting Started](#getting-started)
   * [Client](#client)
   * [Broker](#broker)
-  * [Prerequisites](#prerequisites)
   * [Installation](#installation)
 * [Usage](#usage)
 * [Contributing](#contributing)
@@ -46,9 +42,7 @@ import (
 )
 
 func main() {
-  config := haraqa.Config{
-
-  }
+  config := haraqa.DefaultConfig
   client, err := haraqa.NewClient(config)
   if err != nil {
     panic(err)
