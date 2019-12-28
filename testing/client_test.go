@@ -37,16 +37,19 @@ func TestClientProduce(t *testing.T) {
 		t.Fatal(err)
 	}
 	go func() {
-		err := b.Listen(":4353", ":14353")
+		err := b.Listen()
 		if err != nil {
 			t.Fatal(err)
 		}
 	}()
 	defer b.Close()
 
-	client, err := haraqa.NewClient(haraqa.DefaultConfig)
+	config := haraqa.DefaultConfig
+	config.UnixSocket = "/tmp/haraqa.sock"
+
+	client, err := haraqa.NewClient(config)
 	for err != nil {
-		client, err = haraqa.NewClient(haraqa.DefaultConfig)
+		client, err = haraqa.NewClient(config)
 	}
 	ctx := context.Background()
 	err = client.Produce(ctx, []byte("world"), []byte("hello"))
@@ -86,7 +89,7 @@ func TestClientConsume(t *testing.T) {
 		t.Fatal(err)
 	}
 	go func() {
-		err := b.Listen(":4353", ":14353")
+		err := b.Listen()
 		if err != nil {
 			t.Fatal(err)
 		}

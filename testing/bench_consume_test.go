@@ -72,7 +72,7 @@ func benchConsumer(cfg broker.Config, num int, next bool) func(b *testing.B) {
 			b.Fatal(err)
 		}
 		go func() {
-			err := brkr.Listen(":4353", ":14353")
+			err := brkr.Listen()
 			if err != nil {
 				b.Fatal(err)
 			}

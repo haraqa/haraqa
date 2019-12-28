@@ -28,6 +28,7 @@ type Config struct {
 	GRPCPort     int
 	StreamPort   int
 	CreateTopics bool
+	UnixSocket   string
 	Timeout      time.Duration
 }
 
@@ -48,7 +49,7 @@ func NewClient(config Config) (*Client, error) {
 	if config.Host == "" {
 		return nil, errors.New("invalid host")
 	}
-	if config.GRPCPort == 0 || config.StreamPort == 0 {
+	if config.GRPCPort == 0 || (config.UnixSocket == "" && config.StreamPort == 0) {
 		return nil, errors.New("invalid ports")
 	}
 
@@ -99,10 +100,19 @@ func (c *Client) streamConnect() error {
 	if c.stream != nil {
 		return nil
 	}
+	var err error
+	var stream net.Conn
 	// connect to streaming port
-	stream, err := net.Dial("tcp", c.config.Host+":"+strconv.Itoa(c.config.StreamPort))
-	if err != nil {
-		return errors.Wrapf(err, "unable to connect to stream port %q", c.config.Host+":"+strconv.Itoa(c.config.StreamPort))
+	if c.config.UnixSocket != "" {
+		stream, err = net.Dial("unix", c.config.UnixSocket)
+		if err != nil {
+			return errors.Wrapf(err, "unable to connect to unix socket %q", c.config.UnixSocket)
+		}
+	} else {
+		stream, err = net.Dial("tcp", c.config.Host+":"+strconv.Itoa(c.config.StreamPort))
+		if err != nil {
+			return errors.Wrapf(err, "unable to connect to stream port %q", c.config.Host+":"+strconv.Itoa(c.config.StreamPort))
+		}
 	}
 
 	// initialize stream with id

@@ -14,7 +14,7 @@ ARG CACHEBUST=1
 ARG TEST_ONLY=""
 
 # test for speed
-RUN go test -bench=. -run=XXX -cpu=6 \
+RUN go test -bench=. -benchtime=10000x -run=XXX -cpu=4 \
   -cpuprofile   /profiles/cpu.out \
   -memprofile   /profiles/mem.out \
   -coverprofile /profiles/cover.out \

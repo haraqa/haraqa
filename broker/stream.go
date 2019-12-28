@@ -4,6 +4,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"os"
 	"sync"
 
 	"github.com/haraqa/haraqa/protocol"
@@ -36,7 +37,12 @@ func (b *Broker) getStreamChannel(id []byte) chan stream {
 	return ch
 }
 
-func (b *Broker) handleStream(c *net.TCPConn) {
+type netConn interface {
+	net.Conn
+	File() (*os.File, error)
+}
+
+func (b *Broker) handleStream(c netConn) {
 	conn, err := c.File()
 	c.Close()
 	if err != nil {

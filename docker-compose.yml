@@ -9,7 +9,8 @@ services:
     ports:
       - "4353:4353"
       - "14353:14353"
+      - "6060:6060"
 #    volumes:
 #      - "./.haraqa/1:/.haraqa1:cached"
 #      - "./.haraqa/2:/.haraqa2:cached"
-    command: ["--ballast","8000000000",".haraqa1", ".haraqa2"]
+    command: ["-ballast","8000000000",".haraqa1", ".haraqa2"]

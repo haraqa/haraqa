@@ -44,7 +44,7 @@ func benchProducer(cfg broker.Config) func(b *testing.B) {
 			b.Fatal(err)
 		}
 		go func() {
-			err := brkr.Listen(":4353", ":14353")
+			err := brkr.Listen()
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -59,7 +59,7 @@ func benchProducer(cfg broker.Config) func(b *testing.B) {
 		topic := []byte("something")
 		client.CreateTopic(ctx, topic)
 
-		batchSize := 2
+		batchSize := 10
 		msgs := make([][]byte, batchSize)
 		for i := range msgs {
 			msgs[i] = make([]byte, 100)
@@ -86,7 +86,7 @@ func benchProducerStream(cfg broker.Config) func(b *testing.B) {
 			b.Fatal(err)
 		}
 		go func() {
-			err := brkr.Listen(":4353", ":14353")
+			err := brkr.Listen()
 			if err != nil {
 				b.Fatal(err)
 			}

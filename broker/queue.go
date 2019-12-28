@@ -228,31 +228,24 @@ func (q *queue) ListTopics() ([][]byte, error) {
 }
 
 func (q *queue) Produce(tcpConn *os.File, topic []byte, msgSizes []int64) error {
+	q.Lock()
 	mw, ok := q.topics[string(topic)]
 	if !ok {
+		q.Unlock()
 		return protocol.TopicDoesNotExist
 	}
-
 	if mw == nil {
-		q.Lock()
-		mw, ok = q.topics[string(topic)]
-		if !ok {
-			return protocol.TopicDoesNotExist
+		// open files
+		offset := findQueueOffset(q.volumes, string(topic))
+		var err error
+		mw, err = newQueueTopic(q.volumes, string(topic), offset, true)
+		if err != nil {
+			q.Unlock()
+			return err
 		}
-		if mw == nil {
-			// open files
-			offset := findQueueOffset(q.volumes, string(topic))
-			var err error
-			mw, err = newQueueTopic(q.volumes, string(topic), offset, true)
-			if err != nil {
-				q.Unlock()
-				return err
-			}
-			q.topics[string(topic)] = mw
-		}
-		q.Unlock()
-
+		q.topics[string(topic)] = mw
 	}
+	q.Unlock()
 
 	mw.Lock()
 	defer mw.Unlock()
