@@ -28,8 +28,10 @@ type Queue interface {
 
 func NewQueue(volumes []string, maxEntries int) (Queue, error) {
 
+	restorationVolume := ""
+	emptyVolumes := make([]string, 0, len(volumes))
 	existingTopics := make(map[string]*queueTopic)
-	for i := range volumes {
+	for i := len(volumes) - 1; i >= 0; i-- {
 		err := os.MkdirAll(volumes[i], os.ModePerm)
 		if err != nil {
 			return nil, err
@@ -38,14 +40,70 @@ func NewQueue(volumes []string, maxEntries int) (Queue, error) {
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to open volume %q", volumes[i])
 		}
-		for j := range dirs {
-			if dirs[j].IsDir() {
-				existingTopics[dirs[j].Name()] = nil
+		if len(dirs) == 0 {
+			emptyVolumes = append(emptyVolumes, volumes[i])
+			continue
+		}
+		if restorationVolume == "" {
+			restorationVolume = volumes[i]
+			for j := range dirs {
+				if dirs[j].IsDir() {
+					existingTopics[dirs[j].Name()] = nil
+				}
 			}
 		}
 
-		//TODO: check for conflicting topics
+	}
 
+	if len(emptyVolumes) != len(volumes) {
+		topicFiles := make(map[string][]*os.File)
+		for topic := range existingTopics {
+
+			files, err := ioutil.ReadDir(filepath.Join(restorationVolume, topic))
+			if err != nil {
+				return nil, err
+			}
+			topicFiles[topic] = make([]*os.File, 0, len(files))
+
+			for _, file := range files {
+				if file.IsDir() {
+					continue
+				}
+				src, err := os.Open(filepath.Join(restorationVolume, topic, file.Name()))
+				if err != nil {
+					return nil, err
+				}
+				topicFiles[topic] = append(topicFiles[topic], src)
+			}
+		}
+
+		for topic, files := range topicFiles {
+			for i := range emptyVolumes {
+				// make directory if not exists
+				err := os.MkdirAll(filepath.Join(emptyVolumes[i], topic), os.ModePerm)
+				if err != nil {
+					return nil, err
+				}
+
+				// copy each file to its destination
+				for _, src := range files {
+					dst, err := os.Create(filepath.Join(emptyVolumes[i], topic, src.Name()))
+					if err != nil {
+						return nil, err
+					}
+					_, err = io.Copy(dst, src)
+					if err != nil {
+						return nil, err
+					}
+					dst.Close()
+				}
+			}
+
+			// close files
+			for _, src := range files {
+				src.Close()
+			}
+		}
 	}
 
 	q := &queue{
