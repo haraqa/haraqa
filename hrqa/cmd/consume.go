@@ -22,7 +22,7 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		vfmt := NewVerbose(cmd)
+		vfmt := newVerbose(cmd)
 
 		// ge† flags
 		topic, err := cmd.Flags().GetString("topic")
@@ -43,7 +43,7 @@ to quickly create a Cobra application.`,
 		vfmt.Printf("Consuming from the topic %q\n", topic)
 		err = client.Consume(ctx, []byte(topic), offset, maxBatchSize, &resp)
 		if err != nil {
-			fmt.Printf("Unable to consume message(s) from %q: %q\n", string(topic), err.Error())
+			fmt.Printf("Unable to consume message(s) from %q: %q\n", topic, err.Error())
 			os.Exit(1)
 		}
 
@@ -52,7 +52,7 @@ to quickly create a Cobra application.`,
 			vfmt.Printf("Consuming next message\n")
 			msg, err := resp.Next()
 			if err != nil && errors.Cause(err) != io.EOF {
-				fmt.Printf("Unable to consume message responses from %q: %q\n", string(topic), err.Error())
+				fmt.Printf("Unable to consume message responses from %q: %q\n", topic, err.Error())
 				os.Exit(1)
 			}
 			if len(msg) > 0 {
@@ -67,7 +67,7 @@ to quickly create a Cobra application.`,
 
 func init() {
 	consumeCmd.Flags().StringP(topicFlag())
-	consumeCmd.MarkFlagRequired("topic")
+	must(consumeCmd.MarkFlagRequired("topic"))
 	consumeCmd.Flags().Int64P("offset", "o", -1, "offset to consume from, -1 for next message from the next available offset")
 	consumeCmd.Flags().Int64P("max", "m", 100, "maximum number of messages to consume")
 	rootCmd.AddCommand(consumeCmd)

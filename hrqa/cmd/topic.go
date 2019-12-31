@@ -21,10 +21,10 @@ var topicCmd = &cobra.Command{
 
 func init() {
 	topicDeleteCmd.Flags().StringP(topicFlag())
-	topicDeleteCmd.MarkFlagRequired("topic")
+	must(topicDeleteCmd.MarkFlagRequired("topic"))
 
 	topicCreateCmd.Flags().StringP(topicFlag())
-	topicCreateCmd.MarkFlagRequired("topic")
+	must(topicCreateCmd.MarkFlagRequired("topic"))
 
 	topicCmd.AddCommand(topicListCmd, topicCreateCmd, topicDeleteCmd)
 	rootCmd.AddCommand(topicCmd)
@@ -37,7 +37,7 @@ var topicCreateCmd = &cobra.Command{
 	Example: `  hrqa topic create -t hello`,
 	Long:    `Create a new topic.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		vfmt := NewVerbose(cmd)
+		vfmt := newVerbose(cmd)
 
 		// ge† flags
 		topic, err := cmd.Flags().GetString("topic")
@@ -62,7 +62,7 @@ var topicDeleteCmd = &cobra.Command{
 	Example: `  hrqa topic delete -t hello`,
 	Long:    `Delete a topic.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		vfmt := NewVerbose(cmd)
+		vfmt := newVerbose(cmd)
 
 		// ge† flags
 		topic, err := cmd.Flags().GetString("topic")
@@ -89,7 +89,7 @@ var topicListCmd = &cobra.Command{
 	Example: `  hrqa topic list`,
 	Long:    `List all topics.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		vfmt := NewVerbose(cmd)
+		vfmt := newVerbose(cmd)
 
 		// setup client connection
 		client := NewConnection(cmd, vfmt)

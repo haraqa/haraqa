@@ -2,10 +2,11 @@ package testing
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
+	"sync"
 	"testing"
-	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/haraqa/haraqa"
@@ -13,8 +14,8 @@ import (
 )
 
 func TestClientProduce(t *testing.T) {
-	timeout := time.After(time.Second * 3)
-	done := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(1)
 	mockQueue := broker.NewMockQueue(gomock.NewController(t))
 	mockQueue.EXPECT().Produce(gomock.Any(), []byte("world"), []int64{5}).
 		DoAndReturn(func(tcpConn *os.File, topic []byte, msgSizes []int64) error {
@@ -26,7 +27,7 @@ func TestClientProduce(t *testing.T) {
 			if string(b[:]) != "hello" {
 				t.Fatal(string(b[:]))
 			}
-			close(done)
+			wg.Done()
 			return nil
 		})
 
@@ -57,16 +58,12 @@ func TestClientProduce(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	select {
-	case <-timeout:
-		t.Fatal("timeout exceeded")
-	case <-done:
-	}
+	wg.Wait()
 }
 
 func TestClientConsume(t *testing.T) {
-	timeout := time.After(time.Second * 3)
-	done := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(1)
 	mockQueue := broker.NewMockQueue(gomock.NewController(t))
 	mockQueue.EXPECT().ConsumeData([]byte("world"), int64(20), int64(10)).
 		Return([]byte("filename"), int64(100), []int64{5, 6, 9}, nil)
@@ -78,7 +75,7 @@ func TestClientConsume(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			close(done)
+			wg.Done()
 			return nil
 		})
 
@@ -100,6 +97,7 @@ func TestClientConsume(t *testing.T) {
 	for err != nil {
 		client, err = haraqa.NewClient(haraqa.DefaultConfig)
 	}
+	fmt.Println("got here")
 	ctx := context.Background()
 	resp := haraqa.ConsumeResponse{}
 	err = client.Consume(ctx, []byte("world"), 20, 10, &resp)
@@ -126,9 +124,5 @@ func TestClientConsume(t *testing.T) {
 		t.Fatal(string(batch[1]))
 	}
 
-	select {
-	case <-timeout:
-		t.Fatal("timeout exceeded")
-	case <-done:
-	}
+	wg.Wait()
 }

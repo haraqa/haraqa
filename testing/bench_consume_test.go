@@ -13,6 +13,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/haraqa/haraqa"
 	"github.com/haraqa/haraqa/broker"
+	"github.com/haraqa/haraqa/protocol"
+	"github.com/pkg/errors"
 )
 
 func BenchmarkConsume(b *testing.B) {
@@ -34,8 +36,8 @@ func BenchmarkConsume(b *testing.B) {
 			for i := range msgSizes {
 				n += msgSizes[i]
 			}
-			io.CopyN(ioutil.Discard, tcpConn, n)
-			return nil
+			_, err := io.CopyN(ioutil.Discard, tcpConn, n)
+			return err
 		}).AnyTimes()
 
 	var msgSizes []int64
@@ -56,8 +58,8 @@ func BenchmarkConsume(b *testing.B) {
 			if int64(len(writeBuf)) < totalSize {
 				writeBuf = make([]byte, totalSize)
 			}
-			tcpConn.Write(writeBuf[:totalSize])
-			return nil
+			_, err := tcpConn.Write(writeBuf[:totalSize])
+			return err
 		}).AnyTimes()
 
 	cfg.Queue = mockQueue
@@ -80,32 +82,48 @@ func benchConsumer(cfg broker.Config, num int, next bool) func(b *testing.B) {
 		defer brkr.Close()
 
 		ch := make(chan struct{})
+		errs := make(chan error, b.N/num)
 		var wg1, wg2 sync.WaitGroup
 		wg1.Add(num)
 		wg2.Add(num)
 		for v := 0; v < num; v++ {
 			go func(v int) {
 				ctx := context.Background()
+				defer wg2.Done()
 
 				client, err := haraqa.NewClient(haraqa.DefaultConfig)
 				if err != nil {
-					b.Fatal(err)
+					errs <- err
+					wg1.Done()
+					return
 				}
 				topic := []byte("consumable" + strconv.Itoa(v))
-				client.CreateTopic(ctx, topic)
+				err = client.CreateTopic(ctx, topic)
+				if err != nil && errors.Cause(err).Error() != protocol.TopicExistsErr.Error() {
+					errs <- err
+					wg1.Done()
+					return
+				}
 
 				batchSize := 200
 				msgs := make([][]byte, batchSize)
 				for i := range msgs {
 					msgs[i] = make([]byte, 100)
-					rand.Read(msgs[i])
+					_, err = rand.Read(msgs[i])
+					if err != nil {
+						errs <- err
+						wg1.Done()
+						return
+					}
 				}
 
 				if cfg.Queue == nil {
 					for i := 0; i < b.N/num; i += batchSize {
 						err := client.Produce(ctx, topic, msgs...)
 						if err != nil {
-							b.Fatal(err)
+							errs <- err
+							wg1.Done()
+							return
 						}
 					}
 				}
@@ -117,7 +135,8 @@ func benchConsumer(cfg broker.Config, num int, next bool) func(b *testing.B) {
 				for offset < int64(b.N/num) {
 					err = client.Consume(ctx, topic, offset, int64(batchSize), &resp)
 					if err != nil {
-						b.Fatal(err)
+						errs <- err
+						return
 					}
 
 					// TODO: benchmark against Batch() function
@@ -127,29 +146,40 @@ func benchConsumer(cfg broker.Config, num int, next bool) func(b *testing.B) {
 							offset++
 						}
 						if err != io.EOF {
-							b.Fatal(err)
+							errs <- err
+							return
 						}
 					} else {
 						db, err := resp.Batch()
 						if err != nil {
-							b.Fatal(err)
+							errs <- err
+							return
 						}
 						discardBatch = db
 						offset += int64(len(db))
 					}
 
 				}
-				wg2.Done()
-
 			}(v)
 		}
 
 		wg1.Wait()
+		select {
+		case err := <-errs:
+			b.Fatal(err)
+		default:
+		}
+
 		b.ReportAllocs()
 		b.ResetTimer()
 		close(ch)
 		wg2.Wait()
 		b.StopTimer()
+		select {
+		case err := <-errs:
+			b.Fatal(err)
+		default:
+		}
 	}
 }
 

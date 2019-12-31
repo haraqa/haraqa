@@ -51,7 +51,7 @@ type verbose struct {
 	ok bool
 }
 
-func NewVerbose(cmd *cobra.Command) *verbose {
+func newVerbose(cmd *cobra.Command) *verbose {
 	for cmd.HasParent() {
 		cmd = cmd.Parent()
 	}

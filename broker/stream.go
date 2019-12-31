@@ -72,8 +72,12 @@ func (b *Broker) handleStream(c netConn) {
 			// client is producing
 			err = b.config.Queue.Produce(conn, s.topic, s.sizes)
 			resp = protocol.ErrorToResponse(err)
-			conn.Write(resp[:])
+			_, err2 := conn.Write(resp[:])
 			if err != nil {
+				log.Println(err)
+				return
+			}
+			if err2 != nil {
 				log.Println(err)
 				return
 			}

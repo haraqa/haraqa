@@ -109,7 +109,7 @@ func benchProducerStream(cfg broker.Config) func(b *testing.B) {
 		var wg sync.WaitGroup
 		wg.Add(1)
 		go func() {
-			err = client.ProduceStream(ctx, topic, ch)
+			err := client.ProduceStream(ctx, topic, ch)
 			if err != nil {
 				b.Fatal(err)
 			}

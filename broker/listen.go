@@ -77,7 +77,7 @@ func (b *Broker) Close() error {
 
 // Listen starts a new grpc server on the given port
 func (b *Broker) Listen() error {
-	errs := make(chan error, 1)
+	errs := make(chan error, 2)
 
 	// open tcp file stream port
 	streamListener, err := net.Listen("tcp", ":"+strconv.FormatUint(uint64(b.config.StreamPort), 10))
@@ -141,8 +141,5 @@ func (b *Broker) Listen() error {
 		errs <- nil
 	}()
 
-	select {
-	case err := <-errs:
-		return err
-	}
+	return <-errs
 }

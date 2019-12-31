@@ -17,7 +17,7 @@ var produceCmd = &cobra.Command{
   echo -e "there\nworld" | hrqa produce -t hello`,
 	Long: `Produce one or more messages to the haraqa broker.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		vfmt := NewVerbose(cmd)
+		vfmt := newVerbose(cmd)
 
 		// ge† flags
 		topic, err := cmd.Flags().GetString("topic")
@@ -72,7 +72,7 @@ var produceCmd = &cobra.Command{
 
 func init() {
 	produceCmd.Flags().StringP(topicFlag())
-	produceCmd.MarkFlagRequired("topic")
+	must(produceCmd.MarkFlagRequired("topic"))
 	produceCmd.Flags().StringSliceP("msg", "m", []string{}, "message to send (optional, stdin is used if not provided)")
 	rootCmd.AddCommand(produceCmd)
 }

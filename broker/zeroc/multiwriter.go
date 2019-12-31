@@ -53,12 +53,13 @@ func (w *MultiWriter) Close() error {
 	for i := range w.files {
 		w.files[i].Close()
 	}
+
 	return nil
 }
 
 func (w *MultiWriter) Write(b []byte) (int, error) {
 	for i := range w.files {
-		_, err := w.files[i].Seek(w.offset, os.SEEK_SET)
+		_, err := w.files[i].Seek(w.offset, io.SeekStart)
 		if err != nil {
 			return 0, err
 		}

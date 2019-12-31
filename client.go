@@ -287,7 +287,9 @@ func (c *Client) ProduceStream(ctx context.Context, topic []byte, ch chan Produc
 
 	for msg := range ch {
 		msgs = append(msgs, msg.Msg)
-		errs = append(errs, msg.Err)
+		if msg.Err != nil {
+			errs = append(errs, msg.Err)
+		}
 		if len(msgs) == cap(ch) || (len(ch) == 0 && len(msgs) > 0) {
 			// send produce batch
 			err = c.produce(ctx, topic, msgs...)

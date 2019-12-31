@@ -35,5 +35,4 @@ func ResponseToError(resp [2]byte) error {
 	default:
 		return ErrorUndefined
 	}
-	return nil
 }

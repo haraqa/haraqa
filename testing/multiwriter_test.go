@@ -28,9 +28,10 @@ func TestMultiWriter(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	go func() {
-		writer.Write([]byte("Hello there world, test one two three"))
-	}()
+	_, err = writer.Write([]byte("Hello there world, test one two three"))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	n, err := w.SetLimit(20).ReadFrom(reader)
 	if err != nil {
