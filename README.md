@@ -54,6 +54,7 @@ func main() {
     topic = []byte("my_topic")
     msg1 = []byte("hello")
     msg2 = []byte("world")
+    offset = -1
   )
 
   // produce messages in a batch
@@ -63,7 +64,13 @@ func main() {
   }
 
   // consume messages in a batch
-  msgs, err := client.Consume(ctx, topic)
+  resp := haraqa.ConsumeResponse{}
+  err = client.Consume(ctx, topic, offset, maxBatchSize, &resp)
+  if err != nil {
+    panic(err)
+  }
+
+  msgs, err := resp.Batch()
   if err != nil {
     panic(err)
   }

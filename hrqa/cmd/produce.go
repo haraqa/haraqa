@@ -26,7 +26,7 @@ var produceCmd = &cobra.Command{
 		must(err)
 
 		// setup client connection
-		client := NewConnection(cmd, vfmt)
+		client := newConnection(cmd, vfmt)
 		defer client.Close()
 
 		// send messages if any are given

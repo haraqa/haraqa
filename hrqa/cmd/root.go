@@ -74,7 +74,7 @@ func (v *verbose) Printf(s string, a ...interface{}) {
 	fmt.Printf(s, a...)
 }
 
-func NewConnection(cmd *cobra.Command, vfmt *verbose) *haraqa.Client {
+func newConnection(cmd *cobra.Command, vfmt *verbose) *haraqa.Client {
 	for cmd.HasParent() {
 		cmd = cmd.Parent()
 	}

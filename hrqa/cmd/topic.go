@@ -44,7 +44,7 @@ var topicCreateCmd = &cobra.Command{
 		must(err)
 
 		// setup client connection
-		client := NewConnection(cmd, vfmt)
+		client := newConnection(cmd, vfmt)
 		defer client.Close()
 
 		err = client.CreateTopic(context.Background(), []byte(topic))
@@ -69,7 +69,7 @@ var topicDeleteCmd = &cobra.Command{
 		must(err)
 
 		// setup client connection
-		client := NewConnection(cmd, vfmt)
+		client := newConnection(cmd, vfmt)
 		defer client.Close()
 
 		vfmt.Printf("Deleting topic %q\n", topic)
@@ -92,7 +92,7 @@ var topicListCmd = &cobra.Command{
 		vfmt := newVerbose(cmd)
 
 		// setup client connection
-		client := NewConnection(cmd, vfmt)
+		client := newConnection(cmd, vfmt)
 		defer client.Close()
 
 		topics, err := client.ListTopics(context.Background())

@@ -33,7 +33,7 @@ to quickly create a Cobra application.`,
 		must(err)
 
 		// setup client connection
-		client := NewConnection(cmd, vfmt)
+		client := newConnection(cmd, vfmt)
 		defer client.Close()
 
 		// send consume message

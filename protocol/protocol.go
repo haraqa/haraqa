@@ -7,9 +7,12 @@ import (
 //go:generate protoc --gogofaster_out=plugins=grpc:. grpc.proto
 
 var (
-	TopicExistsErr    = errors.New("topic already exists")
-	ErrorUndefined    = errors.New("undefined error occurred")
-	TopicDoesNotExist = errors.New("topic does not exist")
+	//ErrTopicExists is returned if a CreateTopic request is made to an existing topic
+	ErrTopicExists = errors.New("topic already exists")
+	//ErrTopicDoesNotExist is returned if a Request is made on a non existant topic
+	ErrTopicDoesNotExist = errors.New("topic does not exist")
+	//ErrUndefined is returned in the absense of a known error
+	ErrUndefined = errors.New("undefined error occurred")
 )
 
 func ErrorToResponse(err error) [2]byte {
@@ -17,7 +20,7 @@ func ErrorToResponse(err error) [2]byte {
 		return [2]byte{0, 0}
 	}
 	switch errors.Cause(err) {
-	case TopicDoesNotExist:
+	case ErrTopicDoesNotExist:
 		return [2]byte{0, 1}
 	default:
 		return [2]byte{255, 255}
@@ -29,10 +32,10 @@ func ResponseToError(resp [2]byte) error {
 	case [2]byte{0, 0}:
 		return nil
 	case [2]byte{0, 1}:
-		return TopicDoesNotExist
+		return ErrTopicDoesNotExist
 	case [2]byte{255, 255}:
-		return ErrorUndefined
+		return ErrUndefined
 	default:
-		return ErrorUndefined
+		return ErrUndefined
 	}
 }

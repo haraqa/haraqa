@@ -134,7 +134,7 @@ func (q *queue) CreateTopic(topic []byte) error {
 	defer q.Unlock()
 	_, ok := q.topics[string(topic)]
 	if ok {
-		return protocol.TopicExistsErr
+		return protocol.ErrTopicExists
 	}
 
 	offset := findQueueOffset(q.volumes, string(topic))
@@ -145,7 +145,7 @@ func (q *queue) CreateTopic(topic []byte) error {
 
 	q.topics[string(topic)] = qt
 	if offset > 0 {
-		return protocol.TopicExistsErr
+		return protocol.ErrTopicExists
 	}
 	return nil
 }
@@ -290,7 +290,7 @@ func (q *queue) Produce(tcpConn *os.File, topic []byte, msgSizes []int64) error 
 	mw, ok := q.topics[string(topic)]
 	if !ok {
 		q.Unlock()
-		return protocol.TopicDoesNotExist
+		return protocol.ErrTopicDoesNotExist
 	}
 	if mw == nil {
 		// open files

@@ -1,3 +1,7 @@
+//Package haraqa (High Availability Routing And Queueing Application) defines
+// the go client for communicating with the haraqa broker:
+// https://hub.docker.com/repository/docker/haraqa/haraqa .
+//
 package haraqa
 
 import (
@@ -15,6 +19,7 @@ import (
 	"google.golang.org/grpc"
 )
 
+//DefaultConfig is the configuration for standard, local deployment of the haraqa broker
 var DefaultConfig = Config{
 	Host:         "127.0.0.1",
 	GRPCPort:     4353,
@@ -23,15 +28,20 @@ var DefaultConfig = Config{
 	Timeout:      time.Second * 5,
 }
 
+//Config for new clients, see DefaultConfig for recommended values
 type Config struct {
-	Host         string
-	GRPCPort     int
-	StreamPort   int
-	CreateTopics bool
-	UnixSocket   string
-	Timeout      time.Duration
+	Host         string        // address of the haraqa broker
+	GRPCPort     int           // broker's grpc port (default 4353)
+	StreamPort   int           // broker's data streaming port (default 14353)
+	CreateTopics bool          // if a topic does not exist, automatically create it
+	UnixSocket   string        // if set, the unix socket is used for the data stream
+	Timeout      time.Duration // the timeout for grpc requests
 }
 
+// Client is the connection to the haraqa broker. While it's technically possible
+// to produce and consume using the same client, it's recommended to use seperate
+// clients for producing and consuming. Use NewClient(config) to start a client
+// session.
 type Client struct {
 	config     Config
 	id         [16]byte
@@ -44,7 +54,11 @@ type Client struct {
 
 // NewClient creates a new haraqa client based on the given config
 //  cfg := haraqa.DefaultConfig
-//  haraqa.NewClient(cfg)
+//  client, err := haraqa.NewClient(cfg)
+//  if err != nil {
+//    panic(err)
+//  }
+//  defer client.Close()
 func NewClient(config Config) (*Client, error) {
 	if config.Host == "" {
 		return nil, errors.New("invalid host")
@@ -84,7 +98,10 @@ func NewClient(config Config) (*Client, error) {
 	return c, nil
 }
 
+// Close closes the client connection
 func (c *Client) Close() error {
+	c.streamLock.Lock()
+	defer c.streamLock.Unlock()
 	err := c.conn.Close()
 	err2 := c.stream.Close()
 	if err != nil {
@@ -130,6 +147,8 @@ func (c *Client) streamConnect() error {
 	return nil
 }
 
+//CreateTopic creates a new topic. It returns a ErrTopicExists error if the
+// topic has already been created
 func (c *Client) CreateTopic(ctx context.Context, topic []byte) error {
 	ctx, cancel := context.WithTimeout(ctx, c.config.Timeout)
 	defer cancel()
@@ -143,11 +162,18 @@ func (c *Client) CreateTopic(ctx context.Context, topic []byte) error {
 	}
 	meta := r.GetMeta()
 	if !meta.GetOK() {
-		return errors.Wrapf(errors.New(meta.GetErrorMsg()), "broker error creating topic %q", string(topic))
+		switch meta.GetErrorMsg() {
+		case protocol.ErrTopicExists.Error():
+			err = protocol.ErrTopicExists
+		default:
+			err = errors.New(meta.GetErrorMsg())
+		}
+		return errors.Wrapf(err, "broker error creating topic %q", string(topic))
 	}
 	return nil
 }
 
+// DeleteTopic permanentaly deletes all messages in a topic queue
 func (c *Client) DeleteTopic(ctx context.Context, topic []byte) error {
 	ctx, cancel := context.WithTimeout(ctx, c.config.Timeout)
 	defer cancel()
@@ -166,6 +192,7 @@ func (c *Client) DeleteTopic(ctx context.Context, topic []byte) error {
 	return nil
 }
 
+// ListTopics queries the broker for a list of topics
 func (c *Client) ListTopics(ctx context.Context) ([][]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, c.config.Timeout)
 	defer cancel()
@@ -182,6 +209,7 @@ func (c *Client) ListTopics(ctx context.Context) ([][]byte, error) {
 	return r.GetTopics(), nil
 }
 
+// Produce one or more messages as a batch to a common topic
 func (c *Client) Produce(ctx context.Context, topic []byte, msgs ...[]byte) error {
 	if len(msgs) == 0 {
 		return nil
@@ -253,9 +281,9 @@ func (c *Client) produce(ctx context.Context, topic []byte, msgs ...[]byte) erro
 	}
 
 	// create topic if required
-	if c.config.CreateTopics && errors.Cause(err) == protocol.TopicDoesNotExist {
+	if c.config.CreateTopics && errors.Cause(err) == protocol.ErrTopicDoesNotExist {
 		err = c.CreateTopic(ctx, topic)
-		if err == nil || errors.Cause(err) == protocol.TopicExistsErr {
+		if err == nil || errors.Cause(err) == protocol.ErrTopicExists {
 			c.streamLock.Unlock()
 			err = c.Produce(ctx, topic, msgs...)
 			c.streamLock.Lock()
@@ -264,11 +292,31 @@ func (c *Client) produce(ctx context.Context, topic []byte, msgs ...[]byte) erro
 	return err
 }
 
+// ProduceMsg is the message structure for sending messages to a ProduceStream channel.
+// The Err channel must be set with a capacity of 1 or greater to receive an error response.
+// if the message was produced successfully a nil error is returned.
 type ProduceMsg struct {
 	Msg []byte
 	Err chan error
 }
 
+// NewProduceMsg returns a ProduceMsg with a new Err channel. Use with the ProduceStream method.
+func NewProduceMsg(msg []byte) ProduceMsg {
+	return ProduceMsg{
+		Msg: msg,
+		Err: make(chan error, 1),
+	}
+}
+
+// ProduceStream starts a loop that reads from the channel and sends the messages as
+// a batch to the broker. The batch size, the number of messages in a batch, is equal
+// to the capacity of the channel given.
+// If the capacity is 0 an error is returned. Batches do not need to be filled before being
+// sent so it is recommended to set the batch size to a reasonably high value.
+// Messages are sent when either the number of messages reaches the channel capacity
+// or when the channel has been drained and there are no remaining messages in the channel.
+// If the channel is closed the ProduceStream is gracefully stopped and any remaining
+// messages in the channel are sent
 func (c *Client) ProduceStream(ctx context.Context, topic []byte, ch chan ProduceMsg) error {
 	if cap(ch) == 0 {
 		return errors.New("invalid channel capacity, channels must have a capacity of at least 1")
@@ -277,8 +325,7 @@ func (c *Client) ProduceStream(ctx context.Context, topic []byte, ch chan Produc
 	defer c.streamLock.Unlock()
 
 	// reconnect to stream if required
-	err := c.streamConnect()
-	if err != nil {
+	if err := c.streamConnect(); err != nil {
 		return err
 	}
 
@@ -292,15 +339,12 @@ func (c *Client) ProduceStream(ctx context.Context, topic []byte, ch chan Produc
 		}
 		if len(msgs) == cap(ch) || (len(ch) == 0 && len(msgs) > 0) {
 			// send produce batch
-			err = c.produce(ctx, topic, msgs...)
-			if err != nil {
-				for i := range errs {
-					errs[i] <- err
-				}
-				return err
-			}
+			err := c.produce(ctx, topic, msgs...)
 			for i := range errs {
-				close(errs[i])
+				errs[i] <- err
+			}
+			if err != nil {
+				return err
 			}
 			// truncate msg buffer
 			msgs = msgs[:0]
@@ -310,20 +354,20 @@ func (c *Client) ProduceStream(ctx context.Context, topic []byte, ch chan Produc
 
 	if len(msgs) > 0 {
 		//send one last batch
-		err = c.produce(ctx, topic, msgs...)
-		if err != nil {
-			for i := range errs {
-				errs[i] <- err
-			}
-			return err
-		}
+		err := c.produce(ctx, topic, msgs...)
 		for i := range errs {
-			close(errs[i])
+			errs[i] <- err
+		}
+		if err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
+// Consume starts a consume request and adds messages to the ConsumeResponse.
+// Consume is not thread safe and Consume or Produce messages should not be called
+// until resp.N() is zero or Batch() is called.
 func (c *Client) Consume(ctx context.Context, topic []byte, offset int64, maxBatchSize int64, resp *ConsumeResponse) error {
 	if resp == nil {
 		return errors.New("invalid ConsumeResponse")
@@ -358,22 +402,24 @@ func (c *Client) Consume(ctx context.Context, topic []byte, offset int64, maxBat
 	return nil
 }
 
+// ConsumeResponse is used by the Client Consume method. It reads data from the client
+// connection using either the Batch or Next methods.
 type ConsumeResponse struct {
 	lock     sync.Mutex
 	msgSizes []int64
 	conn     net.Conn
 }
 
+// N is the number of messages remaining in the response. Use with the Next() method.
+//  for resp.N() > 0 {
+//    msg, err := resp.Next()
+//    if err != nil {
+//      panic(err)
+//    }
+//    handle(msg)
+//  }
 func (resp *ConsumeResponse) N() int {
 	return len(resp.msgSizes)
-}
-
-func (resp *ConsumeResponse) BufSize() int64 {
-	var n int64
-	for i := range resp.msgSizes {
-		n += resp.msgSizes[i]
-	}
-	return n
 }
 
 func sum(in []int64) int64 {
@@ -384,6 +430,7 @@ func sum(in []int64) int64 {
 	return out
 }
 
+// Batch returns all of the consume response messages at once
 func (resp *ConsumeResponse) Batch() ([][]byte, error) {
 	resp.lock.Lock()
 	defer resp.lock.Unlock()
@@ -403,6 +450,8 @@ func (resp *ConsumeResponse) Batch() ([][]byte, error) {
 	return output, nil
 }
 
+// Next returns the next message from the queue. When all the messages in the batch
+// have been read it returns an io.EOF error.
 func (resp *ConsumeResponse) Next() ([]byte, error) {
 	resp.lock.Lock()
 	defer resp.lock.Unlock()

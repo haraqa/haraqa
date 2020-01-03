@@ -99,7 +99,7 @@ func benchConsumer(cfg broker.Config, num int, next bool) func(b *testing.B) {
 				}
 				topic := []byte("consumable" + strconv.Itoa(v))
 				err = client.CreateTopic(ctx, topic)
-				if err != nil && errors.Cause(err).Error() != protocol.TopicExistsErr.Error() {
+				if err != nil && errors.Cause(err) != protocol.ErrTopicExists {
 					errs <- err
 					wg1.Done()
 					return
