@@ -39,8 +39,10 @@ func (b *Broker) ListTopics(ctx context.Context, in *pb.ListTopicsRequest) (*pb.
 
 // Produce implements protocol.HaraqaServer Produce
 func (b *Broker) Produce(ctx context.Context, in *pb.ProduceRequest) (*pb.ProduceResponse, error) {
-	ch := b.getStreamChannel(in.GetUuid())
-
+	ch, ok := b.getStreamChannel(in.GetUuid())
+	if !ok {
+		return &pb.ProduceResponse{Meta: &pb.Meta{OK: false, ErrorMsg: "stream connection not found"}}, nil
+	}
 	ch <- stream{
 		incoming: true,
 		topic:    in.GetTopic(),
@@ -52,14 +54,16 @@ func (b *Broker) Produce(ctx context.Context, in *pb.ProduceRequest) (*pb.Produc
 
 // Consume implements protocol.HaraqaServer Consume
 func (b *Broker) Consume(ctx context.Context, in *pb.ConsumeRequest) (*pb.ConsumeResponse, error) {
-	ch := b.getStreamChannel(in.GetUuid())
-
 	filename, startAt, msgSizes, err := b.config.Queue.ConsumeData(in.GetTopic(), in.GetOffset(), in.GetMaxBatchSize())
 	if err != nil {
 		return &pb.ConsumeResponse{Meta: &pb.Meta{OK: false, ErrorMsg: err.Error()}}, nil
 	}
 
 	if len(msgSizes) != 0 {
+		ch, ok := b.getStreamChannel(in.GetUuid())
+		if !ok {
+			return &pb.ConsumeResponse{Meta: &pb.Meta{OK: false, ErrorMsg: "stream connection not found"}}, nil
+		}
 		ch <- stream{
 			incoming:  false,
 			topic:     in.GetTopic(),
@@ -87,4 +91,11 @@ func sum(s []int64) int64 {
 func (b *Broker) TruncateTopic(ctx context.Context, in *pb.TruncateTopicRequest) (*pb.TruncateTopicResponse, error) {
 	log.Printf("Received: %v", in.GetTopic())
 	return &pb.TruncateTopicResponse{Meta: &pb.Meta{OK: true}}, nil
+}
+
+// CloseConnection implements protocol.HaraqaServer CloseConnection
+func (b *Broker) CloseConnection(ctx context.Context, in *pb.CloseRequest) (*pb.CloseResponse, error) {
+	b.closeStreamChannel(in.GetUuid())
+
+	return &pb.CloseResponse{Meta: &pb.Meta{OK: true}}, nil
 }

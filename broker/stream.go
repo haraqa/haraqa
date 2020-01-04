@@ -26,15 +26,34 @@ type stream struct {
 	totalSize int64
 }
 
-func (b *Broker) getStreamChannel(id []byte) chan stream {
+func (b *Broker) newStreamChannel(id []byte) chan stream {
 	b.streams.Lock()
-	ch, ok := b.streams.m[string(id)]
-	if !ok {
-		ch = make(chan stream, 1)
-		b.streams.m[string(id)] = ch
+	old, ok := b.streams.m[string(id)]
+	if ok {
+		close(old)
 	}
+	ch := make(chan stream, 1)
+	b.streams.m[string(id)] = ch
 	b.streams.Unlock()
 	return ch
+}
+
+func (b *Broker) getStreamChannel(id []byte) (chan stream, bool) {
+	b.streams.Lock()
+	ch, ok := b.streams.m[string(id)]
+	b.streams.Unlock()
+	return ch, ok
+}
+
+func (b *Broker) closeStreamChannel(id []byte) {
+	b.streams.Lock()
+	ch, ok := b.streams.m[string(id)]
+	if ok {
+		close(ch)
+	}
+	delete(b.streams.m, string(id))
+	b.streams.Unlock()
+	return
 }
 
 type netConn interface {
@@ -64,7 +83,7 @@ func (b *Broker) handleStream(c netConn) {
 		return
 	}
 
-	ch := b.getStreamChannel(id[:])
+	ch := b.newStreamChannel(id[:])
 	var s stream
 	var resp [2]byte
 	for s = range ch {

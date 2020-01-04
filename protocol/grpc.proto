@@ -16,6 +16,8 @@ service Haraqa {
   rpc Produce (ProduceRequest) returns (ProduceResponse) {}
   // Sends a consume message
   rpc Consume (ConsumeRequest) returns (ConsumeResponse) {}
+  // Closes the client connection gracefully
+  rpc CloseConnection (CloseRequest) returns (CloseResponse) {}
 }
 
 message Meta {
@@ -80,4 +82,14 @@ message ConsumeRequest {
 message ConsumeResponse {
   Meta meta = 1;
   repeated int64 msg_sizes = 2;
+}
+
+// The request message containing the close info
+message CloseRequest {
+  bytes uuid = 1;
+}
+
+// The response message containing the close ack
+message CloseResponse {
+  Meta meta = 1;
 }

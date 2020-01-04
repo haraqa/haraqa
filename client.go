@@ -102,17 +102,29 @@ func NewClient(config Config) (*Client, error) {
 func (c *Client) Close() error {
 	c.streamLock.Lock()
 	defer c.streamLock.Unlock()
-	err := c.conn.Close()
-	err2 := c.stream.Close()
-	if err != nil {
-		return errors.Wrap(err, "unable to close grpc connection")
+
+	var errs []error
+	ctx, cancel := context.WithTimeout(context.Background(), c.config.Timeout)
+	defer cancel()
+	if _, err := c.client.CloseConnection(ctx, &protocol.CloseRequest{Uuid: c.id[:]}); err != nil {
+		errs = append(errs, err)
 	}
-	if err2 != nil {
-		return errors.Wrap(err2, "unable to close stream connection")
+
+	if err := c.conn.Close(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := c.stream.Close(); err != nil {
+		errs = append(errs, err)
+	}
+
+	if len(errs) > 0 {
+		return errors.Wrapf(errs[0], "error closing haraqa client total errors: (%d)", len(errs))
 	}
 	return nil
 }
 
+// streamConnect connects a new streaming client to the haraqa broker. it should be called
+// before any consume or produce grpc calls
 func (c *Client) streamConnect() error {
 	if c.stream != nil {
 		return nil
@@ -215,9 +227,6 @@ func (c *Client) Produce(ctx context.Context, topic []byte, msgs ...[]byte) erro
 		return nil
 	}
 
-	c.streamLock.Lock()
-	defer c.streamLock.Unlock()
-
 	// reconnect to stream if required
 	err := c.streamConnect()
 	if err != nil {
@@ -228,6 +237,9 @@ func (c *Client) Produce(ctx context.Context, topic []byte, msgs ...[]byte) erro
 }
 
 func (c *Client) produce(ctx context.Context, topic []byte, msgs ...[]byte) error {
+	c.streamLock.Lock()
+	defer c.streamLock.Unlock()
+
 	msgSizes := make([]int64, len(msgs))
 	var totalSize int64
 	for i := range msgs {
@@ -321,8 +333,6 @@ func (c *Client) ProduceStream(ctx context.Context, topic []byte, ch chan Produc
 	if cap(ch) == 0 {
 		return errors.New("invalid channel capacity, channels must have a capacity of at least 1")
 	}
-	c.streamLock.Lock()
-	defer c.streamLock.Unlock()
 
 	// reconnect to stream if required
 	if err := c.streamConnect(); err != nil {
