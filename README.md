@@ -65,7 +65,7 @@ func main() {
     topic = []byte("my_topic")
     msg1 = []byte("hello")
     msg2 = []byte("world")
-    offset = -1
+    offset = 0
   )
 
   // produce messages in a batch

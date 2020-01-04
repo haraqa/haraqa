@@ -364,7 +364,7 @@ func (q *queue) ConsumeData(topic []byte, offset int64, maxBatchSize int64) ([]b
 		}
 		o, err := strconv.ParseInt(strings.TrimSuffix(files[i].Name(), ".dat"), 10, 64)
 		if err == nil {
-			if o > baseOffset && o <= offset {
+			if o > baseOffset && (offset < 0 || o <= offset) {
 				baseOffset = o
 			}
 		}
@@ -378,6 +378,18 @@ func (q *queue) ConsumeData(topic []byte, offset int64, maxBatchSize int64) ([]b
 		return nil, 0, nil, err
 	}
 	defer f.Close()
+
+	if offset < 0 {
+		info, err := f.Stat()
+		if err != nil {
+			return nil, 0, nil, err
+		}
+		if info.Size() < 24 {
+			return nil, 0, nil, nil
+		}
+
+		offset = info.Size()/24 - 1
+	}
 
 	buf := make([]byte, maxBatchSize*24)
 	n, err := f.ReadAt(buf[:], offset*24)

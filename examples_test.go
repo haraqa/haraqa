@@ -104,7 +104,7 @@ func ExampleClient_Consume_next() {
 		ctx   = context.Background()
 		topic = []byte("myTopic")
 
-		offset       int64 = -1   // next available message
+		offset       int64 = 0    // start at oldest available message
 		maxBatchSize int64 = 1000 // maximum number of messages to return
 		resp               = haraqa.ConsumeResponse{}
 	)
@@ -147,7 +147,7 @@ func ExampleClient_Consume_batch() {
 		ctx   = context.Background()
 		topic = []byte("myTopic")
 
-		offset       int64 = -1   // next available message
+		offset       int64 = 0    // start at oldest available message
 		maxBatchSize int64 = 1000 // maximum number of messages to return
 		resp               = haraqa.ConsumeResponse{}
 	)

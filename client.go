@@ -377,7 +377,9 @@ func (c *Client) ProduceStream(ctx context.Context, topic []byte, ch chan Produc
 
 // Consume starts a consume request and adds messages to the ConsumeResponse.
 // Consume is not thread safe and Consume or Produce messages should not be called
-// until resp.N() is zero or Batch() is called.
+// until resp.N() is zero or Batch() is called. Offest is the number of messages to skip
+// when consuming. If offset < 0 the last available offset is used
+// maxBatchSize is the maximum number of messages to consume at a single time.
 func (c *Client) Consume(ctx context.Context, topic []byte, offset int64, maxBatchSize int64, resp *ConsumeResponse) error {
 	if resp == nil {
 		return errors.New("invalid ConsumeResponse")
