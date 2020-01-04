@@ -14,11 +14,13 @@ func main() {
 	config := broker.DefaultConfig
 
 	var (
-		ballast   int64
-		pprofPort uint
+		ballast    int64
+		httpPort   uint
+		fileserver bool
 	)
 	flag.Int64Var(&ballast, "ballast", 1<<30, "Garbage collection ballast")
-	flag.UintVar(&pprofPort, "pprof", 6060, "Port for serving pprof metrics")
+	flag.UintVar(&httpPort, "http", 6060, "Port for serving pprof metrics and files")
+	flag.BoolVar(&fileserver, "fileserver", true, "If true, files are served at http port")
 	flag.UintVar(&config.GRPCPort, "grpc", config.GRPCPort, "Port to listen on for grpc connections")
 	flag.UintVar(&config.StreamPort, "stream", config.StreamPort, "Port to listen on for stream connections")
 	flag.StringVar(&config.UnixSocket, "unix", config.UnixSocket, "Unix socket for local stream connections")
@@ -27,12 +29,15 @@ func main() {
 	// set a ballast
 	_ = make([]byte, ballast)
 
-	go func() {
-		log.Println(http.ListenAndServe(":"+strconv.FormatUint(uint64(pprofPort), 10), nil))
-	}()
-
 	// get volumes from args
 	config.Volumes = flag.Args()
+
+	go func() {
+		if fileserver {
+			http.Handle("/topics/", http.StripPrefix("/topics/", http.FileServer(http.Dir(config.Volumes[len(config.Volumes)-1]))))
+		}
+		log.Println(http.ListenAndServe(":"+strconv.FormatUint(uint64(httpPort), 10), nil))
+	}()
 
 	log.Printf("config: %+v\n", config)
 	b, err := broker.NewBroker(config)
