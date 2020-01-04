@@ -16,7 +16,7 @@ High Availability Routing And Queueing Application
 
 #### Table of Contents
 * [About the Project](#about-the-project)
-  * [Built With](#built-with)
+  * [Usecases](#usecases)
 * [Getting Started](#getting-started)
   * [Client](#client)
   * [Broker](#broker)
@@ -24,6 +24,12 @@ High Availability Routing And Queueing Application
 * [Usage](#usage)
 * [Contributing](#contributing)
 * [License](#license)
+
+## About the Project
+### Usecases
+#### Log Aggregation
+Haraqa can be used by services to persist logs for debugging or auditing. See the
+[Example](https://github.com/haraqa/haraqa/tree/master/logs) for more information.
 
 ## Getting started
 ### Client
