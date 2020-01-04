@@ -29,7 +29,12 @@ High Availability Routing And Queueing Application
 ### Usecases
 #### Log Aggregation
 Haraqa can be used by services to persist logs for debugging or auditing. See the
-[Example](https://github.com/haraqa/haraqa/tree/master/logs) for more information.
+[Example](https://github.com/haraqa/haraqa/tree/master/examples/logs) for more information.
+
+#### Message routing between clients
+In this [Example](https://github.com/haraqa/haraqa/tree/master/examples/message_routing)
+http clients can send and receive messages asynchronously through POST and GET requests
+to a simple REST server. These messages are stored in haraqa in a topic unique to each client.
 
 ## Getting started
 ### Client

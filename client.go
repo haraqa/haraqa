@@ -450,6 +450,14 @@ func (resp *ConsumeResponse) Batch() ([][]byte, error) {
 	return output, nil
 }
 
+// WriteTo writes all of the consume response messages at once to an io.Writer
+func (resp *ConsumeResponse) WriteTo(w io.Writer) (int64, error) {
+	resp.lock.Lock()
+	defer resp.lock.Unlock()
+
+	return io.CopyN(w, resp.conn, sum(resp.msgSizes))
+}
+
 // Next returns the next message from the queue. When all the messages in the batch
 // have been read it returns an io.EOF error.
 func (resp *ConsumeResponse) Next() ([]byte, error) {
