@@ -10,7 +10,7 @@ High Availability Routing And Queueing Application
 [![Release](https://img.shields.io/github/release/haraqa/haraqa.svg)](https://github.com/haraqa/haraqa/releases)
 [![License](https://img.shields.io/github/license/haraqa/haraqa.svg)](https://github.com/haraqa/haraqa/blob/master/LICENSE)
 [![stability-experimental](https://img.shields.io/badge/stability-experimental-orange.svg)](https://github.com/emersion/stability-badges#experimental)
-[![Docker Build](https://img.shields.io/docker/build/haraqa/haraqa.svg)](https://hub.docker.com/r/haraqa/haraqa/)
+[![Docker Build](https://img.shields.io/docker/cloud/build/sinedied/nano-gateway.svg)](https://hub.docker.com/r/haraqa/haraqa/)
 
 **haraqa** is designed to be a developer friendly, highly scalable message queue for data persistence and communication between microservices.
 
