@@ -3,7 +3,7 @@ Haraqa
 High Availability Routing And Queueing Application
 --------------------------------------------------
 
-![Mascot](mascot.png)
+![Mascot](https://raw.githubusercontent.com/haraqa/haraqa/master/mascot.png)
 
 [![GoDoc](https://godoc.org/github.com/haraqa/haraqa?status.svg)](https://godoc.org/github.com/haraqa/haraqa)
 [![Go Report Card](https://goreportcard.com/badge/github.com/haraqa/haraqa)](https://goreportcard.com/report/haraqa/haraqa)
@@ -18,10 +18,8 @@ High Availability Routing And Queueing Application
 * [About the Project](#about-the-project)
   * [Usecases](#usecases)
 * [Getting Started](#getting-started)
-  * [Client](#client)
   * [Broker](#broker)
-  * [Installation](#installation)
-* [Usage](#usage)
+  * [Client](#client)
 * [Contributing](#contributing)
 * [License](#license)
 
@@ -42,6 +40,12 @@ This [example](https://github.com/haraqa/haraqa/tree/master/examples/time_series
 runtime.MemStats data every second.
 
 ## Getting started
+### Broker
+The recommended deployment strategy is to use [Docker](hub.docker.com/r/haraqa/haraqa)
+```
+docker run -it -p 4353:4353 -p 14353:14353 -v $PWD/v1:/v1 haraqa/haraqa /v1
+```
+
 ### Client
 ```
 go get github.com/haraqa/haraqa
@@ -93,16 +97,6 @@ func main() {
 
   log.Println(msgs)
 }
-```
-### Broker
-The recommended deployment strategy is to use [Docker](hub.docker.com/r/haraqa/haraqa)
-#### Locally
-```
-docker run -it -p 4353:4353 -p 14353:14353 -v $PWD/v1:/v1 haraqa/haraqa /v1
-```
-#### Kubernetes
-```
-
 ```
 
 ## Contributing
