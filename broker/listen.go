@@ -13,7 +13,7 @@ import (
 
 var DefaultConfig = Config{
 	Volumes:    []string{".haraqa"},
-	MaxEntries: 20000,
+	MaxEntries: 250000,
 	GRPCPort:   4353,
 	DataPort:   14353,
 	UnixSocket: "/tmp/haraqa.sock",

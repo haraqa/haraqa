@@ -24,6 +24,8 @@ func main() {
 	flag.UintVar(&config.GRPCPort, "grpc", config.GRPCPort, "Port to listen on for grpc connections")
 	flag.UintVar(&config.DataPort, "data", config.DataPort, "Port to listen on for data connections")
 	flag.StringVar(&config.UnixSocket, "unix", config.UnixSocket, "Unix socket for local data connections")
+	flag.IntVar(&config.MaxEntries, "maxentries", config.MaxEntries, "Port to listen on for data connections")
+
 	flag.Parse()
 
 	// set a ballast

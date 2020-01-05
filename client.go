@@ -108,8 +108,10 @@ func (c *Client) Close() error {
 	if err := c.grpcConn.Close(); err != nil {
 		errs = append(errs, err)
 	}
-	if err := c.dataConn.Close(); err != nil {
-		errs = append(errs, err)
+	if c.dataConn != nil {
+		if err := c.dataConn.Close(); err != nil {
+			errs = append(errs, err)
+		}
 	}
 
 	if len(errs) > 0 {

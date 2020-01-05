@@ -76,7 +76,7 @@ func (b *Broker) handleDataConn(c netConn) {
 	var id [16]byte
 	_, err = io.ReadFull(conn, id[:])
 	if err != nil {
-		log.Println(errors.Wrap(err, "unable to read data connection id"))
+		log.Println(errors.Wrapf(err, "unable to read data connection id %v", id[:]))
 		return
 	}
 
@@ -96,11 +96,11 @@ func (b *Broker) handleDataConn(c netConn) {
 			resp = protocol.ErrorToResponse(err)
 			_, err2 := conn.Write(resp[:])
 			if err != nil {
-				log.Println(err)
+				log.Println(errors.Wrap(err, "unable to read produce from data connection"))
 				return
 			}
 			if err2 != nil {
-				log.Println(err)
+				log.Println(errors.Wrap(err2, "unable to send produce response to data connection"))
 				return
 			}
 			continue
@@ -109,7 +109,7 @@ func (b *Broker) handleDataConn(c netConn) {
 		// client is consuming
 		err = b.config.Queue.Consume(conn, d.topic, d.filename, d.startAt, d.totalSize)
 		if err != nil {
-			log.Println(err)
+			log.Println(errors.Wrap(err, "unable to process consume request on data connection"))
 			return
 		}
 	}
