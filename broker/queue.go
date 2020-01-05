@@ -18,6 +18,7 @@ import (
 
 //go:generate mockgen -source queue.go -destination queue_mock.go -package broker
 
+// Queue is the interface for dealing with topics and messages in the haraqa queue
 type Queue interface {
 	CreateTopic(topic []byte) error
 	DeleteTopic(topic []byte) error
@@ -28,8 +29,9 @@ type Queue interface {
 	Offsets(topic []byte) (int64, int64, error)
 }
 
+// NewQueue returns a queue struct which implements the Queue interface using
+// zero copy on linux systems
 func NewQueue(volumes []string, maxEntries int) (Queue, error) {
-
 	restorationVolume := ""
 	emptyVolumes := make([]string, 0, len(volumes))
 	existingTopics := make(map[string]*queueTopic)
@@ -54,7 +56,6 @@ func NewQueue(volumes []string, maxEntries int) (Queue, error) {
 				}
 			}
 		}
-
 	}
 
 	if len(emptyVolumes) != len(volumes) {
@@ -354,11 +355,13 @@ func (q *queue) Produce(tcpConn *os.File, topic []byte, msgSizes []int64) error 
 }
 
 func (q *queue) ConsumeData(topic []byte, offset int64, maxBatchSize int64) ([]byte, int64, []int64, error) {
+	// get a list of all the files
 	files, err := ioutil.ReadDir(filepath.Join(q.volumes[len(q.volumes)-1], string(topic)))
 	if err != nil {
 		return nil, 0, nil, err
 	}
 
+	// find the file which matches the offset
 	var baseOffset int64
 	for i := range files {
 		if !strings.HasSuffix(files[i].Name(), ".dat") {
@@ -372,15 +375,16 @@ func (q *queue) ConsumeData(topic []byte, offset int64, maxBatchSize int64) ([]b
 		}
 	}
 	o := strconv.FormatInt(baseOffset, 10)
-
 	filename := filepath.Join(q.volumes[len(q.volumes)-1], string(topic), o+".dat")
 
+	// open the data file
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, 0, nil, err
 	}
 	defer f.Close()
 
+	// if the offset is negative (get the latest message), find the latest message offset
 	if offset < 0 {
 		info, err := f.Stat()
 		if err != nil {
@@ -393,6 +397,7 @@ func (q *queue) ConsumeData(topic []byte, offset int64, maxBatchSize int64) ([]b
 		offset = info.Size()/24 - 1
 	}
 
+	// read the data file
 	buf := make([]byte, maxBatchSize*24)
 	n, err := f.ReadAt(buf[:], offset*24)
 	if err != nil && err != io.EOF {
@@ -403,6 +408,7 @@ func (q *queue) ConsumeData(topic []byte, offset int64, maxBatchSize int64) ([]b
 		return nil, 0, nil, nil
 	}
 
+	// convert the data file contents into a list of message sizes
 	startAt := int64(binary.BigEndian.Uint64(buf[8:16]))
 	msgSizes := make([]int64, 0, len(buf)/24)
 	for i := 0; i < len(buf); i += 24 {

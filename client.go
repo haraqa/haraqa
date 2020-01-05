@@ -39,7 +39,7 @@ type Config struct {
 }
 
 // Client is the connection to the haraqa broker. While it's technically possible
-// to produce and consume using the same client, it's recommended to use seperate
+// to produce and consume using the same client, it's recommended to use separate
 // clients for producing and consuming. Use NewClient(config) to start a client
 // session.
 type Client struct {
