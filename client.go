@@ -90,11 +90,6 @@ func NewClient(config Config) (*Client, error) {
 		id:     id,
 	}
 
-	err = c.streamConnect()
-	if err != nil {
-		return nil, err
-	}
-
 	return c, nil
 }
 
@@ -390,6 +385,11 @@ func (c *Client) Consume(ctx context.Context, topic []byte, offset int64, maxBat
 
 	c.streamLock.Lock()
 	defer c.streamLock.Unlock()
+
+	err := c.streamConnect()
+	if err != nil {
+		return errors.Wrap(err, "could not connect")
+	}
 
 	// send message metadata
 	r, err := c.client.Consume(ctx, &pb.ConsumeRequest{

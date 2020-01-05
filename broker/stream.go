@@ -38,11 +38,14 @@ func (b *Broker) newStreamChannel(id []byte) chan stream {
 	return ch
 }
 
-func (b *Broker) getStreamChannel(id []byte) (chan stream, bool) {
+func (b *Broker) sendToStreamChannel(id []byte, s stream) bool {
 	b.streams.Lock()
 	ch, ok := b.streams.m[string(id)]
+	if ok {
+		ch <- s
+	}
 	b.streams.Unlock()
-	return ch, ok
+	return ok
 }
 
 func (b *Broker) closeStreamChannel(id []byte) {

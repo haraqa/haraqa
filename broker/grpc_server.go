@@ -39,14 +39,13 @@ func (b *Broker) ListTopics(ctx context.Context, in *pb.ListTopicsRequest) (*pb.
 
 // Produce implements protocol.HaraqaServer Produce
 func (b *Broker) Produce(ctx context.Context, in *pb.ProduceRequest) (*pb.ProduceResponse, error) {
-	ch, ok := b.getStreamChannel(in.GetUuid())
-	if !ok {
-		return &pb.ProduceResponse{Meta: &pb.Meta{OK: false, ErrorMsg: "stream connection not found"}}, nil
-	}
-	ch <- stream{
+	ok := b.sendToStreamChannel(in.GetUuid(), stream{
 		incoming: true,
 		topic:    in.GetTopic(),
 		sizes:    in.GetMsgSizes(),
+	})
+	if !ok {
+		return &pb.ProduceResponse{Meta: &pb.Meta{OK: false, ErrorMsg: "stream connection not found"}}, nil
 	}
 
 	return &pb.ProduceResponse{Meta: &pb.Meta{OK: true}}, nil
@@ -60,16 +59,15 @@ func (b *Broker) Consume(ctx context.Context, in *pb.ConsumeRequest) (*pb.Consum
 	}
 
 	if len(msgSizes) != 0 {
-		ch, ok := b.getStreamChannel(in.GetUuid())
-		if !ok {
-			return &pb.ConsumeResponse{Meta: &pb.Meta{OK: false, ErrorMsg: "stream connection not found"}}, nil
-		}
-		ch <- stream{
+		ok := b.sendToStreamChannel(in.GetUuid(), stream{
 			incoming:  false,
 			topic:     in.GetTopic(),
 			filename:  filename,
 			startAt:   startAt,
 			totalSize: sum(msgSizes),
+		})
+		if !ok {
+			return &pb.ConsumeResponse{Meta: &pb.Meta{OK: false, ErrorMsg: "stream connection not found"}}, nil
 		}
 	}
 
