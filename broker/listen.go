@@ -4,6 +4,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"sync"
 
 	pb "github.com/haraqa/haraqa/protocol"
 	"github.com/pkg/errors"
@@ -31,9 +32,10 @@ type Config struct {
 
 type Broker struct {
 	pb.UnimplementedHaraqaServer
-	s       *grpc.Server
-	config  Config
-	streams streams
+	s          *grpc.Server
+	config     Config
+	streams    streams
+	listenWait sync.WaitGroup
 }
 
 // NewBroker creates a new instance of the haraqa grpc server
@@ -72,11 +74,15 @@ func (b *Broker) Close() error {
 		delete(b.streams.m, k)
 	}
 
+	b.listenWait.Wait()
+
 	return nil
 }
 
 // Listen starts a new grpc server on the given port
 func (b *Broker) Listen() error {
+	b.listenWait.Add(1)
+	defer b.listenWait.Done()
 	errs := make(chan error, 2)
 
 	// open tcp file stream port
