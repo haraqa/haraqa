@@ -37,5 +37,5 @@ COPY --from=compiler /haraqa-build /haraqa
 # Setup Default Behavior
 ENTRYPOINT ["/haraqa"]
 
-# Ports - grpc port:4353, streaming port:14353, pprof port: 6060
+# Ports - grpc port:4353, data port:14353, pprof port: 6060
 EXPOSE 4353 14353 6060

@@ -24,7 +24,7 @@ type Queue interface {
 	DeleteTopic(topic []byte) error
 	ListTopics() ([][]byte, error)
 	Produce(tcpConn *os.File, topic []byte, msgSizes []int64) error
-	ConsumeData(topic []byte, offset int64, maxBatchSize int64) (filename []byte, startAt int64, msgSizes []int64, err error)
+	ConsumeInfo(topic []byte, offset int64, maxBatchSize int64) (filename []byte, startAt int64, msgSizes []int64, err error)
 	Consume(tcpConn *os.File, topic []byte, filename []byte, startAt int64, totalSize int64) error
 	Offsets(topic []byte) (int64, int64, error)
 }
@@ -128,7 +128,7 @@ type queueTopic struct {
 	sync.Mutex
 	relOffset uint64
 	offset    uint64
-	data      *zeroc.MultiWriter
+	dat       *zeroc.MultiWriter
 	messages  *zeroc.MultiWriter
 }
 
@@ -193,7 +193,7 @@ func findQueueOffset(volumes []string, topic string) uint64 {
 }
 
 func newQueueTopic(volumes []string, topic string, offset uint64, open bool) (*queueTopic, error) {
-	dataFiles := make([]*os.File, len(volumes))
+	datFiles := make([]*os.File, len(volumes))
 	msgFiles := make([]*os.File, len(volumes))
 	offsetString := strconv.FormatUint(offset, 10)
 	var offsets []uint64
@@ -206,13 +206,13 @@ func newQueueTopic(volumes []string, topic string, offset uint64, open bool) (*q
 			return nil, err
 		}
 
-		dataFiles[i], err = os.OpenFile(filepath.Join(volumes[i], topic, offsetString+".dat"), os.O_RDWR|os.O_CREATE, 0666)
+		datFiles[i], err = os.OpenFile(filepath.Join(volumes[i], topic, offsetString+".dat"), os.O_RDWR|os.O_CREATE, 0666)
 		if err != nil {
 			return nil, err
 		}
 
 		if open {
-			info, err := dataFiles[i].Stat()
+			info, err := datFiles[i].Stat()
 			if err == nil {
 				offsets = append(offsets, uint64(info.Size())/24)
 			}
@@ -236,7 +236,7 @@ func newQueueTopic(volumes []string, topic string, offset uint64, open bool) (*q
 		}
 	}
 
-	dataMultiWriter, err := zeroc.NewMultiWriter(dataFiles...)
+	datMultiWriter, err := zeroc.NewMultiWriter(datFiles...)
 	if err != nil {
 		return nil, err
 	}
@@ -249,7 +249,7 @@ func newQueueTopic(volumes []string, topic string, offset uint64, open bool) (*q
 	// TODO: get relative offset of file
 
 	return &queueTopic{
-		data:     dataMultiWriter,
+		dat:      datMultiWriter,
 		messages: msgMultiWriter,
 		offset:   offset,
 	}, nil
@@ -261,7 +261,7 @@ func (q *queue) DeleteTopic(topic []byte) error {
 	mw, ok := q.topics[string(topic)]
 
 	if mw != nil {
-		mw.data.Close()
+		mw.dat.Close()
 		mw.messages.Close()
 	}
 	if ok {
@@ -316,9 +316,9 @@ func (q *queue) Produce(tcpConn *os.File, topic []byte, msgSizes []int64) error 
 		if err != nil {
 			return err
 		}
-		mw.data.Close()
+		mw.dat.Close()
 		mw.messages.Close()
-		mw.data = newMW.data
+		mw.dat = newMW.dat
 		mw.messages = newMW.messages
 		mw.relOffset = 0
 	}
@@ -343,18 +343,21 @@ func (q *queue) Produce(tcpConn *os.File, topic []byte, msgSizes []int64) error 
 		offset++
 	}
 
-	_, err = mw.data.Write(buf[:])
+	_, err = mw.dat.Write(buf[:])
 	if err != nil {
 		return err
 	}
-	mw.data.IncreaseOffset(int64(len(buf)))
+	mw.dat.IncreaseOffset(int64(len(buf)))
 	mw.messages.IncreaseOffset(n)
 	mw.relOffset = offset - mw.offset
 	mw.offset = offset
 	return nil
 }
 
-func (q *queue) ConsumeData(topic []byte, offset int64, maxBatchSize int64) ([]byte, int64, []int64, error) {
+// ConsumeInfo returns the info required to consume from a specific file. it
+// returns the filepath of the file to be read from, the starting point to begin
+// reading from, and the number and lengths of the messages to be read
+func (q *queue) ConsumeInfo(topic []byte, offset int64, maxBatchSize int64) ([]byte, int64, []int64, error) {
 	// get a list of all the files
 	files, err := ioutil.ReadDir(filepath.Join(q.volumes[len(q.volumes)-1], string(topic)))
 	if err != nil {
@@ -377,7 +380,7 @@ func (q *queue) ConsumeData(topic []byte, offset int64, maxBatchSize int64) ([]b
 	o := strconv.FormatInt(baseOffset, 10)
 	filename := filepath.Join(q.volumes[len(q.volumes)-1], string(topic), o+".dat")
 
-	// open the data file
+	// open the dat file
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, 0, nil, err
@@ -397,7 +400,7 @@ func (q *queue) ConsumeData(topic []byte, offset int64, maxBatchSize int64) ([]b
 		offset = info.Size()/24 - 1
 	}
 
-	// read the data file
+	// read the dat file
 	buf := make([]byte, maxBatchSize*24)
 	n, err := f.ReadAt(buf[:], offset*24)
 	if err != nil && err != io.EOF {
@@ -408,7 +411,7 @@ func (q *queue) ConsumeData(topic []byte, offset int64, maxBatchSize int64) ([]b
 		return nil, 0, nil, nil
 	}
 
-	// convert the data file contents into a list of message sizes
+	// convert the dat file contents into a list of message sizes
 	startAt := int64(binary.BigEndian.Uint64(buf[8:16]))
 	msgSizes := make([]int64, 0, len(buf)/24)
 	for i := 0; i < len(buf); i += 24 {
@@ -466,12 +469,12 @@ func (q *queue) Offsets(topic []byte) (int64, int64, error) {
 	}
 
 	if maxName != "" {
-		dataFile, err := os.OpenFile(filepath.Join(vol, string(topic), maxName), os.O_RDONLY, 0666)
+		datFile, err := os.OpenFile(filepath.Join(vol, string(topic), maxName), os.O_RDONLY, 0666)
 		if err != nil {
 			return 0, 0, err
 		}
 
-		info, err := dataFile.Stat()
+		info, err := datFile.Stat()
 		if err == nil {
 			max += (info.Size() / 24) - 1
 		}

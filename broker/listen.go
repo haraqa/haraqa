@@ -15,7 +15,7 @@ var DefaultConfig = Config{
 	Volumes:    []string{".haraqa"},
 	MaxEntries: 20000,
 	GRPCPort:   4353,
-	StreamPort: 14353,
+	DataPort:   14353,
 	UnixSocket: "/tmp/haraqa.sock",
 	UnixMode:   0600,
 }
@@ -25,17 +25,17 @@ type Config struct {
 	Queue      Queue
 	MaxEntries int
 	GRPCPort   uint
-	StreamPort uint
+	DataPort   uint
 	UnixSocket string
 	UnixMode   os.FileMode
 }
 
 type Broker struct {
 	pb.UnimplementedHaraqaServer
-	s          *grpc.Server
-	config     Config
-	streams    streams
-	listenWait sync.WaitGroup
+	s            *grpc.Server
+	config       Config
+	dataTriggers dataTriggers
+	listenWait   sync.WaitGroup
 }
 
 // NewBroker creates a new instance of the haraqa grpc server
@@ -55,8 +55,8 @@ func NewBroker(config Config) (*Broker, error) {
 
 	return &Broker{
 		config: config,
-		streams: streams{
-			m: make(map[string]chan stream),
+		dataTriggers: dataTriggers{
+			m: make(map[string]chan dataTrigger),
 		},
 	}, nil
 }
@@ -67,11 +67,11 @@ func (b *Broker) Close() error {
 		b.s.GracefulStop()
 	}
 
-	b.streams.Lock()
-	defer b.streams.Unlock()
-	for k, ch := range b.streams.m {
+	b.dataTriggers.Lock()
+	defer b.dataTriggers.Unlock()
+	for k, ch := range b.dataTriggers.m {
 		close(ch)
-		delete(b.streams.m, k)
+		delete(b.dataTriggers.m, k)
 	}
 
 	b.listenWait.Wait()
@@ -85,12 +85,12 @@ func (b *Broker) Listen() error {
 	defer b.listenWait.Done()
 	errs := make(chan error, 2)
 
-	// open tcp file stream port
-	streamListener, err := net.Listen("tcp", ":"+strconv.FormatUint(uint64(b.config.StreamPort), 10))
+	// open tcp file data port
+	dataListener, err := net.Listen("tcp", ":"+strconv.FormatUint(uint64(b.config.DataPort), 10))
 	if err != nil {
-		return errors.Wrapf(err, "failed to listen on stream port %d", b.config.StreamPort)
+		return errors.Wrapf(err, "failed to listen on data port %d", b.config.DataPort)
 	}
-	defer streamListener.Close()
+	defer dataListener.Close()
 
 	// open grpc port
 	lis, err := net.Listen("tcp", ":"+strconv.FormatUint(uint64(b.config.GRPCPort), 10))
@@ -99,7 +99,7 @@ func (b *Broker) Listen() error {
 	}
 	defer lis.Close()
 
-	// open unix file stream
+	// open unix file data listener
 	unixListener, err := net.Listen("unix", b.config.UnixSocket)
 	if err != nil {
 		os.RemoveAll(b.config.UnixSocket)
@@ -113,25 +113,25 @@ func (b *Broker) Listen() error {
 		return errors.Wrap(err, "unable to open unix socket to all users")
 	}
 
-	// serve file stream
+	// serve file data
 	go func() {
 		for {
-			conn, err := streamListener.Accept()
+			conn, err := dataListener.Accept()
 			if err != nil {
-				errs <- errors.Wrap(err, "failed to serve tcp file stream")
+				errs <- errors.Wrap(err, "failed to serve tcp data connection")
 				return
 			}
-			go b.handleStream(conn.(*net.TCPConn))
+			go b.handleDataConn(conn.(*net.TCPConn))
 		}
 	}()
 	go func() {
 		for {
 			conn, err := unixListener.Accept()
 			if err != nil {
-				errs <- errors.Wrap(err, "failed to serve unix file stream")
+				errs <- errors.Wrap(err, "failed to serve unix file data connection")
 				return
 			}
-			go b.handleStream(conn.(*net.UnixConn))
+			go b.handleDataConn(conn.(*net.UnixConn))
 		}
 	}()
 

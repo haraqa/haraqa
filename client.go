@@ -23,7 +23,7 @@ import (
 var DefaultConfig = Config{
 	Host:         "127.0.0.1",
 	GRPCPort:     4353,
-	StreamPort:   14353,
+	DataPort:     14353,
 	CreateTopics: true,
 	Timeout:      time.Second * 5,
 }
@@ -32,9 +32,9 @@ var DefaultConfig = Config{
 type Config struct {
 	Host         string        // address of the haraqa broker
 	GRPCPort     int           // broker's grpc port (default 4353)
-	StreamPort   int           // broker's data streaming port (default 14353)
+	DataPort     int           // broker's data port (default 14353)
 	CreateTopics bool          // if a topic does not exist, automatically create it
-	UnixSocket   string        // if set, the unix socket is used for the data stream
+	UnixSocket   string        // if set, the unix socket is used for the data connection
 	Timeout      time.Duration // the timeout for grpc requests
 }
 
@@ -43,13 +43,13 @@ type Config struct {
 // clients for producing and consuming. Use NewClient(config) to start a client
 // session.
 type Client struct {
-	config     Config
-	id         [16]byte
-	conn       *grpc.ClientConn
-	client     pb.HaraqaClient
-	streamLock sync.Mutex
-	stream     net.Conn
-	streamBuf  []byte
+	config       Config
+	id           [16]byte
+	grpcConn     *grpc.ClientConn
+	client       pb.HaraqaClient
+	dataConnLock sync.Mutex
+	dataConn     net.Conn
+	dataBuf      []byte
 }
 
 // NewClient creates a new haraqa client based on the given config
@@ -63,16 +63,16 @@ func NewClient(config Config) (*Client, error) {
 	if config.Host == "" {
 		return nil, errors.New("invalid host")
 	}
-	if config.GRPCPort == 0 || (config.UnixSocket == "" && config.StreamPort == 0) {
+	if config.GRPCPort == 0 || (config.UnixSocket == "" && config.DataPort == 0) {
 		return nil, errors.New("invalid ports")
 	}
 
 	// Set up a connection to the server.
-	conn, err := grpc.Dial(config.Host+":"+strconv.Itoa(config.GRPCPort), grpc.WithInsecure(), grpc.WithBlock(), grpc.WithTimeout(config.Timeout))
+	grpcConn, err := grpc.Dial(config.Host+":"+strconv.Itoa(config.GRPCPort), grpc.WithInsecure(), grpc.WithBlock(), grpc.WithTimeout(config.Timeout))
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to connect to grpc port %q", config.Host+":"+strconv.Itoa(config.GRPCPort))
 	}
-	client := pb.NewHaraqaClient(conn)
+	client := pb.NewHaraqaClient(grpcConn)
 	if client == nil {
 		return nil, errors.New("unable to create new grpc client")
 	}
@@ -84,10 +84,10 @@ func NewClient(config Config) (*Client, error) {
 		return nil, errors.Wrap(err, "unable to generate client id")
 	}
 	c := &Client{
-		config: config,
-		conn:   conn,
-		client: client,
-		id:     id,
+		config:   config,
+		grpcConn: grpcConn,
+		client:   client,
+		id:       id,
 	}
 
 	return c, nil
@@ -95,8 +95,8 @@ func NewClient(config Config) (*Client, error) {
 
 // Close closes the client connection
 func (c *Client) Close() error {
-	c.streamLock.Lock()
-	defer c.streamLock.Unlock()
+	c.dataConnLock.Lock()
+	defer c.dataConnLock.Unlock()
 
 	var errs []error
 	ctx, cancel := context.WithTimeout(context.Background(), c.config.Timeout)
@@ -105,10 +105,10 @@ func (c *Client) Close() error {
 		errs = append(errs, err)
 	}
 
-	if err := c.conn.Close(); err != nil {
+	if err := c.grpcConn.Close(); err != nil {
 		errs = append(errs, err)
 	}
-	if err := c.stream.Close(); err != nil {
+	if err := c.dataConn.Close(); err != nil {
 		errs = append(errs, err)
 	}
 
@@ -118,39 +118,39 @@ func (c *Client) Close() error {
 	return nil
 }
 
-// streamConnect connects a new streaming client to the haraqa broker. it should be called
+// dataConnect connects a new data client connection to the haraqa broker. it should be called
 // before any consume or produce grpc calls
-func (c *Client) streamConnect() error {
-	if c.stream != nil {
+func (c *Client) dataConnect() error {
+	if c.dataConn != nil {
 		return nil
 	}
 	var err error
-	var stream net.Conn
-	// connect to streaming port
+	var dataConn net.Conn
+	// connect to data port
 	if c.config.UnixSocket != "" {
-		stream, err = net.Dial("unix", c.config.UnixSocket)
+		dataConn, err = net.Dial("unix", c.config.UnixSocket)
 		if err != nil {
 			return errors.Wrapf(err, "unable to connect to unix socket %q", c.config.UnixSocket)
 		}
 	} else {
-		stream, err = net.Dial("tcp", c.config.Host+":"+strconv.Itoa(c.config.StreamPort))
+		dataConn, err = net.Dial("tcp", c.config.Host+":"+strconv.Itoa(c.config.DataPort))
 		if err != nil {
-			return errors.Wrapf(err, "unable to connect to stream port %q", c.config.Host+":"+strconv.Itoa(c.config.StreamPort))
+			return errors.Wrapf(err, "unable to connect to data port %q", c.config.Host+":"+strconv.Itoa(c.config.DataPort))
 		}
 	}
 
-	// initialize stream with id
-	_, err = stream.Write(c.id[:])
+	// initialize dataConn with id
+	_, err = dataConn.Write(c.id[:])
 	if err != nil {
-		return errors.Wrap(err, "unable write to stream port")
+		return errors.Wrap(err, "unable write to data port")
 	}
 
 	var resp [2]byte
-	_, err = io.ReadFull(stream, resp[:])
+	_, err = io.ReadFull(dataConn, resp[:])
 	if err != nil {
-		return errors.Wrap(err, "unable read from stream port")
+		return errors.Wrap(err, "unable read from data port")
 	}
-	c.stream = stream
+	c.dataConn = dataConn
 	return nil
 }
 
@@ -160,7 +160,7 @@ func (c *Client) CreateTopic(ctx context.Context, topic []byte) error {
 	ctx, cancel := context.WithTimeout(ctx, c.config.Timeout)
 	defer cancel()
 
-	// send message metadata
+	// send message request
 	r, err := c.client.CreateTopic(ctx, &pb.CreateTopicRequest{
 		Topic: topic,
 	})
@@ -185,7 +185,7 @@ func (c *Client) DeleteTopic(ctx context.Context, topic []byte) error {
 	ctx, cancel := context.WithTimeout(ctx, c.config.Timeout)
 	defer cancel()
 
-	// send message metadata
+	// send message request
 	r, err := c.client.DeleteTopic(ctx, &pb.DeleteTopicRequest{
 		Topic: topic,
 	})
@@ -204,7 +204,7 @@ func (c *Client) ListTopics(ctx context.Context) ([][]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, c.config.Timeout)
 	defer cancel()
 
-	// send message metadata
+	// send message request
 	r, err := c.client.ListTopics(ctx, &pb.ListTopicsRequest{})
 	if err != nil {
 		return nil, errors.Wrap(err, "could not produce")
@@ -222,8 +222,8 @@ func (c *Client) Produce(ctx context.Context, topic []byte, msgs ...[]byte) erro
 		return nil
 	}
 
-	// reconnect to stream if required
-	err := c.streamConnect()
+	// reconnect to data endpoint if required
+	err := c.dataConnect()
 	if err != nil {
 		return err
 	}
@@ -232,8 +232,8 @@ func (c *Client) Produce(ctx context.Context, topic []byte, msgs ...[]byte) erro
 }
 
 func (c *Client) produce(ctx context.Context, topic []byte, msgs ...[]byte) error {
-	c.streamLock.Lock()
-	defer c.streamLock.Unlock()
+	c.dataConnLock.Lock()
+	defer c.dataConnLock.Unlock()
 
 	msgSizes := make([]int64, len(msgs))
 	var totalSize int64
@@ -241,14 +241,14 @@ func (c *Client) produce(ctx context.Context, topic []byte, msgs ...[]byte) erro
 		msgSizes[i] = int64(len(msgs[i]))
 		totalSize += msgSizes[i]
 	}
-	if int64(len(c.streamBuf)) < totalSize {
-		c.streamBuf = append(c.streamBuf, make([]byte, totalSize-int64(len(c.streamBuf)))...)
+	if int64(len(c.dataBuf)) < totalSize {
+		c.dataBuf = append(c.dataBuf, make([]byte, totalSize-int64(len(c.dataBuf)))...)
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, c.config.Timeout)
 	defer cancel()
 
-	// send message metadata
+	// send message request
 	r, err := c.client.Produce(ctx, &pb.ProduceRequest{
 		Topic:    topic,
 		Uuid:     c.id[:],
@@ -265,41 +265,41 @@ func (c *Client) produce(ctx context.Context, topic []byte, msgs ...[]byte) erro
 	// send messages
 	var n int
 	for i := range msgs {
-		n += copy(c.streamBuf[n:], msgs[i])
+		n += copy(c.dataBuf[n:], msgs[i])
 	}
-	_, err = c.stream.Write(c.streamBuf[:n])
+	_, err = c.dataConn.Write(c.dataBuf[:n])
 	if err != nil {
-		c.stream.Close()
-		c.stream = nil
-		return errors.Wrap(err, "unable to write stream")
+		c.dataConn.Close()
+		c.dataConn = nil
+		return errors.Wrap(err, "unable to write data connection")
 	}
 	var resp [2]byte
-	_, err = io.ReadFull(c.stream, resp[:])
+	_, err = io.ReadFull(c.dataConn, resp[:])
 	if err != nil {
-		c.stream.Close()
-		c.stream = nil
-		return errors.Wrap(err, "no stream response")
+		c.dataConn.Close()
+		c.dataConn = nil
+		return errors.Wrap(err, "no data connection response")
 	}
 
 	err = protocol.ResponseToError(resp)
 	if err != nil {
-		c.stream.Close()
-		c.stream = nil
+		c.dataConn.Close()
+		c.dataConn = nil
 	}
 
 	// create topic if required
 	if c.config.CreateTopics && errors.Cause(err) == protocol.ErrTopicDoesNotExist {
 		err = c.CreateTopic(ctx, topic)
 		if err == nil || errors.Cause(err) == protocol.ErrTopicExists {
-			c.streamLock.Unlock()
+			c.dataConnLock.Unlock()
 			err = c.Produce(ctx, topic, msgs...)
-			c.streamLock.Lock()
+			c.dataConnLock.Lock()
 		}
 	}
 	return err
 }
 
-// ProduceMsg is the message structure for sending messages to a ProduceStream channel.
+// ProduceMsg is the message structure for sending messages to a ProduceLoop channel.
 // The Err channel must be set with a capacity of 1 or greater to receive an error response.
 // if the message was produced successfully a nil error is returned.
 type ProduceMsg struct {
@@ -307,7 +307,7 @@ type ProduceMsg struct {
 	Err chan error
 }
 
-// NewProduceMsg returns a ProduceMsg with a new Err channel. Use with the ProduceStream method.
+// NewProduceMsg returns a ProduceMsg with a new Err channel. Use with the ProduceLoop method.
 func NewProduceMsg(msg []byte) ProduceMsg {
 	return ProduceMsg{
 		Msg: msg,
@@ -315,22 +315,22 @@ func NewProduceMsg(msg []byte) ProduceMsg {
 	}
 }
 
-// ProduceStream starts a loop that reads from the channel and sends the messages as
+// ProduceLoop starts a loop that reads from the channel and sends the messages as
 // a batch to the broker. The batch size, the number of messages in a batch, is equal
 // to the capacity of the channel given.
 // If the capacity is 0 an error is returned. Batches do not need to be filled before being
 // sent so it is recommended to set the batch size to a reasonably high value.
 // Messages are sent when either the number of messages reaches the channel capacity
 // or when the channel has been drained and there are no remaining messages in the channel.
-// If the channel is closed the ProduceStream is gracefully stopped and any remaining
+// If the channel is closed the ProduceLoop is gracefully stopped and any remaining
 // messages in the channel are sent
-func (c *Client) ProduceStream(ctx context.Context, topic []byte, ch chan ProduceMsg) error {
+func (c *Client) ProduceLoop(ctx context.Context, topic []byte, ch chan ProduceMsg) error {
 	if cap(ch) == 0 {
 		return errors.New("invalid channel capacity, channels must have a capacity of at least 1")
 	}
 
-	// reconnect to stream if required
-	if err := c.streamConnect(); err != nil {
+	// reconnect to data endpoint if required
+	if err := c.dataConnect(); err != nil {
 		return err
 	}
 
@@ -405,15 +405,15 @@ func (c *Client) Consume(ctx context.Context, topic []byte, offset int64, maxBat
 	ctx, cancel := context.WithTimeout(ctx, c.config.Timeout)
 	defer cancel()
 
-	c.streamLock.Lock()
-	defer c.streamLock.Unlock()
+	c.dataConnLock.Lock()
+	defer c.dataConnLock.Unlock()
 
-	err := c.streamConnect()
+	err := c.dataConnect()
 	if err != nil {
 		return errors.Wrap(err, "could not connect")
 	}
 
-	// send message metadata
+	// send message request
 	r, err := c.client.Consume(ctx, &pb.ConsumeRequest{
 		Topic:        topic,
 		Uuid:         c.id[:],
@@ -430,7 +430,7 @@ func (c *Client) Consume(ctx context.Context, topic []byte, offset int64, maxBat
 
 	resp.lock.Lock()
 	resp.msgSizes = append(resp.msgSizes, r.GetMsgSizes()...)
-	resp.conn = c.stream
+	resp.dataConn = c.dataConn
 	resp.lock.Unlock()
 
 	return nil
@@ -441,7 +441,7 @@ func (c *Client) Consume(ctx context.Context, topic []byte, offset int64, maxBat
 type ConsumeResponse struct {
 	lock     sync.Mutex
 	msgSizes []int64
-	conn     net.Conn
+	dataConn net.Conn
 }
 
 // N is the number of messages remaining in the response. Use with the Next() method.
@@ -470,7 +470,7 @@ func (resp *ConsumeResponse) Batch() ([][]byte, error) {
 	defer resp.lock.Unlock()
 
 	buf := make([]byte, sum(resp.msgSizes))
-	_, err := io.ReadFull(resp.conn, buf)
+	_, err := io.ReadFull(resp.dataConn, buf)
 	if err != nil {
 		return nil, err
 	}
@@ -489,7 +489,7 @@ func (resp *ConsumeResponse) WriteTo(w io.Writer) (int64, error) {
 	resp.lock.Lock()
 	defer resp.lock.Unlock()
 
-	return io.CopyN(w, resp.conn, sum(resp.msgSizes))
+	return io.CopyN(w, resp.dataConn, sum(resp.msgSizes))
 }
 
 // Next returns the next message from the queue. When all the messages in the batch
@@ -501,7 +501,7 @@ func (resp *ConsumeResponse) Next() ([]byte, error) {
 		return nil, io.EOF
 	}
 	buf := make([]byte, resp.msgSizes[0])
-	_, err := io.ReadFull(resp.conn, buf)
+	_, err := io.ReadFull(resp.dataConn, buf)
 	if err != nil {
 		return nil, err
 	}

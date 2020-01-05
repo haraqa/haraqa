@@ -41,13 +41,13 @@ func (b *Broker) ListTopics(ctx context.Context, in *pb.ListTopicsRequest) (*pb.
 
 // Produce implements protocol.HaraqaServer Produce
 func (b *Broker) Produce(ctx context.Context, in *pb.ProduceRequest) (*pb.ProduceResponse, error) {
-	ok := b.sendToStreamChannel(in.GetUuid(), stream{
+	ok := b.sendToDataTriggerChannel(in.GetUuid(), dataTrigger{
 		incoming: true,
 		topic:    in.GetTopic(),
 		sizes:    in.GetMsgSizes(),
 	})
 	if !ok {
-		return &pb.ProduceResponse{Meta: &pb.Meta{OK: false, ErrorMsg: "stream connection not found"}}, nil
+		return &pb.ProduceResponse{Meta: &pb.Meta{OK: false, ErrorMsg: "data connection not found"}}, nil
 	}
 
 	return &pb.ProduceResponse{Meta: &pb.Meta{OK: true}}, nil
@@ -55,13 +55,13 @@ func (b *Broker) Produce(ctx context.Context, in *pb.ProduceRequest) (*pb.Produc
 
 // Consume implements protocol.HaraqaServer Consume
 func (b *Broker) Consume(ctx context.Context, in *pb.ConsumeRequest) (*pb.ConsumeResponse, error) {
-	filename, startAt, msgSizes, err := b.config.Queue.ConsumeData(in.GetTopic(), in.GetOffset(), in.GetMaxBatchSize())
+	filename, startAt, msgSizes, err := b.config.Queue.ConsumeInfo(in.GetTopic(), in.GetOffset(), in.GetMaxBatchSize())
 	if err != nil {
 		return &pb.ConsumeResponse{Meta: &pb.Meta{OK: false, ErrorMsg: err.Error()}}, nil
 	}
 
 	if len(msgSizes) != 0 {
-		ok := b.sendToStreamChannel(in.GetUuid(), stream{
+		ok := b.sendToDataTriggerChannel(in.GetUuid(), dataTrigger{
 			incoming:  false,
 			topic:     in.GetTopic(),
 			filename:  filename,
@@ -69,7 +69,7 @@ func (b *Broker) Consume(ctx context.Context, in *pb.ConsumeRequest) (*pb.Consum
 			totalSize: sum(msgSizes),
 		})
 		if !ok {
-			return &pb.ConsumeResponse{Meta: &pb.Meta{OK: false, ErrorMsg: "stream connection not found"}}, nil
+			return &pb.ConsumeResponse{Meta: &pb.Meta{OK: false, ErrorMsg: "data connection not found"}}, nil
 		}
 	}
 
@@ -95,7 +95,7 @@ func (b *Broker) TruncateTopic(ctx context.Context, in *pb.TruncateTopicRequest)
 
 // CloseConnection implements protocol.HaraqaServer CloseConnection
 func (b *Broker) CloseConnection(ctx context.Context, in *pb.CloseRequest) (*pb.CloseResponse, error) {
-	b.closeStreamChannel(in.GetUuid())
+	b.closeDataTriggerChannel(in.GetUuid())
 
 	return &pb.CloseResponse{Meta: &pb.Meta{OK: true}}, nil
 }

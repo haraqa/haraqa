@@ -22,8 +22,8 @@ func main() {
 	flag.UintVar(&httpPort, "http", 6060, "Port for serving pprof metrics and files")
 	flag.BoolVar(&fileserver, "fileserver", true, "If true, files are served at http port")
 	flag.UintVar(&config.GRPCPort, "grpc", config.GRPCPort, "Port to listen on for grpc connections")
-	flag.UintVar(&config.StreamPort, "stream", config.StreamPort, "Port to listen on for stream connections")
-	flag.StringVar(&config.UnixSocket, "unix", config.UnixSocket, "Unix socket for local stream connections")
+	flag.UintVar(&config.DataPort, "data", config.DataPort, "Port to listen on for data connections")
+	flag.StringVar(&config.UnixSocket, "unix", config.UnixSocket, "Unix socket for local data connections")
 	flag.Parse()
 
 	// set a ballast
@@ -44,7 +44,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Printf("Listening on ports %d (grpc) and %d (stream) and unix socket %s (stream)\n", config.GRPCPort, config.StreamPort, config.UnixSocket)
+	log.Printf("Listening on ports %d (grpc) and %d (data) and unix socket %s (data)\n", config.GRPCPort, config.DataPort, config.UnixSocket)
 	if err := b.Listen(); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}

@@ -31,7 +31,7 @@ func main() {
 	}()
 
 	// produce messages from ch
-	err = client.ProduceStream(context.Background(), []byte("memstats"), ch)
+	err = client.ProduceLoop(context.Background(), []byte("memstats"), ch)
 	if err != nil {
 		panic(err)
 	}

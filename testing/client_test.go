@@ -31,7 +31,7 @@ func TestClient(t *testing.T) {
 			wg.Done()
 			return nil
 		})
-	mockQueue.EXPECT().ConsumeData([]byte("world"), int64(20), int64(10)).
+	mockQueue.EXPECT().ConsumeInfo([]byte("world"), int64(20), int64(10)).
 		Return([]byte("filename"), int64(100), []int64{5, 6, 9}, nil)
 
 	mockQueue.EXPECT().Consume(gomock.Any(), []byte("world"), []byte("filename"), int64(100), int64(20)).

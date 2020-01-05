@@ -15,7 +15,7 @@ var (
 	ErrUndefined = errors.New("undefined error occurred")
 )
 
-// ErrorToResponse converts a standard error to a 2 byte response for stream responses
+// ErrorToResponse converts a standard error to a 2 byte response for data connection responses
 func ErrorToResponse(err error) [2]byte {
 	if err == nil {
 		return [2]byte{0, 0}

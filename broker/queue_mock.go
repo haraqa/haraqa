@@ -90,10 +90,10 @@ func (mr *MockQueueMockRecorder) Produce(tcpConn, topic, msgSizes interface{}) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Produce", reflect.TypeOf((*MockQueue)(nil).Produce), tcpConn, topic, msgSizes)
 }
 
-// ConsumeData mocks base method
-func (m *MockQueue) ConsumeData(topic []byte, offset, maxBatchSize int64) ([]byte, int64, []int64, error) {
+// ConsumeInfo mocks base method
+func (m *MockQueue) ConsumeInfo(topic []byte, offset, maxBatchSize int64) ([]byte, int64, []int64, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ConsumeData", topic, offset, maxBatchSize)
+	ret := m.ctrl.Call(m, "ConsumeInfo", topic, offset, maxBatchSize)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(int64)
 	ret2, _ := ret[2].([]int64)
@@ -101,10 +101,10 @@ func (m *MockQueue) ConsumeData(topic []byte, offset, maxBatchSize int64) ([]byt
 	return ret0, ret1, ret2, ret3
 }
 
-// ConsumeData indicates an expected call of ConsumeData
-func (mr *MockQueueMockRecorder) ConsumeData(topic, offset, maxBatchSize interface{}) *gomock.Call {
+// ConsumeInfo indicates an expected call of ConsumeInfo
+func (mr *MockQueueMockRecorder) ConsumeInfo(topic, offset, maxBatchSize interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConsumeData", reflect.TypeOf((*MockQueue)(nil).ConsumeData), topic, offset, maxBatchSize)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConsumeInfo", reflect.TypeOf((*MockQueue)(nil).ConsumeInfo), topic, offset, maxBatchSize)
 }
 
 // Consume mocks base method

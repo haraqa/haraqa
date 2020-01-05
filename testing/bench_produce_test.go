@@ -18,7 +18,7 @@ func BenchmarkProduce(b *testing.B) {
 	defer os.RemoveAll(".haraqa")
 	cfg := broker.DefaultConfig
 	b.Run("file queue", benchProducer(cfg))
-	b.Run("file queue stream", benchProducerStream(cfg))
+	b.Run("file queue loop", benchProducerLoop(cfg))
 
 	mockQueue := broker.NewMockQueue(gomock.NewController(b))
 	mockQueue.EXPECT().CreateTopic(gomock.Any()).Return(nil).AnyTimes()
@@ -34,7 +34,7 @@ func BenchmarkProduce(b *testing.B) {
 
 	cfg.Queue = mockQueue
 	b.Run("mock queue", benchProducer(cfg))
-	b.Run("mock queue stream", benchProducerStream(cfg))
+	b.Run("mock queue loop", benchProducerLoop(cfg))
 }
 
 func benchProducer(cfg broker.Config) func(b *testing.B) {
@@ -79,7 +79,7 @@ func benchProducer(cfg broker.Config) func(b *testing.B) {
 	}
 }
 
-func benchProducerStream(cfg broker.Config) func(b *testing.B) {
+func benchProducerLoop(cfg broker.Config) func(b *testing.B) {
 	return func(b *testing.B) {
 		brkr, err := broker.NewBroker(cfg)
 		if err != nil {
@@ -109,7 +109,7 @@ func benchProducerStream(cfg broker.Config) func(b *testing.B) {
 		var wg sync.WaitGroup
 		wg.Add(1)
 		go func() {
-			err := client.ProduceStream(ctx, topic, ch)
+			err := client.ProduceLoop(ctx, topic, ch)
 			if err != nil {
 				b.Fatal(err)
 			}

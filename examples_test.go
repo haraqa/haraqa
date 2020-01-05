@@ -46,10 +46,10 @@ func ExampleClient_Produce() {
 	}
 }
 
-//Example of the recommended way to produce messages. A ProduceStream function
+//Example of the recommended way to produce messages. A ProduceLoop function
 // runs in the background and new messages are sent via a channel to be produced.
 // Messages are batched to increase efficiency
-func ExampleClient_ProduceStream() {
+func ExampleClient_ProduceLoop() {
 	config := haraqa.DefaultConfig
 	client, err := haraqa.NewClient(config)
 	if err != nil {
@@ -66,15 +66,15 @@ func ExampleClient_ProduceStream() {
 		ch = make(chan haraqa.ProduceMsg, 1000)
 	)
 
-	// start the stream in the background
+	// start the loop in the background
 	go func() {
-		err = client.ProduceStream(ctx, topic, ch)
+		err = client.ProduceLoop(ctx, topic, ch)
 		if err != nil {
 			panic(err)
 		}
 	}()
 
-	//closing the channel will gracefully close ProduceStream
+	//closing the channel will gracefully close ProduceLoop
 	defer close(ch)
 
 	//sending messages to the channel is thread safe and can be done from multiple goroutines

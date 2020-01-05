@@ -53,7 +53,7 @@ func (l *Logger) alwaysProduce(topic []byte) {
 	ctx := context.Background()
 
 	for {
-		err := l.client.ProduceStream(ctx, topic, l.ch)
+		err := l.client.ProduceLoop(ctx, topic, l.ch)
 		if err == nil {
 			l.client.Close()
 			close(l.done)
