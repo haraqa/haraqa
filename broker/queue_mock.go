@@ -120,3 +120,19 @@ func (mr *MockQueueMockRecorder) Consume(tcpConn, topic, filename, startAt, tota
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Consume", reflect.TypeOf((*MockQueue)(nil).Consume), tcpConn, topic, filename, startAt, totalSize)
 }
+
+// Offsets mocks base method
+func (m *MockQueue) Offsets(topic []byte) (int64, int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Offsets", topic)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(int64)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// Offsets indicates an expected call of Offsets
+func (mr *MockQueueMockRecorder) Offsets(topic interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Offsets", reflect.TypeOf((*MockQueue)(nil).Offsets), topic)
+}

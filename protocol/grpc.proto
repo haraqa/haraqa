@@ -18,6 +18,8 @@ service Haraqa {
   rpc Consume (ConsumeRequest) returns (ConsumeResponse) {}
   // Closes the client connection gracefully
   rpc CloseConnection (CloseRequest) returns (CloseResponse) {}
+  // Sends a message to get a topics beginning and ending offsets
+  rpc Offsets (OffsetRequest) returns (OffsetResponse) {}
 }
 
 message Meta {
@@ -92,4 +94,16 @@ message CloseRequest {
 // The response message containing the close ack
 message CloseResponse {
   Meta meta = 1;
+}
+
+// The request message containing the offset info
+message OffsetRequest {
+  bytes topic = 1;
+}
+
+// The response message containing the offset response
+message OffsetResponse {
+  Meta meta = 1;
+  int64 min_offset = 2;
+  int64 max_offset = 3;
 }

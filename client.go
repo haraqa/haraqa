@@ -370,6 +370,28 @@ func (c *Client) ProduceStream(ctx context.Context, topic []byte, ch chan Produc
 	return nil
 }
 
+// Offsets returns the min and max offsets available for a topic
+//  min, max, err := client.Offset([]byte("myTopic"))
+func (c *Client) Offsets(ctx context.Context, topic []byte) (int64, int64, error) {
+	ctx, cancel := context.WithTimeout(ctx, c.config.Timeout)
+	defer cancel()
+
+	resp, err := c.client.Offsets(ctx, &protocol.OffsetRequest{
+		Topic: topic,
+	})
+	if err != nil {
+		return 0, 0, err
+	}
+	if !resp.GetMeta().GetOK() {
+		if resp.GetMeta().GetErrorMsg() == protocol.ErrTopicDoesNotExist.Error() {
+			return 0, 0, protocol.ErrTopicDoesNotExist
+		}
+		return 0, 0, errors.New(resp.GetMeta().GetErrorMsg())
+	}
+
+	return resp.GetMinOffset(), resp.GetMaxOffset(), nil
+}
+
 // Consume starts a consume request and adds messages to the ConsumeResponse.
 // Consume is not thread safe and Consume or Produce messages should not be called
 // until resp.N() is zero or Batch() is called. Offest is the number of messages to skip

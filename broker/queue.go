@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"io"
 	"io/ioutil"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -24,6 +25,7 @@ type Queue interface {
 	Produce(tcpConn *os.File, topic []byte, msgSizes []int64) error
 	ConsumeData(topic []byte, offset int64, maxBatchSize int64) (filename []byte, startAt int64, msgSizes []int64, err error)
 	Consume(tcpConn *os.File, topic []byte, filename []byte, startAt int64, totalSize int64) error
+	Offsets(topic []byte) (int64, int64, error)
 }
 
 func NewQueue(volumes []string, maxEntries int) (Queue, error) {
@@ -425,4 +427,53 @@ func (q *queue) Consume(tcpConn *os.File, topic []byte, filename []byte, startAt
 		return err
 	}
 	return nil
+}
+
+func (q *queue) Offsets(topic []byte) (int64, int64, error) {
+	vol := q.volumes[len(q.volumes)-1]
+
+	files, err := ioutil.ReadDir(filepath.Join(vol, string(topic)))
+	if err != nil {
+		return 0, 0, err
+	}
+	if len(files) == 0 {
+		return 0, 0, os.ErrNotExist
+	}
+	var min, max int64
+	min = math.MaxInt64
+	var maxName string
+	for j := range files {
+		if !strings.HasSuffix(files[j].Name(), ".dat") {
+			continue
+		}
+		n, err := strconv.ParseUint(strings.TrimSuffix(files[j].Name(), ".dat"), 10, 64)
+		if err != nil {
+			continue
+		}
+		if int64(n) > max {
+			max = int64(n)
+			maxName = files[j].Name()
+		}
+		if int64(n) < min {
+			min = int64(n)
+		}
+	}
+
+	if maxName != "" {
+		dataFile, err := os.OpenFile(filepath.Join(vol, string(topic), maxName), os.O_RDONLY, 0666)
+		if err != nil {
+			return 0, 0, err
+		}
+
+		info, err := dataFile.Stat()
+		if err == nil {
+			max += (info.Size() / 24) - 1
+		}
+	}
+
+	if min >= max {
+		return 0, 0, os.ErrNotExist
+	}
+
+	return min, max, nil
 }

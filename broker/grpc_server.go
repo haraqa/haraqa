@@ -3,7 +3,9 @@ package broker
 import (
 	"context"
 	"log"
+	"os"
 
+	"github.com/haraqa/haraqa/protocol"
 	pb "github.com/haraqa/haraqa/protocol"
 )
 
@@ -96,4 +98,17 @@ func (b *Broker) CloseConnection(ctx context.Context, in *pb.CloseRequest) (*pb.
 	b.closeStreamChannel(in.GetUuid())
 
 	return &pb.CloseResponse{Meta: &pb.Meta{OK: true}}, nil
+}
+
+// Offsets implements protocol.HaraqaServer Offset
+func (b *Broker) Offsets(ctx context.Context, in *pb.OffsetRequest) (*pb.OffsetResponse, error) {
+	min, max, err := b.config.Queue.Offsets(in.GetTopic())
+	if err != nil {
+		if err == os.ErrNotExist {
+			err = protocol.ErrTopicDoesNotExist
+		}
+		return &pb.OffsetResponse{Meta: &pb.Meta{OK: false, ErrorMsg: err.Error()}}, nil
+	}
+
+	return &pb.OffsetResponse{Meta: &pb.Meta{OK: true}, MinOffset: min, MaxOffset: max}, nil
 }
