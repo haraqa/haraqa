@@ -249,7 +249,7 @@ func (c *Client) produce(ctx context.Context, topic []byte, msgs ...[]byte) erro
 		return errors.Wrap(err, "unable to write data connection")
 	}
 
-	var prefix [4]byte
+	var prefix [6]byte
 	p, _, err := protocol.ReadPrefix(c.dataConn, prefix[:])
 	if err != nil {
 		c.dataConn.Close()
@@ -389,7 +389,7 @@ func (c *Client) Consume(ctx context.Context, topic []byte, offset int64, maxBat
 		return errors.Wrap(err, "could not write to data connection")
 	}
 
-	var prefix [4]byte
+	var prefix [6]byte
 	p, hLen, err := protocol.ReadPrefix(c.dataConn, prefix[:])
 	if err != nil {
 		c.dataConn.Close()

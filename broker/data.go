@@ -24,7 +24,7 @@ func (b *Broker) handleDataConn(c netConn) {
 	}
 	defer conn.Close()
 
-	var prefix [4]byte
+	var prefix [6]byte
 	var produceReq protocol.ProduceRequest
 	var consumeReq protocol.ConsumeRequest
 	var consumeResp protocol.ConsumeResponse

@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"strconv"
 	"sync"
@@ -67,10 +66,10 @@ func main() {
 
 	// wait for clock to get to the nearest 2 min (allows some rudimentary coordination across containers)
 	time.Sleep(time.Second * 5)
-	now := time.Now()
-	then := now.Add(time.Minute * 1).Round(time.Minute * 2)
-	log.Println("Ready to go, starting at", then.String())
-	<-time.After(then.Sub(time.Now()))
+	//	now := time.Now()
+	//	then := now.Add(time.Minute * 1).Round(time.Minute * 2)
+	//log.Println("Ready to go, starting at", then.String())
+	//	<-time.After(then.Sub(time.Now()))
 
 	// start the load, print the time
 	start := time.Now()
@@ -104,6 +103,7 @@ func produce(config produceConfig, wait chan struct{}) error {
 		<-wait
 		defer close(ch)
 		for j := 0; j < config.n; j++ {
+			//	log.Println(j)
 			ch <- haraqa.ProduceMsg{Msg: msg}
 		}
 	}()

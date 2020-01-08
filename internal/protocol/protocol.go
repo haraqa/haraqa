@@ -14,24 +14,22 @@ var (
 	ErrTopicExists = errors.New("topic already exists")
 	//ErrTopicDoesNotExist is returned if a Request is made on a non existent topic
 	ErrTopicDoesNotExist = errors.New("topic does not exist")
-	//ErrUndefined is returned in the absence of a known error
-//	ErrUndefined = errors.New("undefined error occurred")
 )
 
 // ErrorToResponse converts a standard error to a response for data connection responses
 func ErrorToResponse(conn io.Writer, err error) {
 	msg := errors.Cause(err).Error()
-	b := make([]byte, 4+len(msg))
+	b := make([]byte, 6+len(msg))
 	b[0], b[1] = 0, TypeError
-	binary.BigEndian.PutUint16(b[2:4], uint16(len(b)-4))
+	binary.BigEndian.PutUint32(b[2:6], uint32(len(b)-4))
 	copy(b[4:], []byte(msg))
 	conn.Write(b)
 	return
 }
 
-// each data message begins with 4 bytes
+// each data message begins with 6 bytes
 // 0-2: message flags/type
-// 2-4: header length
+// 2-6: header length
 
 const (
 	TypeError byte = iota + 1
@@ -53,8 +51,8 @@ func ExtendBuffer(buf *[]byte, n int) {
 	*buf = (*buf)[:n]
 }
 
-func ReadPrefix(conn io.Reader, prefix []byte) (byte, uint16, error) {
-	if len(prefix) != 4 {
+func ReadPrefix(conn io.Reader, prefix []byte) (byte, uint32, error) {
+	if len(prefix) != 6 {
 		return 0, 0, errors.New("invalid prefix length")
 	}
 	_, err := io.ReadFull(conn, prefix)
@@ -69,10 +67,10 @@ func ReadPrefix(conn io.Reader, prefix []byte) (byte, uint16, error) {
 	case TypePing, TypeClose:
 		return prefix[1], 0, nil
 	case TypeProduce, TypeConsume:
-		hLength := binary.BigEndian.Uint16(prefix[2:4])
+		hLength := binary.BigEndian.Uint32(prefix[2:6])
 		return prefix[1], hLength, nil
 	case TypeError:
-		hLength := binary.BigEndian.Uint16(prefix[2:4])
+		hLength := binary.BigEndian.Uint32(prefix[2:6])
 		e := make([]byte, hLength)
 		n, err := io.ReadFull(conn, e)
 		if err == nil || n > 0 {
@@ -125,14 +123,14 @@ func (p *ProduceRequest) Read(b []byte) error {
 
 func (p *ProduceRequest) Write(conn io.Writer) error {
 	headerLength := 2 + len(p.Topic) + len(p.MsgSizes)*8
-	buf := make([]byte, 4+headerLength)
+	buf := make([]byte, 6+headerLength)
 	// type
 	buf[0], buf[1] = 0, TypeProduce
 	n := 2
 
 	// header length
-	binary.BigEndian.PutUint16(buf[n:n+2], uint16(headerLength))
-	n += 2
+	binary.BigEndian.PutUint32(buf[n:n+4], uint32(headerLength))
+	n += 4
 
 	// topic length
 	binary.BigEndian.PutUint16(buf[n:n+2], uint16(len(p.Topic)))
@@ -180,14 +178,14 @@ func (c *ConsumeRequest) Read(b []byte) error {
 
 func (c *ConsumeRequest) Write(conn io.Writer) error {
 	headerLength := 2 + len(c.Topic) + 16
-	buf := make([]byte, 4+headerLength)
+	buf := make([]byte, 6+headerLength)
 	// type
 	buf[0], buf[1] = 0, TypeConsume
 	n := 2
 
 	// header length
-	binary.BigEndian.PutUint16(buf[n:n+2], uint16(headerLength))
-	n += 2
+	binary.BigEndian.PutUint32(buf[n:n+4], uint32(headerLength))
+	n += 4
 
 	// topic length
 	binary.BigEndian.PutUint16(buf[n:n+2], uint16(len(c.Topic)))
@@ -233,14 +231,14 @@ func (p *ConsumeResponse) Read(b []byte) error {
 
 func (p *ConsumeResponse) Write(conn io.Writer) error {
 	headerLength := len(p.MsgSizes) * 8
-	buf := make([]byte, 4+headerLength)
+	buf := make([]byte, 6+headerLength)
 	// type
 	buf[0], buf[1] = 0, TypeConsume
 	n := 2
 
 	// header length
-	binary.BigEndian.PutUint16(buf[n:n+2], uint16(headerLength))
-	n += 2
+	binary.BigEndian.PutUint32(buf[n:n+4], uint32(headerLength))
+	n += 4
 
 	// message lengths
 	for i := range p.MsgSizes {
