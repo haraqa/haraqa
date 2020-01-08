@@ -8,6 +8,7 @@ import (
 	"context"
 	"io"
 	"net"
+	"regexp"
 	"strconv"
 	"sync"
 	"time"
@@ -182,13 +183,19 @@ func (c *Client) DeleteTopic(ctx context.Context, topic []byte) error {
 	return nil
 }
 
-// ListTopics queries the broker for a list of topics
-func (c *Client) ListTopics(ctx context.Context) ([][]byte, error) {
+// ListTopics queries the broker for a list of topics. If regex is given, topics are filtered to match
+func (c *Client) ListTopics(ctx context.Context, regex string) ([][]byte, error) {
+	// check regex before attempting
+	_, err := regexp.Compile(regex)
+	if err != nil {
+		return nil, err
+	}
+
 	ctx, cancel := context.WithTimeout(ctx, c.config.Timeout)
 	defer cancel()
 
 	// send message request
-	r, err := c.client.ListTopics(ctx, &protocol.ListTopicsRequest{})
+	r, err := c.client.ListTopics(ctx, &protocol.ListTopicsRequest{Regex: regex})
 	if err != nil {
 		return nil, errors.Wrap(err, "could not produce")
 	}

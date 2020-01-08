@@ -62,18 +62,18 @@ func (mr *MockQueueMockRecorder) DeleteTopic(topic interface{}) *gomock.Call {
 }
 
 // ListTopics mocks base method
-func (m *MockQueue) ListTopics() ([][]byte, error) {
+func (m *MockQueue) ListTopics(regex string) ([][]byte, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListTopics")
+	ret := m.ctrl.Call(m, "ListTopics", regex)
 	ret0, _ := ret[0].([][]byte)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ListTopics indicates an expected call of ListTopics
-func (mr *MockQueueMockRecorder) ListTopics() *gomock.Call {
+func (mr *MockQueueMockRecorder) ListTopics(regex interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTopics", reflect.TypeOf((*MockQueue)(nil).ListTopics))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTopics", reflect.TypeOf((*MockQueue)(nil).ListTopics), regex)
 }
 
 // Produce mocks base method

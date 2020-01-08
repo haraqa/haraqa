@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -22,7 +23,7 @@ import (
 type Queue interface {
 	CreateTopic(topic []byte) error
 	DeleteTopic(topic []byte) error
-	ListTopics() ([][]byte, error)
+	ListTopics(regex string) ([][]byte, error)
 	Produce(tcpConn *os.File, topic []byte, msgSizes []int64) error
 	ConsumeInfo(topic []byte, offset int64, maxBatchSize int64) (filename []byte, startAt int64, msgSizes []int64, err error)
 	Consume(tcpConn *os.File, topic []byte, filename []byte, startAt int64, totalSize int64) error
@@ -278,11 +279,23 @@ func (q *queue) DeleteTopic(topic []byte) error {
 	return nil
 }
 
-func (q *queue) ListTopics() ([][]byte, error) {
+func (q *queue) ListTopics(regex string) ([][]byte, error) {
+	var r *regexp.Regexp
+	if regex != "" {
+		var err error
+		r, err = regexp.Compile(regex)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	q.Lock()
 	defer q.Unlock()
 	output := make([][]byte, 0, len(q.topics))
 	for topic := range q.topics {
+		if r != nil && !r.MatchString(topic) {
+			continue
+		}
 		output = append(output, []byte(topic))
 	}
 	return output, nil
