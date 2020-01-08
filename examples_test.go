@@ -6,8 +6,6 @@ import (
 	"log"
 
 	"github.com/haraqa/haraqa"
-	"github.com/haraqa/haraqa/protocol"
-	"github.com/pkg/errors"
 )
 
 // Example of the recommended way to create a new topic. An error is returned if
@@ -22,7 +20,7 @@ func ExampleClient_CreateTopic() {
 
 	topic := []byte("myTopic")
 	err = client.CreateTopic(ctx, topic)
-	if err != nil && errors.Cause(err) != protocol.ErrTopicExists {
+	if err != nil && err != haraqa.ErrTopicExists {
 		panic(err)
 	}
 }

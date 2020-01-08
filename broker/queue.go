@@ -11,8 +11,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/haraqa/haraqa/broker/zeroc"
-	"github.com/haraqa/haraqa/protocol"
+	"github.com/haraqa/haraqa/internal/protocol"
+	"github.com/haraqa/haraqa/internal/zeroc"
 	"github.com/pkg/errors"
 )
 

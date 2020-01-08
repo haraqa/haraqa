@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"sync"
 
-	pb "github.com/haraqa/haraqa/protocol"
+	"github.com/haraqa/haraqa/internal/protocol"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 )
@@ -31,7 +31,7 @@ type Config struct {
 }
 
 type Broker struct {
-	pb.UnimplementedHaraqaServer
+	protocol.UnimplementedHaraqaServer
 	s          *grpc.Server
 	config     Config
 	listenWait sync.WaitGroup
@@ -126,7 +126,7 @@ func (b *Broker) Listen() error {
 
 	// serve grpc
 	grpcServer := grpc.NewServer()
-	pb.RegisterHaraqaServer(grpcServer, b)
+	protocol.RegisterHaraqaServer(grpcServer, b)
 	b.s = grpcServer
 	go func() {
 		if err := grpcServer.Serve(lis); err != nil {

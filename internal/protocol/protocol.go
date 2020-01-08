@@ -15,15 +15,16 @@ var (
 	//ErrTopicDoesNotExist is returned if a Request is made on a non existent topic
 	ErrTopicDoesNotExist = errors.New("topic does not exist")
 	//ErrUndefined is returned in the absence of a known error
-	ErrUndefined = errors.New("undefined error occurred")
+//	ErrUndefined = errors.New("undefined error occurred")
 )
 
 // ErrorToResponse converts a standard error to a response for data connection responses
 func ErrorToResponse(conn io.Writer, err error) {
-	b := make([]byte, 4+len(err.Error()))
+	msg := errors.Cause(err).Error()
+	b := make([]byte, 4+len(msg))
 	b[0], b[1] = 0, TypeError
 	binary.BigEndian.PutUint16(b[2:4], uint16(len(b)-4))
-	copy(b[4:], []byte(err.Error()))
+	copy(b[4:], []byte(msg))
 	conn.Write(b)
 	return
 }

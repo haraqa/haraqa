@@ -6,7 +6,7 @@ import (
 	"net"
 	"os"
 
-	"github.com/haraqa/haraqa/protocol"
+	"github.com/haraqa/haraqa/internal/protocol"
 	"github.com/pkg/errors"
 )
 

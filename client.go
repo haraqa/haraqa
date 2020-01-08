@@ -12,10 +12,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/haraqa/haraqa/protocol"
-	pb "github.com/haraqa/haraqa/protocol"
+	"github.com/haraqa/haraqa/internal/protocol"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
+)
+
+var (
+	//ErrTopicExists is returned if a CreateTopic request is made to an existing topic
+	ErrTopicExists = protocol.ErrTopicExists
+	//ErrTopicDoesNotExist is returned if a Request is made on a non existent topic
+	ErrTopicDoesNotExist = protocol.ErrTopicDoesNotExist
 )
 
 //DefaultConfig is the configuration for standard, local deployment of the haraqa broker
@@ -44,7 +50,7 @@ type Config struct {
 type Client struct {
 	config       Config
 	grpcConn     *grpc.ClientConn
-	client       pb.HaraqaClient
+	client       protocol.HaraqaClient
 	dataConnLock sync.Mutex
 	dataConn     net.Conn
 	dataBuf      []byte
@@ -70,7 +76,7 @@ func NewClient(config Config) (*Client, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to connect to grpc port %q", config.Host+":"+strconv.Itoa(config.GRPCPort))
 	}
-	client := pb.NewHaraqaClient(grpcConn)
+	client := protocol.NewHaraqaClient(grpcConn)
 	if client == nil {
 		return nil, errors.New("unable to create new grpc client")
 	}
@@ -138,7 +144,7 @@ func (c *Client) CreateTopic(ctx context.Context, topic []byte) error {
 	defer cancel()
 
 	// send message request
-	r, err := c.client.CreateTopic(ctx, &pb.CreateTopicRequest{
+	r, err := c.client.CreateTopic(ctx, &protocol.CreateTopicRequest{
 		Topic: topic,
 	})
 	if err != nil {
@@ -163,7 +169,7 @@ func (c *Client) DeleteTopic(ctx context.Context, topic []byte) error {
 	defer cancel()
 
 	// send message request
-	r, err := c.client.DeleteTopic(ctx, &pb.DeleteTopicRequest{
+	r, err := c.client.DeleteTopic(ctx, &protocol.DeleteTopicRequest{
 		Topic: topic,
 	})
 	if err != nil {
@@ -182,7 +188,7 @@ func (c *Client) ListTopics(ctx context.Context) ([][]byte, error) {
 	defer cancel()
 
 	// send message request
-	r, err := c.client.ListTopics(ctx, &pb.ListTopicsRequest{})
+	r, err := c.client.ListTopics(ctx, &protocol.ListTopicsRequest{})
 	if err != nil {
 		return nil, errors.Wrap(err, "could not produce")
 	}

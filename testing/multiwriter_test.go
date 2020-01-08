@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/haraqa/haraqa/broker/zeroc"
+	"github.com/haraqa/haraqa/internal/zeroc"
 )
 
 func TestMultiWriter(t *testing.T) {
