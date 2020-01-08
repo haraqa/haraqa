@@ -40,12 +40,7 @@ const (
 )
 
 func ExtendBuffer(buf *[]byte, n int) {
-	if cap(*buf) >= n {
-		*buf = (*buf)[:n]
-		return
-	}
-
-	if len(*buf) < n {
+	if n > cap(*buf) {
 		*buf = append(*buf, make([]byte, n-len(*buf))...)
 	}
 	*buf = (*buf)[:n]
@@ -89,6 +84,9 @@ type ProduceRequest struct {
 }
 
 func (p *ProduceRequest) Read(b []byte) error {
+	if len(b) < 2 {
+		return errors.New("invalid produce header length")
+	}
 	topicLength := binary.BigEndian.Uint16(b[:2])
 	if int(topicLength) > len(b)-2 {
 		return errors.New("invalid topic length")
@@ -96,10 +94,7 @@ func (p *ProduceRequest) Read(b []byte) error {
 	n := 2
 
 	// read into topic
-	if len(p.Topic) < int(topicLength) {
-		p.Topic = make([]byte, topicLength)
-	}
-	p.Topic = p.Topic[:topicLength]
+	ExtendBuffer(&p.Topic, int(topicLength))
 	n += copy(p.Topic, b[n:])
 
 	// check valid length
@@ -109,8 +104,8 @@ func (p *ProduceRequest) Read(b []byte) error {
 
 	// read into message lengths
 	count := len(b[n:]) / 8
-	if count > len(p.MsgSizes) {
-		p.MsgSizes = make([]int64, count)
+	if count > cap(p.MsgSizes) {
+		p.MsgSizes = append(p.MsgSizes, make([]int64, count-len(p.MsgSizes))...)
 	}
 	p.MsgSizes = p.MsgSizes[:count]
 
@@ -156,6 +151,9 @@ type ConsumeRequest struct {
 }
 
 func (c *ConsumeRequest) Read(b []byte) error {
+	if len(b) < 2 {
+		return errors.New("invalid consume header length")
+	}
 	topicLength := binary.BigEndian.Uint16(b[:2])
 	if int(topicLength) != len(b)-18 {
 		return errors.New("invalid topic length")
@@ -163,10 +161,7 @@ func (c *ConsumeRequest) Read(b []byte) error {
 	n := 2
 
 	// read into topic
-	if len(c.Topic) < int(topicLength) {
-		c.Topic = make([]byte, topicLength)
-	}
-	c.Topic = c.Topic[:topicLength]
+	ExtendBuffer(&c.Topic, int(topicLength))
 	n += copy(c.Topic, b[n:])
 
 	// read offset
@@ -217,8 +212,8 @@ func (p *ConsumeResponse) Read(b []byte) error {
 
 	// read into message lengths
 	count := len(b) / 8
-	if count > len(p.MsgSizes) {
-		p.MsgSizes = make([]int64, count)
+	if count > cap(p.MsgSizes) {
+		p.MsgSizes = append(p.MsgSizes, make([]int64, count-len(p.MsgSizes))...)
 	}
 	p.MsgSizes = p.MsgSizes[:count]
 	n := 0
