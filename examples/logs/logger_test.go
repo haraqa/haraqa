@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/haraqa/haraqa"
-	"github.com/haraqa/haraqa/logs"
+	"github.com/haraqa/haraqa/examples/logs"
 )
 
 func ExampleLogger() {

@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/haraqa/haraqa"
-	"github.com/haraqa/haraqa/protocol"
 	"github.com/pkg/errors"
 )
 
@@ -52,7 +51,7 @@ func main() {
 			batchSize: batchSize,
 		}
 		client.CreateTopic(context.Background(), cfg.topic)
-		if err != nil && errors.Cause(err) != protocol.ErrTopicExists {
+		if err != nil && errors.Cause(err) != haraqa.ErrTopicExists {
 			panic(err)
 		}
 

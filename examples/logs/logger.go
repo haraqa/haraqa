@@ -6,7 +6,6 @@ import (
 	"log"
 
 	"github.com/haraqa/haraqa"
-	"github.com/haraqa/haraqa/protocol"
 	"github.com/pkg/errors"
 )
 
@@ -25,7 +24,7 @@ func NewLogger(l *log.Logger, config haraqa.Config, topic []byte) (*Logger, erro
 
 	ctx := context.Background()
 	err = client.CreateTopic(ctx, topic)
-	if err != nil && errors.Cause(err) != protocol.ErrTopicExists {
+	if err != nil && errors.Cause(err) != haraqa.ErrTopicExists {
 		return nil, err
 	}
 
