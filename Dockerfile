@@ -23,7 +23,7 @@ RUN go test -bench=. -benchtime=1000x -run=XXX -cpu=4 \
 
 # Build binary
 RUN if [ -z "$TEST_ONLY" ] ; then \
-      CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags '-s -w' -o /haraqa-build /haraqa/broker/docker/main.go \
+      CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags '-s -w' -o /haraqa-build /haraqa/broker/build/main.go \
     ; fi
 
 # ===================================================
