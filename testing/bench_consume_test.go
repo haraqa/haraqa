@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"io"
+	"log"
 	"os"
 	"strconv"
 	"sync"
@@ -11,8 +12,6 @@ import (
 
 	"github.com/haraqa/haraqa"
 	"github.com/haraqa/haraqa/broker"
-	"github.com/haraqa/haraqa/protocol"
-	"github.com/pkg/errors"
 )
 
 func BenchmarkConsume(b *testing.B) {
@@ -40,6 +39,18 @@ func BenchmarkConsume(b *testing.B) {
 }
 
 func benchConsumer(num int, next bool) func(b *testing.B) {
+	{
+		client, err := haraqa.NewClient(haraqa.DefaultConfig)
+		if err != nil {
+			log.Fatal(err)
+		}
+		for i := 0; i < num; i++ {
+			topic := []byte("consumable" + strconv.Itoa(i))
+			client.CreateTopic(context.Background(), topic)
+		}
+		client.Close()
+	}
+
 	return func(b *testing.B) {
 		ch := make(chan struct{})
 		errs := make(chan error, b.N/num)
@@ -58,12 +69,6 @@ func benchConsumer(num int, next bool) func(b *testing.B) {
 					return
 				}
 				topic := []byte("consumable" + strconv.Itoa(v))
-				err = client.CreateTopic(ctx, topic)
-				if err != nil && errors.Cause(err) != protocol.ErrTopicExists {
-					errs <- err
-					wg1.Done()
-					return
-				}
 
 				batchSize := 200
 				msgs := make([][]byte, batchSize)
@@ -97,7 +102,6 @@ func benchConsumer(num int, next bool) func(b *testing.B) {
 						return
 					}
 
-					// TODO: benchmark against Batch() function
 					if next {
 						for err == nil {
 							discard, err = resp.Next()

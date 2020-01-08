@@ -12,12 +12,6 @@ service Haraqa {
   rpc TruncateTopic (TruncateTopicRequest) returns (TruncateTopicResponse) {}
   // Sends a message to list all topics
   rpc ListTopics (ListTopicsRequest) returns (ListTopicsResponse) {}
-  // Sends a produce message
-  rpc Produce (ProduceRequest) returns (ProduceResponse) {}
-  // Sends a consume message
-  rpc Consume (ConsumeRequest) returns (ConsumeResponse) {}
-  // Closes the client connection gracefully
-  rpc CloseConnection (CloseRequest) returns (CloseResponse) {}
   // Sends a message to get a topics beginning and ending offsets
   rpc Offsets (OffsetRequest) returns (OffsetResponse) {}
 }
@@ -58,42 +52,6 @@ message ListTopicsRequest {
 message ListTopicsResponse {
   Meta meta = 1;
   repeated bytes topics = 2;
-}
-
-// The request message containing the produce batch
-message ProduceRequest {
-  bytes topic = 1;
-  bytes uuid = 2;
-  repeated int64 msg_sizes = 3;
-}
-
-// The response message containing the produce ack
-message ProduceResponse {
-  Meta meta = 1;
-}
-
-// The request message containing the consume batch
-message ConsumeRequest {
-  bytes topic = 1;
-  bytes uuid = 2;
-  int64 offset = 3;
-  int64 maxBatchSize = 4;
-}
-
-// The response message containing the consume ack
-message ConsumeResponse {
-  Meta meta = 1;
-  repeated int64 msg_sizes = 2;
-}
-
-// The request message containing the close info
-message CloseRequest {
-  bytes uuid = 1;
-}
-
-// The response message containing the close ack
-message CloseResponse {
-  Meta meta = 1;
 }
 
 // The request message containing the offset info

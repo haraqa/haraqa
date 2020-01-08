@@ -3,13 +3,10 @@ package testing
 import (
 	"context"
 	"crypto/rand"
-	"io"
-	"io/ioutil"
 	"os"
 	"sync"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/haraqa/haraqa"
 	"github.com/haraqa/haraqa/broker"
 )
@@ -17,24 +14,8 @@ import (
 func BenchmarkProduce(b *testing.B) {
 	defer os.RemoveAll(".haraqa")
 	cfg := broker.DefaultConfig
-	b.Run("file queue", benchProducer(cfg))
-	b.Run("file queue loop", benchProducerLoop(cfg))
-
-	mockQueue := broker.NewMockQueue(gomock.NewController(b))
-	mockQueue.EXPECT().CreateTopic(gomock.Any()).Return(nil).AnyTimes()
-	mockQueue.EXPECT().Produce(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(tcpConn *os.File, topic []byte, msgSizes []int64) error {
-			var n int64
-			for i := range msgSizes {
-				n += msgSizes[i]
-			}
-			io.CopyN(ioutil.Discard, tcpConn, n)
-			return nil
-		}).AnyTimes()
-
-	cfg.Queue = mockQueue
-	b.Run("mock queue", benchProducer(cfg))
-	b.Run("mock queue loop", benchProducerLoop(cfg))
+	b.Run("produce", benchProducer(cfg))
+	b.Run("produce loop", benchProducerLoop(cfg))
 }
 
 func benchProducer(cfg broker.Config) func(b *testing.B) {

@@ -32,10 +32,9 @@ type Config struct {
 
 type Broker struct {
 	pb.UnimplementedHaraqaServer
-	s            *grpc.Server
-	config       Config
-	dataTriggers dataTriggers
-	listenWait   sync.WaitGroup
+	s          *grpc.Server
+	config     Config
+	listenWait sync.WaitGroup
 }
 
 // NewBroker creates a new instance of the haraqa grpc server
@@ -55,9 +54,6 @@ func NewBroker(config Config) (*Broker, error) {
 
 	return &Broker{
 		config: config,
-		dataTriggers: dataTriggers{
-			m: make(map[string]chan dataTrigger),
-		},
 	}, nil
 }
 
@@ -65,13 +61,6 @@ func NewBroker(config Config) (*Broker, error) {
 func (b *Broker) Close() error {
 	if b.s != nil {
 		b.s.GracefulStop()
-	}
-
-	b.dataTriggers.Lock()
-	defer b.dataTriggers.Unlock()
-	for k, ch := range b.dataTriggers.m {
-		close(ch)
-		delete(b.dataTriggers.m, k)
 	}
 
 	b.listenWait.Wait()

@@ -6,7 +6,6 @@ package haraqa
 
 import (
 	"context"
-	"crypto/rand"
 	"io"
 	"net"
 	"strconv"
@@ -44,7 +43,6 @@ type Config struct {
 // session.
 type Client struct {
 	config       Config
-	id           [16]byte
 	grpcConn     *grpc.ClientConn
 	client       pb.HaraqaClient
 	dataConnLock sync.Mutex
@@ -77,17 +75,10 @@ func NewClient(config Config) (*Client, error) {
 		return nil, errors.New("unable to create new grpc client")
 	}
 
-	// generate a new id
-	var id [16]byte
-	_, err = io.ReadFull(rand.Reader, id[:])
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to generate client id")
-	}
 	c := &Client{
 		config:   config,
 		grpcConn: grpcConn,
 		client:   client,
-		id:       id,
 	}
 
 	return c, nil
@@ -99,11 +90,6 @@ func (c *Client) Close() error {
 	defer c.dataConnLock.Unlock()
 
 	var errs []error
-	ctx, cancel := context.WithTimeout(context.Background(), c.config.Timeout)
-	defer cancel()
-	if _, err := c.client.CloseConnection(ctx, &protocol.CloseRequest{Uuid: c.id[:]}); err != nil {
-		errs = append(errs, err)
-	}
 
 	if err := c.grpcConn.Close(); err != nil {
 		errs = append(errs, err)
@@ -141,17 +127,6 @@ func (c *Client) dataConnect() error {
 		}
 	}
 
-	// initialize dataConn with id
-	_, err = dataConn.Write(c.id[:])
-	if err != nil {
-		return errors.Wrap(err, "unable write to data port")
-	}
-
-	var resp [2]byte
-	_, err = io.ReadFull(dataConn, resp[:])
-	if err != nil {
-		return errors.Wrap(err, "unable read from data port")
-	}
 	c.dataConn = dataConn
 	return nil
 }
@@ -243,25 +218,17 @@ func (c *Client) produce(ctx context.Context, topic []byte, msgs ...[]byte) erro
 		msgSizes[i] = int64(len(msgs[i]))
 		totalSize += msgSizes[i]
 	}
-	if int64(len(c.dataBuf)) < totalSize {
-		c.dataBuf = append(c.dataBuf, make([]byte, totalSize-int64(len(c.dataBuf)))...)
-	}
 
-	ctx, cancel := context.WithTimeout(ctx, c.config.Timeout)
-	defer cancel()
-
-	// send message request
-	r, err := c.client.Produce(ctx, &pb.ProduceRequest{
+	protocol.ExtendBuffer(&c.dataBuf, int(totalSize))
+	req := protocol.ProduceRequest{
 		Topic:    topic,
-		Uuid:     c.id[:],
 		MsgSizes: msgSizes,
-	})
-	if err != nil {
-		return errors.Wrap(err, "could not produce")
 	}
-	meta := r.GetMeta()
-	if !meta.GetOK() {
-		return errors.Wrap(errors.New(meta.GetErrorMsg()), "broker error producing message")
+	err := req.Write(c.dataConn)
+	if err != nil {
+		c.dataConn.Close()
+		c.dataConn = nil
+		return errors.Wrap(err, "could not write produce header")
 	}
 
 	// send messages
@@ -275,30 +242,21 @@ func (c *Client) produce(ctx context.Context, topic []byte, msgs ...[]byte) erro
 		c.dataConn = nil
 		return errors.Wrap(err, "unable to write data connection")
 	}
-	var resp [2]byte
-	_, err = io.ReadFull(c.dataConn, resp[:])
+
+	var prefix [4]byte
+	p, _, err := protocol.ReadPrefix(c.dataConn, prefix[:])
 	if err != nil {
 		c.dataConn.Close()
 		c.dataConn = nil
-		return errors.Wrap(err, "no data connection response")
+		return errors.Wrap(err, "could not read from data connection")
 	}
-
-	err = protocol.ResponseToError(resp)
-	if err != nil {
+	if p != protocol.TypeProduce {
 		c.dataConn.Close()
 		c.dataConn = nil
+		return errors.Wrapf(err, "invalid response read from data connection")
 	}
 
-	// create topic if required
-	if c.config.CreateTopics && errors.Cause(err) == protocol.ErrTopicDoesNotExist {
-		err = c.CreateTopic(ctx, topic)
-		if err == nil || errors.Cause(err) == protocol.ErrTopicExists {
-			c.dataConnLock.Unlock()
-			err = c.Produce(ctx, topic, msgs...)
-			c.dataConnLock.Lock()
-		}
-	}
-	return err
+	return nil
 }
 
 // ProduceMsg is the message structure for sending messages to a ProduceLoop channel.
@@ -404,34 +362,58 @@ func (c *Client) Consume(ctx context.Context, topic []byte, offset int64, maxBat
 		return errors.New("invalid ConsumeResponse")
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, c.config.Timeout)
-	defer cancel()
-
 	c.dataConnLock.Lock()
 	defer c.dataConnLock.Unlock()
 
 	err := c.dataConnect()
 	if err != nil {
-		return errors.Wrap(err, "could not connect")
+		return errors.Wrap(err, "could not connect to data port")
 	}
 
-	// send message request
-	r, err := c.client.Consume(ctx, &pb.ConsumeRequest{
+	req := protocol.ConsumeRequest{
 		Topic:        topic,
-		Uuid:         c.id[:],
 		Offset:       offset,
 		MaxBatchSize: maxBatchSize,
-	})
-	if err != nil {
-		return errors.Wrap(err, "could not consume")
 	}
-	meta := r.GetMeta()
-	if !meta.GetOK() {
-		return errors.Wrap(errors.New(meta.GetErrorMsg()), "broker error consuming message")
+
+	err = req.Write(c.dataConn)
+	if err != nil {
+		c.dataConn.Close()
+		c.dataConn = nil
+		return errors.Wrap(err, "could not write to data connection")
+	}
+
+	var prefix [4]byte
+	p, hLen, err := protocol.ReadPrefix(c.dataConn, prefix[:])
+	if err != nil {
+		c.dataConn.Close()
+		c.dataConn = nil
+		return errors.Wrapf(err, "could not read from data connection")
+	}
+	if p != protocol.TypeConsume {
+		c.dataConn.Close()
+		c.dataConn = nil
+		return errors.Wrapf(err, "invalid response type read from data connection")
+	}
+
+	b := make([]byte, hLen)
+	_, err = io.ReadFull(c.dataConn, b)
+	if err != nil {
+		c.dataConn.Close()
+		c.dataConn = nil
+		return errors.Wrap(err, "could not read error from data connection")
+	}
+
+	var consumeResp protocol.ConsumeResponse
+	err = consumeResp.Read(b)
+	if err != nil {
+		c.dataConn.Close()
+		c.dataConn = nil
+		return errors.Wrapf(err, "invalid response read from data connection")
 	}
 
 	resp.lock.Lock()
-	resp.msgSizes = append(resp.msgSizes, r.GetMsgSizes()...)
+	resp.msgSizes = append(resp.msgSizes, consumeResp.MsgSizes...)
 	resp.dataConn = c.dataConn
 	resp.lock.Unlock()
 
