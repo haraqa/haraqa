@@ -88,28 +88,18 @@ func testConsumer(t *testing.T) {
 		client, err = haraqa.NewClient(config)
 	}
 	ctx := context.Background()
-	resp := haraqa.ConsumeResponse{}
-	err = client.Consume(ctx, []byte("world"), 20, 10, &resp)
+	msgs, err := client.Consume(ctx, []byte("world"), 20, 10, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	msg, err := resp.Next()
-	if err != nil {
-		t.Fatal(err)
+	if string(msgs[0]) != "hello" {
+		t.Fatal(string(msgs[0]))
 	}
-	if string(msg) != "hello" {
-		t.Fatal(string(msg))
+	if string(msgs[1]) != " there" {
+		t.Fatal(string(msgs[1]))
 	}
-
-	batch, err := resp.Batch()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(batch[0]) != " there" {
-		t.Fatal(string(batch[0]))
-	}
-	if string(batch[1]) != " consumer" {
-		t.Fatal(string(batch[1]))
+	if string(msgs[2]) != " consumer" {
+		t.Fatal(string(msgs[2]))
 	}
 }

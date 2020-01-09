@@ -3,6 +3,7 @@ package testing
 import (
 	"context"
 	"crypto/rand"
+	"fmt"
 	"os"
 	"sync"
 	"testing"
@@ -13,25 +14,31 @@ import (
 
 func BenchmarkProduce(b *testing.B) {
 	defer os.RemoveAll(".haraqa")
-	cfg := broker.DefaultConfig
-	b.Run("produce", benchProducer(cfg))
-	b.Run("produce loop", benchProducerLoop(cfg))
-}
-
-func benchProducer(cfg broker.Config) func(b *testing.B) {
-	return func(b *testing.B) {
-		brkr, err := broker.NewBroker(cfg)
+	brkr, err := broker.NewBroker(broker.DefaultConfig)
+	if err != nil {
+		b.Fatal(err)
+	}
+	go func() {
+		err := brkr.Listen()
 		if err != nil {
 			b.Fatal(err)
 		}
-		go func() {
-			err := brkr.Listen()
-			if err != nil {
-				b.Fatal(err)
-			}
-		}()
-		defer brkr.Close()
+	}()
+	defer brkr.Close()
+	fmt.Println("")
+	b.Run("produce 1", benchProducer(1))
+	b.Run("produce 10", benchProducer(10))
+	b.Run("produce 100", benchProducer(100))
+	b.Run("produce 1000", benchProducer(1000))
+	fmt.Println("")
+	b.Run("produce loop 1", benchProducerLoop(1))
+	b.Run("produce loop 10", benchProducerLoop(10))
+	b.Run("produce loop 100", benchProducerLoop(100))
+	b.Run("produce loop 1000", benchProducerLoop(1000))
+}
 
+func benchProducer(batchSize int) func(b *testing.B) {
+	return func(b *testing.B) {
 		client, err := haraqa.NewClient(haraqa.DefaultConfig)
 		if err != nil {
 			b.Fatal(err)
@@ -40,7 +47,6 @@ func benchProducer(cfg broker.Config) func(b *testing.B) {
 		topic := []byte("something")
 		client.CreateTopic(ctx, topic)
 
-		batchSize := 10
 		msgs := make([][]byte, batchSize)
 		for i := range msgs {
 			msgs[i] = make([]byte, 100)
@@ -60,20 +66,8 @@ func benchProducer(cfg broker.Config) func(b *testing.B) {
 	}
 }
 
-func benchProducerLoop(cfg broker.Config) func(b *testing.B) {
+func benchProducerLoop(batchSize int) func(b *testing.B) {
 	return func(b *testing.B) {
-		brkr, err := broker.NewBroker(cfg)
-		if err != nil {
-			b.Fatal(err)
-		}
-		go func() {
-			err := brkr.Listen()
-			if err != nil {
-				b.Fatal(err)
-			}
-		}()
-		defer brkr.Close()
-
 		client, err := haraqa.NewClient(haraqa.DefaultConfig)
 		if err != nil {
 			b.Fatal(err)
@@ -82,7 +76,6 @@ func benchProducerLoop(cfg broker.Config) func(b *testing.B) {
 		topic := []byte("something")
 		client.CreateTopic(ctx, topic)
 
-		batchSize := 2000
 		msg := make([]byte, 100)
 		rand.Read(msg)
 

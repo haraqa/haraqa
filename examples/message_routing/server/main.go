@@ -50,16 +50,15 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Send consume request
-		var resp haraqa.ConsumeResponse
-		err = client.Consume(r.Context(), topic, offset, maxBatchSize, &resp)
+		msgs, err := client.Consume(r.Context(), topic, offset, maxBatchSize, nil)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte(err.Error()))
 			return
 		}
 
-		// read consume response
-		_, err = resp.WriteTo(w)
+		// Write batch to client
+		_, err = w.Write(bytes.Join(msgs, []byte{}))
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return

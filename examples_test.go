@@ -2,7 +2,6 @@ package haraqa_test
 
 import (
 	"context"
-	"io"
 	"log"
 
 	"github.com/haraqa/haraqa"
@@ -90,49 +89,6 @@ func ExampleClient_ProduceLoop() {
 	}
 }
 
-// Example for consuming messages one at a time
-func ExampleClient_Consume_next() {
-	config := haraqa.DefaultConfig
-	client, err := haraqa.NewClient(config)
-	if err != nil {
-		panic(err)
-	}
-
-	var (
-		ctx   = context.Background()
-		topic = []byte("myTopic")
-
-		offset       int64 = 0    // start at oldest available message
-		maxBatchSize int64 = 1000 // maximum number of messages to return
-		resp               = haraqa.ConsumeResponse{}
-	)
-	err = client.Consume(ctx, topic, offset, maxBatchSize, &resp)
-	if err != nil {
-		panic(err)
-	}
-
-	for err != io.EOF {
-		msg, err := resp.Next()
-		if err != nil && err != io.EOF {
-			panic(err)
-		}
-		log.Println(msg)
-	}
-
-	err = client.Consume(ctx, topic, offset, maxBatchSize, &resp)
-	if err != nil {
-		panic(err)
-	}
-
-	for resp.N() > 0 {
-		msg, err := resp.Next()
-		if err != nil && err != io.EOF {
-			panic(err)
-		}
-		log.Println(msg)
-	}
-}
-
 // Example for consuming messages all at once
 func ExampleClient_Consume_batch() {
 	config := haraqa.DefaultConfig
@@ -147,14 +103,8 @@ func ExampleClient_Consume_batch() {
 
 		offset       int64 = 0    // start at oldest available message
 		maxBatchSize int64 = 1000 // maximum number of messages to return
-		resp               = haraqa.ConsumeResponse{}
 	)
-	err = client.Consume(ctx, topic, offset, maxBatchSize, &resp)
-	if err != nil {
-		panic(err)
-	}
-
-	msgs, err := resp.Batch()
+	msgs, err := client.Consume(ctx, topic, offset, maxBatchSize, nil)
 	if err != nil {
 		panic(err)
 	}

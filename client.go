@@ -365,22 +365,30 @@ func (c *Client) Offsets(ctx context.Context, topic []byte) (int64, int64, error
 	return resp.GetMinOffset(), resp.GetMaxOffset(), nil
 }
 
-// Consume starts a consume request and adds messages to the ConsumeResponse.
-// Consume is not thread safe and Consume or Produce messages should not be called
-// until resp.N() is zero or Batch() is called. Offest is the number of messages to skip
-// when consuming. If offset < 0 the last available offset is used
-// maxBatchSize is the maximum number of messages to consume at a single time.
-func (c *Client) Consume(ctx context.Context, topic []byte, offset int64, maxBatchSize int64, resp *ConsumeResponse) error {
-	if resp == nil {
-		return errors.New("invalid ConsumeResponse")
-	}
+// ConsumeBuffer is a reusable set of buffers used to consume
+type ConsumeBuffer struct {
+	headerBuf []byte
+	bodyBuf   []byte
+	msgSizes  []int64
+	msgBuf    [][]byte
+}
 
+// NewConsumeBuffer instantiates a new ConsumeBuffer
+func NewConsumeBuffer() *ConsumeBuffer {
+	return new(ConsumeBuffer)
+}
+
+// Consume sends a consume request and returns a batch of messages, buf can be nil
+func (c *Client) Consume(ctx context.Context, topic []byte, offset int64, maxBatchSize int64, buf *ConsumeBuffer) ([][]byte, error) {
+	if buf == nil {
+		buf = NewConsumeBuffer()
+	}
 	c.dataConnLock.Lock()
 	defer c.dataConnLock.Unlock()
 
 	err := c.dataConnect()
 	if err != nil {
-		return errors.Wrap(err, "could not connect to data port")
+		return nil, errors.Wrap(err, "could not connect to data port")
 	}
 
 	req := protocol.ConsumeRequest{
@@ -393,7 +401,7 @@ func (c *Client) Consume(ctx context.Context, topic []byte, offset int64, maxBat
 	if err != nil {
 		c.dataConn.Close()
 		c.dataConn = nil
-		return errors.Wrap(err, "could not write to data connection")
+		return nil, errors.Wrap(err, "could not write to data connection")
 	}
 
 	var prefix [6]byte
@@ -401,56 +409,56 @@ func (c *Client) Consume(ctx context.Context, topic []byte, offset int64, maxBat
 	if err != nil {
 		c.dataConn.Close()
 		c.dataConn = nil
-		return errors.Wrapf(err, "could not read from data connection")
+		return nil, errors.Wrapf(err, "could not read from data connection")
 	}
 	if p != protocol.TypeConsume {
 		c.dataConn.Close()
 		c.dataConn = nil
-		return errors.Wrapf(err, "invalid response type read from data connection")
+		return nil, errors.Wrapf(err, "invalid response type read from data connection")
 	}
 
-	b := make([]byte, hLen)
-	_, err = io.ReadFull(c.dataConn, b)
+	protocol.ExtendBuffer(&buf.headerBuf, int(hLen))
+	_, err = io.ReadFull(c.dataConn, buf.headerBuf)
 	if err != nil {
 		c.dataConn.Close()
 		c.dataConn = nil
-		return errors.Wrap(err, "could not read error from data connection")
+		return nil, errors.Wrap(err, "could not read error from data connection")
 	}
 
-	var consumeResp protocol.ConsumeResponse
-	err = consumeResp.Read(b)
+	resp := protocol.ConsumeResponse{
+		MsgSizes: buf.msgSizes,
+	}
+	err = resp.Read(buf.headerBuf)
 	if err != nil {
 		c.dataConn.Close()
 		c.dataConn = nil
-		return errors.Wrapf(err, "invalid response read from data connection")
+		return nil, errors.Wrapf(err, "invalid response read from data connection")
+	}
+	if cap(resp.MsgSizes) > cap(buf.msgSizes) {
+		buf.msgSizes = resp.MsgSizes
 	}
 
-	resp.lock.Lock()
-	resp.msgSizes = append(resp.msgSizes, consumeResp.MsgSizes...)
-	resp.dataConn = c.dataConn
-	resp.lock.Unlock()
+	totalSize := sum(resp.MsgSizes)
+	protocol.ExtendBuffer(&buf.bodyBuf, int(totalSize))
 
-	return nil
-}
+	_, err = io.ReadFull(c.dataConn, buf.bodyBuf)
+	if err != nil {
+		c.dataConn.Close()
+		c.dataConn = nil
+		return nil, errors.Wrap(err, "unable to read batch messages from connection")
+	}
 
-// ConsumeResponse is used by the Client Consume method. It reads data from the client
-// connection using either the Batch or Next methods.
-type ConsumeResponse struct {
-	lock     sync.Mutex
-	msgSizes []int64
-	dataConn net.Conn
-}
+	if len(resp.MsgSizes) > cap(buf.msgBuf) {
+		buf.msgBuf = append(buf.msgBuf, make([][]byte, len(resp.MsgSizes)-len(buf.msgBuf))...)
+	}
+	buf.msgBuf = (buf.msgBuf)[:len(resp.MsgSizes)]
 
-// N is the number of messages remaining in the response. Use with the Next() method.
-//  for resp.N() > 0 {
-//    msg, err := resp.Next()
-//    if err != nil {
-//      panic(err)
-//    }
-//    handle(msg)
-//  }
-func (resp *ConsumeResponse) N() int {
-	return len(resp.msgSizes)
+	var n int64
+	for i := range resp.MsgSizes {
+		buf.msgBuf[i] = buf.bodyBuf[n : n+resp.MsgSizes[i] : n+resp.MsgSizes[i]]
+		n += resp.MsgSizes[i]
+	}
+	return buf.msgBuf, nil
 }
 
 func sum(in []int64) int64 {
@@ -459,51 +467,4 @@ func sum(in []int64) int64 {
 		out += in[i]
 	}
 	return out
-}
-
-// Batch returns all of the consume response messages at once
-func (resp *ConsumeResponse) Batch() ([][]byte, error) {
-	resp.lock.Lock()
-	defer resp.lock.Unlock()
-
-	buf := make([]byte, sum(resp.msgSizes))
-	_, err := io.ReadFull(resp.dataConn, buf)
-	if err != nil {
-		return nil, err
-	}
-	var n int
-	output := make([][]byte, len(resp.msgSizes))
-	for i := range output {
-		output[i] = make([]byte, resp.msgSizes[i])
-		n += copy(output[i], buf[n:])
-	}
-	resp.msgSizes = resp.msgSizes[:0]
-	return output, nil
-}
-
-// WriteTo writes all of the consume response messages at once to an io.Writer
-func (resp *ConsumeResponse) WriteTo(w io.Writer) (int64, error) {
-	resp.lock.Lock()
-	defer resp.lock.Unlock()
-
-	return io.CopyN(w, resp.dataConn, sum(resp.msgSizes))
-}
-
-// Next returns the next message from the queue. When all the messages in the batch
-// have been read it returns an io.EOF error.
-func (resp *ConsumeResponse) Next() ([]byte, error) {
-	resp.lock.Lock()
-	defer resp.lock.Unlock()
-	if len(resp.msgSizes) == 0 {
-		return nil, io.EOF
-	}
-	buf := make([]byte, resp.msgSizes[0])
-	_, err := io.ReadFull(resp.dataConn, buf)
-	if err != nil {
-		return nil, err
-	}
-	copy(resp.msgSizes[0:], resp.msgSizes[1:])
-	resp.msgSizes = resp.msgSizes[:len(resp.msgSizes)-1]
-
-	return buf, nil
 }

@@ -85,13 +85,7 @@ func main() {
   }
 
   // consume messages in a batch
-  resp := haraqa.ConsumeResponse{}
-  err = client.Consume(ctx, topic, offset, maxBatchSize, &resp)
-  if err != nil {
-    panic(err)
-  }
-
-  msgs, err := resp.Batch()
+  msgs, err := client.Consume(ctx, topic, offset, maxBatchSize, nil)
   if err != nil {
     panic(err)
   }
