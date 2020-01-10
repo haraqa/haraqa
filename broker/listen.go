@@ -12,22 +12,24 @@ import (
 )
 
 var DefaultConfig = Config{
-	Volumes:    []string{".haraqa"},
-	MaxEntries: 250000,
-	GRPCPort:   4353,
-	DataPort:   14353,
-	UnixSocket: "/tmp/haraqa.sock",
-	UnixMode:   0600,
+	Volumes:         []string{".haraqa"},
+	ConsumePoolSize: 10,
+	MaxEntries:      250000,
+	GRPCPort:        4353,
+	DataPort:        14353,
+	UnixSocket:      "/tmp/haraqa.sock",
+	UnixMode:        0600,
 }
 
 type Config struct {
-	Volumes    []string
-	Queue      Queue
-	MaxEntries int
-	GRPCPort   uint
-	DataPort   uint
-	UnixSocket string
-	UnixMode   os.FileMode
+	Volumes         []string
+	Queue           Queue
+	ConsumePoolSize uint64
+	MaxEntries      int
+	GRPCPort        uint
+	DataPort        uint
+	UnixSocket      string
+	UnixMode        os.FileMode
 }
 
 type Broker struct {
@@ -46,7 +48,7 @@ func NewBroker(config Config) (*Broker, error) {
 
 	if config.Queue == nil {
 		var err error
-		config.Queue, err = NewQueue(config.Volumes, config.MaxEntries)
+		config.Queue, err = NewQueue(config.Volumes, config.MaxEntries, config.ConsumePoolSize)
 		if err != nil {
 			return nil, err
 		}

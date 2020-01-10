@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/haraqa/haraqa/internal/gcmap"
 	"github.com/haraqa/haraqa/internal/protocol"
 	"github.com/haraqa/haraqa/internal/zeroc"
 	"github.com/pkg/errors"
@@ -33,10 +34,10 @@ type Queue interface {
 
 // NewQueue returns a queue struct which implements the Queue interface using
 // zero copy on linux systems
-func NewQueue(volumes []string, maxEntries int) (Queue, error) {
+func NewQueue(volumes []string, maxEntries int, consumePoolSize uint64) (Queue, error) {
 	restorationVolume := ""
 	emptyVolumes := make([]string, 0, len(volumes))
-	existingTopics := make(map[string]*queueTopic)
+	existingTopics := make(map[string]*queueProduceTopic)
 	for i := len(volumes) - 1; i >= 0; i-- {
 		err := os.MkdirAll(volumes[i], os.ModePerm)
 		if err != nil {
@@ -112,21 +113,23 @@ func NewQueue(volumes []string, maxEntries int) (Queue, error) {
 	}
 
 	q := &queue{
-		topics:     existingTopics,
-		volumes:    volumes,
-		maxEntries: int64(maxEntries),
+		produceTopics: existingTopics,
+		consumeTopics: gcmap.NewMap(consumePoolSize),
+		volumes:       volumes,
+		maxEntries:    int64(maxEntries),
 	}
 	return q, nil
 }
 
 type queue struct {
 	sync.Mutex
-	topics     map[string]*queueTopic
-	volumes    []string
-	maxEntries int64
+	volumes       []string
+	maxEntries    int64
+	produceTopics map[string]*queueProduceTopic
+	consumeTopics *gcmap.Map
 }
 
-type queueTopic struct {
+type queueProduceTopic struct {
 	sync.Mutex
 	relOffset int64
 	offset    int64
@@ -137,7 +140,7 @@ type queueTopic struct {
 func (q *queue) CreateTopic(topic []byte) error {
 	q.Lock()
 	defer q.Unlock()
-	_, ok := q.topics[string(topic)]
+	_, ok := q.produceTopics[string(topic)]
 	if ok {
 		return protocol.ErrTopicExists
 	}
@@ -148,7 +151,7 @@ func (q *queue) CreateTopic(topic []byte) error {
 		return nil
 	}
 
-	q.topics[string(topic)] = qt
+	q.produceTopics[string(topic)] = qt
 	if offset > 0 {
 		return protocol.ErrTopicExists
 	}
@@ -159,19 +162,24 @@ func findQueueOffset(volumes []string, topic string) int64 {
 	// TODO: detect missing files from a volume
 	offsets := make([]int64, 0, len(volumes))
 	for i := range volumes {
-		files, err := ioutil.ReadDir(filepath.Join(volumes[i], topic))
+		dir, err := os.Open(filepath.Join(volumes[i], topic))
 		if err != nil {
 			continue
 		}
-		if len(files) == 0 {
+		names, err := dir.Readdirnames(-1)
+		dir.Close()
+		if err != nil {
+			continue
+		}
+		if len(names) == 0 {
 			continue
 		}
 		var max int64
-		for j := range files {
-			if !strings.HasSuffix(files[j].Name(), ".dat") {
+		for j := range names {
+			if !strings.HasSuffix(names[j], ".dat") {
 				continue
 			}
-			n, err := strconv.ParseInt(strings.TrimSuffix(files[j].Name(), ".dat"), 10, 64)
+			n, err := strconv.ParseInt(strings.TrimSuffix(names[j], ".dat"), 10, 64)
 			if err != nil {
 				continue
 			}
@@ -194,7 +202,7 @@ func findQueueOffset(volumes []string, topic string) int64 {
 	return offset
 }
 
-func newQueueTopic(volumes []string, topic string, offset int64, open bool) (*queueTopic, error) {
+func newQueueTopic(volumes []string, topic string, offset int64, open bool) (*queueProduceTopic, error) {
 	datFiles := make([]*os.File, len(volumes))
 	msgFiles := make([]*os.File, len(volumes))
 
@@ -252,7 +260,7 @@ func newQueueTopic(volumes []string, topic string, offset int64, open bool) (*qu
 
 	// TODO: get relative offset of file
 
-	return &queueTopic{
+	return &queueProduceTopic{
 		dat:      datMultiWriter,
 		messages: msgMultiWriter,
 		offset:   offset,
@@ -262,14 +270,14 @@ func newQueueTopic(volumes []string, topic string, offset int64, open bool) (*qu
 func (q *queue) DeleteTopic(topic []byte) error {
 	q.Lock()
 	defer q.Unlock()
-	mw, ok := q.topics[string(topic)]
+	mw, ok := q.produceTopics[string(topic)]
 
 	if mw != nil {
 		mw.dat.Close()
 		mw.messages.Close()
 	}
 	if ok {
-		delete(q.topics, string(topic))
+		delete(q.produceTopics, string(topic))
 	}
 
 	for i := range q.volumes {
@@ -294,8 +302,8 @@ func (q *queue) ListTopics(regex string) ([][]byte, error) {
 
 	q.Lock()
 	defer q.Unlock()
-	output := make([][]byte, 0, len(q.topics))
-	for topic := range q.topics {
+	output := make([][]byte, 0, len(q.produceTopics))
+	for topic := range q.produceTopics {
 		if r != nil && !r.MatchString(topic) {
 			continue
 		}
@@ -306,7 +314,7 @@ func (q *queue) ListTopics(regex string) ([][]byte, error) {
 
 func (q *queue) Produce(tcpConn *os.File, topic []byte, msgSizes []int64) error {
 	q.Lock()
-	mw, ok := q.topics[string(topic)]
+	mw, ok := q.produceTopics[string(topic)]
 	if !ok {
 		q.Unlock()
 		return protocol.ErrTopicDoesNotExist
@@ -320,7 +328,7 @@ func (q *queue) Produce(tcpConn *os.File, topic []byte, msgSizes []int64) error 
 			q.Unlock()
 			return err
 		}
-		q.topics[string(topic)] = mw
+		q.produceTopics[string(topic)] = mw
 	}
 	q.Unlock()
 
@@ -374,19 +382,29 @@ func (q *queue) Produce(tcpConn *os.File, topic []byte, msgSizes []int64) error 
 // returns the filepath of the file to be read from, the starting point to begin
 // reading from, and the number and lengths of the messages to be read
 func (q *queue) ConsumeInfo(topic []byte, offset int64, maxBatchSize int64) ([]byte, int64, []int64, error) {
+	dir := q.consumeTopics.Get(topic)
+	if dir == nil {
+		var err error
+		dir, err = os.Open(filepath.Join(q.volumes[len(q.volumes)-1], string(topic)))
+		if err != nil {
+			return nil, 0, nil, err
+		}
+	}
+
 	// get a list of all the files
-	files, err := ioutil.ReadDir(filepath.Join(q.volumes[len(q.volumes)-1], string(topic)))
+	names, err := dir.(*os.File).Readdirnames(-1)
 	if err != nil {
 		return nil, 0, nil, err
 	}
+	q.consumeTopics.Put(topic, dir)
 
 	// find the file which matches the offset
 	var baseOffset int64
-	for i := range files {
-		if !strings.HasSuffix(files[i].Name(), ".dat") {
+	for i := range names {
+		if !strings.HasSuffix(names[i], ".dat") {
 			continue
 		}
-		o, err := strconv.ParseInt(strings.TrimSuffix(files[i].Name(), ".dat"), 10, 64)
+		o, err := strconv.ParseInt(strings.TrimSuffix(names[i], ".dat"), 10, 64)
 		if err == nil {
 			if o > baseOffset && (offset < 0 || o <= offset) {
 				baseOffset = o
@@ -456,27 +474,33 @@ func (q *queue) Consume(tcpConn *os.File, topic []byte, filename []byte, startAt
 func (q *queue) Offsets(topic []byte) (int64, int64, error) {
 	path := filepath.Join(q.volumes[len(q.volumes)-1], string(topic))
 
-	files, err := ioutil.ReadDir(path)
+	dir, err := os.Open(path)
 	if err != nil {
 		return 0, 0, err
 	}
-	if len(files) == 0 {
+	defer dir.Close()
+
+	names, err := dir.Readdirnames(-1)
+	if err != nil {
+		return 0, 0, err
+	}
+	if len(names) == 0 {
 		return 0, 0, os.ErrNotExist
 	}
 	var min, max int64
 	min = math.MaxInt64
 	var maxName string
-	for j := range files {
-		if !strings.HasSuffix(files[j].Name(), ".dat") {
+	for j := range names {
+		if !strings.HasSuffix(names[j], ".dat") {
 			continue
 		}
-		n, err := strconv.ParseInt(strings.TrimSuffix(files[j].Name(), ".dat"), 10, 64)
+		n, err := strconv.ParseInt(strings.TrimSuffix(names[j], ".dat"), 10, 64)
 		if err != nil {
 			continue
 		}
 		if n > max {
 			max = n
-			maxName = files[j].Name()
+			maxName = names[j]
 		}
 		if n < min {
 			min = n
@@ -493,6 +517,7 @@ func (q *queue) Offsets(topic []byte) (int64, int64, error) {
 		if err == nil {
 			max += (info.Size() / 24) - 1
 		}
+		datFile.Close()
 	}
 
 	if min >= max {
