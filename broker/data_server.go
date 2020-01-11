@@ -74,7 +74,7 @@ func (b *Broker) handleDataConn(c netConn) {
 			}
 
 			// write to queue
-			err = b.config.Queue.Produce(conn, produceReq.Topic, produceReq.MsgSizes)
+			err = b.Q.Produce(conn, produceReq.Topic, produceReq.MsgSizes)
 			if err != nil {
 				log.Println("produce message queue error:", err)
 				protocol.ErrorToResponse(conn, err)
@@ -100,7 +100,7 @@ func (b *Broker) handleDataConn(c netConn) {
 			}
 
 			// read consume metadata
-			filename, startAt, msgSizes, err := b.config.Queue.ConsumeInfo(consumeReq.Topic, consumeReq.Offset, consumeReq.MaxBatchSize)
+			filename, startAt, msgSizes, err := b.Q.ConsumeInfo(consumeReq.Topic, consumeReq.Offset, consumeReq.MaxBatchSize)
 			if err != nil {
 				log.Println("consume info error:", err)
 				protocol.ErrorToResponse(conn, err)
@@ -121,7 +121,7 @@ func (b *Broker) handleDataConn(c netConn) {
 			for i := range msgSizes {
 				totalSize += msgSizes[i]
 			}
-			err = b.config.Queue.Consume(conn, consumeReq.Topic, filename, startAt, totalSize)
+			err = b.Q.Consume(conn, consumeReq.Topic, filename, startAt, totalSize)
 			if err != nil {
 				log.Println("consume write error:", err)
 				return

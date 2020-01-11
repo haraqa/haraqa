@@ -11,13 +11,14 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/haraqa/haraqa"
 	"github.com/haraqa/haraqa/broker"
+	"github.com/haraqa/haraqa/internal/queue"
 )
 
 func TestClient(t *testing.T) {
 
 	var wg sync.WaitGroup
 	wg.Add(2)
-	mockQueue := broker.NewMockQueue(gomock.NewController(t))
+	mockQueue := queue.NewMockQueue(gomock.NewController(t))
 	mockQueue.EXPECT().Produce(gomock.Any(), []byte("world"), []int64{5}).
 		DoAndReturn(func(tcpConn *os.File, topic []byte, msgSizes []int64) error {
 			var b [5]byte
@@ -46,11 +47,11 @@ func TestClient(t *testing.T) {
 		})
 
 	cfg := broker.DefaultConfig
-	cfg.Queue = mockQueue
 	b, err := broker.NewBroker(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
+	b.Q = mockQueue
 	go func() {
 		err := b.Listen()
 		if err != nil {

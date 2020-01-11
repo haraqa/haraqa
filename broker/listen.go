@@ -4,71 +4,11 @@ import (
 	"net"
 	"os"
 	"strconv"
-	"sync"
 
 	"github.com/haraqa/haraqa/internal/protocol"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 )
-
-var DefaultConfig = Config{
-	Volumes:         []string{".haraqa"},
-	ConsumePoolSize: 10,
-	MaxEntries:      250000,
-	GRPCPort:        4353,
-	DataPort:        14353,
-	UnixSocket:      "/tmp/haraqa.sock",
-	UnixMode:        0600,
-}
-
-type Config struct {
-	Volumes         []string
-	Queue           Queue
-	ConsumePoolSize uint64
-	MaxEntries      int
-	GRPCPort        uint
-	DataPort        uint
-	UnixSocket      string
-	UnixMode        os.FileMode
-}
-
-type Broker struct {
-	protocol.UnimplementedHaraqaServer
-	s          *grpc.Server
-	config     Config
-	listenWait sync.WaitGroup
-}
-
-// NewBroker creates a new instance of the haraqa grpc server
-func NewBroker(config Config) (*Broker, error) {
-	//TODO: validate volumes
-	if len(config.Volumes) == 0 {
-		return nil, errors.New("missing volumes in config")
-	}
-
-	if config.Queue == nil {
-		var err error
-		config.Queue, err = NewQueue(config.Volumes, config.MaxEntries, config.ConsumePoolSize)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return &Broker{
-		config: config,
-	}, nil
-}
-
-// Close attempts to gracefully close all connections and the server
-func (b *Broker) Close() error {
-	if b.s != nil {
-		b.s.GracefulStop()
-	}
-
-	b.listenWait.Wait()
-
-	return nil
-}
 
 // Listen starts a new grpc server on the given port
 func (b *Broker) Listen() error {

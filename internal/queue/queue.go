@@ -1,4 +1,4 @@
-package broker
+package queue
 
 import (
 	"encoding/binary"
@@ -19,7 +19,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-//go:generate mockgen -source queue.go -destination queue_mock.go -package broker
+//go:generate mockgen -source queue.go -destination queue_mock.go -package queue
 
 // Queue is the interface for dealing with topics and messages in the haraqa queue
 type Queue interface {
@@ -37,7 +37,7 @@ type Queue interface {
 func NewQueue(volumes []string, maxEntries int, consumePoolSize uint64) (Queue, error) {
 	restorationVolume := ""
 	emptyVolumes := make([]string, 0, len(volumes))
-	existingTopics := make(map[string]*queueProduceTopic)
+	existingTopics := make(map[string]*produceTopic)
 	for i := len(volumes) - 1; i >= 0; i-- {
 		err := os.MkdirAll(volumes[i], os.ModePerm)
 		if err != nil {
@@ -125,11 +125,11 @@ type queue struct {
 	sync.Mutex
 	volumes       []string
 	maxEntries    int64
-	produceTopics map[string]*queueProduceTopic
+	produceTopics map[string]*produceTopic
 	consumeTopics *gcmap.Map
 }
 
-type queueProduceTopic struct {
+type produceTopic struct {
 	sync.Mutex
 	relOffset int64
 	offset    int64
@@ -145,8 +145,8 @@ func (q *queue) CreateTopic(topic []byte) error {
 		return protocol.ErrTopicExists
 	}
 
-	offset := findQueueOffset(q.volumes, string(topic))
-	qt, err := newQueueTopic(q.volumes, string(topic), offset, true)
+	offset := findOffset(q.volumes, string(topic))
+	qt, err := newProduceTopic(q.volumes, string(topic), offset, true)
 	if err != nil {
 		return nil
 	}
@@ -158,7 +158,7 @@ func (q *queue) CreateTopic(topic []byte) error {
 	return nil
 }
 
-func findQueueOffset(volumes []string, topic string) int64 {
+func findOffset(volumes []string, topic string) int64 {
 	// TODO: detect missing files from a volume
 	offsets := make([]int64, 0, len(volumes))
 	for i := range volumes {
@@ -202,7 +202,7 @@ func findQueueOffset(volumes []string, topic string) int64 {
 	return offset
 }
 
-func newQueueTopic(volumes []string, topic string, offset int64, open bool) (*queueProduceTopic, error) {
+func newProduceTopic(volumes []string, topic string, offset int64, open bool) (*produceTopic, error) {
 	datFiles := make([]*os.File, len(volumes))
 	msgFiles := make([]*os.File, len(volumes))
 
@@ -260,7 +260,7 @@ func newQueueTopic(volumes []string, topic string, offset int64, open bool) (*qu
 
 	// TODO: get relative offset of file
 
-	return &queueProduceTopic{
+	return &produceTopic{
 		dat:      datMultiWriter,
 		messages: msgMultiWriter,
 		offset:   offset,
@@ -321,9 +321,9 @@ func (q *queue) Produce(tcpConn *os.File, topic []byte, msgSizes []int64) error 
 	}
 	if mw == nil {
 		// open files
-		offset := findQueueOffset(q.volumes, string(topic))
+		offset := findOffset(q.volumes, string(topic))
 		var err error
-		mw, err = newQueueTopic(q.volumes, string(topic), offset, true)
+		mw, err = newProduceTopic(q.volumes, string(topic), offset, true)
 		if err != nil {
 			q.Unlock()
 			return err
@@ -336,7 +336,7 @@ func (q *queue) Produce(tcpConn *os.File, topic []byte, msgSizes []int64) error 
 	defer mw.Unlock()
 	if mw.relOffset+int64(len(msgSizes)) > q.maxEntries {
 		// handle creating new files for overflow
-		newMW, err := newQueueTopic(q.volumes, string(topic), mw.offset, false)
+		newMW, err := newProduceTopic(q.volumes, string(topic), mw.offset, false)
 		if err != nil {
 			return err
 		}
@@ -376,6 +376,14 @@ func (q *queue) Produce(tcpConn *os.File, topic []byte, msgSizes []int64) error 
 	mw.relOffset = offset - mw.offset
 	mw.offset = offset
 	return nil
+}
+
+func sum(s []int64) int64 {
+	var out int64
+	for _, v := range s {
+		out += v
+	}
+	return out
 }
 
 // ConsumeInfo returns the info required to consume from a specific file. it
