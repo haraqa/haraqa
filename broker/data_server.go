@@ -33,7 +33,7 @@ func (b *Broker) handleDataConn(c netConn) {
 		// read prefix
 		t, hLen, err := protocol.ReadPrefix(conn, prefix[:])
 		if err != nil {
-			if err == io.EOF {
+			if errors.Cause(err) == io.EOF {
 				return
 			}
 			log.Println("read prefix error:", err)

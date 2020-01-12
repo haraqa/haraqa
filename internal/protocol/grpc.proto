@@ -47,7 +47,9 @@ message TruncateTopicResponse {
 }
 
 message ListTopicsRequest {
-  string regex = 1;
+  string prefix = 1;
+  string suffix = 2;
+  string regex = 3;
 }
 
 message ListTopicsResponse {

@@ -183,8 +183,11 @@ func (c *Client) DeleteTopic(ctx context.Context, topic []byte) error {
 	return nil
 }
 
-// ListTopics queries the broker for a list of topics. If regex is given, topics are filtered to match
-func (c *Client) ListTopics(ctx context.Context, regex string) ([][]byte, error) {
+// ListTopics queries the broker for a list of topics.
+// If prefix is given, only topics matching the prefix are included.
+// If suffix is given, only topics matching the suffix are included.
+// If regex is given, only topics matching the regexp are included.
+func (c *Client) ListTopics(ctx context.Context, prefix, suffix, regex string) ([][]byte, error) {
 	// check regex before attempting
 	_, err := regexp.Compile(regex)
 	if err != nil {
@@ -195,7 +198,7 @@ func (c *Client) ListTopics(ctx context.Context, regex string) ([][]byte, error)
 	defer cancel()
 
 	// send message request
-	r, err := c.client.ListTopics(ctx, &protocol.ListTopicsRequest{Regex: regex})
+	r, err := c.client.ListTopics(ctx, &protocol.ListTopicsRequest{Prefix: prefix, Suffix: suffix, Regex: regex})
 	if err != nil {
 		return nil, errors.Wrap(err, "could not produce")
 	}
@@ -212,18 +215,18 @@ func (c *Client) Produce(ctx context.Context, topic []byte, msgs ...[]byte) erro
 		return nil
 	}
 
-	// reconnect to data endpoint if required
-	err := c.dataConnect()
-	if err != nil {
-		return err
-	}
+	c.dataConnLock.Lock()
+	defer c.dataConnLock.Unlock()
 
 	return c.produce(ctx, topic, msgs...)
 }
 
 func (c *Client) produce(ctx context.Context, topic []byte, msgs ...[]byte) error {
-	c.dataConnLock.Lock()
-	defer c.dataConnLock.Unlock()
+	// reconnect to data endpoint if required
+	err := c.dataConnect()
+	if err != nil {
+		return err
+	}
 
 	msgSizes := make([]int64, len(msgs))
 	var totalSize int64
@@ -237,7 +240,7 @@ func (c *Client) produce(ctx context.Context, topic []byte, msgs ...[]byte) erro
 		Topic:    topic,
 		MsgSizes: msgSizes,
 	}
-	err := req.Write(c.dataConn)
+	err = req.Write(c.dataConn)
 	if err != nil {
 		c.dataConn.Close()
 		c.dataConn = nil
@@ -261,6 +264,13 @@ func (c *Client) produce(ctx context.Context, topic []byte, msgs ...[]byte) erro
 	if err != nil {
 		c.dataConn.Close()
 		c.dataConn = nil
+		if errors.Cause(err) == protocol.ErrTopicDoesNotExist {
+			err = c.CreateTopic(ctx, topic)
+			if err != nil && errors.Cause(err) != protocol.ErrTopicExists {
+				return err
+			}
+			return c.produce(ctx, topic, msgs...)
+		}
 		return errors.Wrap(err, "could not read from data connection")
 	}
 	if p != protocol.TypeProduce {
@@ -317,7 +327,9 @@ func (c *Client) ProduceLoop(ctx context.Context, topic []byte, ch chan ProduceM
 		}
 		if len(msgs) == cap(ch) || (len(ch) == 0 && len(msgs) > 0) {
 			// send produce batch
+			c.dataConnLock.Lock()
 			err := c.produce(ctx, topic, msgs...)
+			c.dataConnLock.Unlock()
 			for i := range errs {
 				errs[i] <- err
 			}
@@ -332,7 +344,9 @@ func (c *Client) ProduceLoop(ctx context.Context, topic []byte, ch chan ProduceM
 
 	if len(msgs) > 0 {
 		//send one last batch
+		c.dataConnLock.Lock()
 		err := c.produce(ctx, topic, msgs...)
+		c.dataConnLock.Unlock()
 		for i := range errs {
 			errs[i] <- err
 		}
@@ -409,6 +423,9 @@ func (c *Client) Consume(ctx context.Context, topic []byte, offset int64, maxBat
 	if err != nil {
 		c.dataConn.Close()
 		c.dataConn = nil
+		if errors.Cause(err) == protocol.ErrTopicDoesNotExist {
+			return nil, ErrTopicDoesNotExist
+		}
 		return nil, errors.Wrapf(err, "could not read from data connection")
 	}
 	if p != protocol.TypeConsume {

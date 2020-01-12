@@ -30,7 +30,7 @@ func (b *Broker) DeleteTopic(ctx context.Context, in *protocol.DeleteTopicReques
 
 // ListTopics implements protocol.HaraqaServer ListTopics
 func (b *Broker) ListTopics(ctx context.Context, in *protocol.ListTopicsRequest) (*protocol.ListTopicsResponse, error) {
-	topics, err := b.Q.ListTopics(in.GetRegex())
+	topics, err := b.Q.ListTopics(in.GetPrefix(), in.GetSuffix(), in.GetRegex())
 	if err != nil {
 		return &protocol.ListTopicsResponse{Meta: &protocol.Meta{OK: false, ErrorMsg: err.Error()}}, nil
 	}

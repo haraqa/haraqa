@@ -25,7 +25,7 @@ import (
 type Queue interface {
 	CreateTopic(topic []byte) error
 	DeleteTopic(topic []byte) error
-	ListTopics(regex string) ([][]byte, error)
+	ListTopics(prefix, suffix, regex string) ([][]byte, error)
 	Produce(tcpConn *os.File, topic []byte, msgSizes []int64) error
 	ConsumeInfo(topic []byte, offset int64, maxBatchSize int64) (filename []byte, startAt int64, msgSizes []int64, err error)
 	Consume(tcpConn *os.File, topic []byte, filename []byte, startAt int64, totalSize int64) error
@@ -290,7 +290,7 @@ func (q *queue) DeleteTopic(topic []byte) error {
 	return nil
 }
 
-func (q *queue) ListTopics(regex string) ([][]byte, error) {
+func (q *queue) ListTopics(prefix, suffix, regex string) ([][]byte, error) {
 	var r *regexp.Regexp
 	if regex != "" {
 		var err error
@@ -304,6 +304,12 @@ func (q *queue) ListTopics(regex string) ([][]byte, error) {
 	defer q.Unlock()
 	output := make([][]byte, 0, len(q.produceTopics))
 	for topic := range q.produceTopics {
+		if prefix != "" && !strings.HasPrefix(topic, prefix) {
+			continue
+		}
+		if suffix != "" && !strings.HasSuffix(topic, suffix) {
+			continue
+		}
 		if r != nil && !r.MatchString(topic) {
 			continue
 		}
@@ -395,6 +401,9 @@ func (q *queue) ConsumeInfo(topic []byte, offset int64, maxBatchSize int64) ([]b
 		var err error
 		dir, err = os.Open(filepath.Join(q.volumes[len(q.volumes)-1], string(topic)))
 		if err != nil {
+			if os.IsNotExist(err) {
+				return nil, 0, nil, protocol.ErrTopicDoesNotExist
+			}
 			return nil, 0, nil, err
 		}
 	}

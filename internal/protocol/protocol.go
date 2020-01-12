@@ -21,8 +21,8 @@ func ErrorToResponse(conn io.Writer, err error) {
 	msg := errors.Cause(err).Error()
 	b := make([]byte, 6+len(msg))
 	b[0], b[1] = 0, TypeError
-	binary.BigEndian.PutUint32(b[2:6], uint32(len(b)-4))
-	copy(b[4:], []byte(msg))
+	binary.BigEndian.PutUint32(b[2:6], uint32(len(b)-6))
+	copy(b[6:], []byte(msg))
 	conn.Write(b)
 	return
 }
@@ -52,7 +52,7 @@ func ReadPrefix(conn io.Reader, prefix []byte) (byte, uint32, error) {
 	}
 	_, err := io.ReadFull(conn, prefix)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, errors.Wrap(err, "unable to read prefix")
 	}
 
 	if prefix[0] != 0 {
@@ -69,7 +69,15 @@ func ReadPrefix(conn io.Reader, prefix []byte) (byte, uint32, error) {
 		e := make([]byte, hLength)
 		n, err := io.ReadFull(conn, e)
 		if err == nil || n > 0 {
-			return prefix[1], hLength, errors.New(string(e[:n]))
+			errMsg := string(e[:n])
+			switch errMsg {
+			case ErrTopicExists.Error():
+				return prefix[1], hLength, ErrTopicExists
+			case ErrTopicDoesNotExist.Error():
+				return prefix[1], hLength, ErrTopicDoesNotExist
+			default:
+				return prefix[1], hLength, errors.New(errMsg)
+			}
 		}
 		return prefix[1], hLength, err
 
