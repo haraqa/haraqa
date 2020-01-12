@@ -9,7 +9,7 @@ import (
 
 // Example of the recommended way to create a new topic. An error is returned if
 // that topic already exists
-func ExampleClient_CreateTopic() {
+func Example_createTopic() {
 	ctx := context.Background()
 	config := haraqa.DefaultConfig
 	client, err := haraqa.NewClient(config)
@@ -24,7 +24,63 @@ func ExampleClient_CreateTopic() {
 	}
 }
 
-func ExampleClient_Produce() {
+func Example_deleteTopic() {
+	ctx := context.Background()
+	config := haraqa.DefaultConfig
+	client, err := haraqa.NewClient(config)
+	if err != nil {
+		panic(err)
+	}
+
+	topic := []byte("myTopic")
+	err = client.DeleteTopic(ctx, topic)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func Example_listTopics() {
+	ctx := context.Background()
+	config := haraqa.DefaultConfig
+	client, err := haraqa.NewClient(config)
+	if err != nil {
+		panic(err)
+	}
+
+	// set prefix, suffix and/or regex to match topics with
+	// if all are blank, retrieve all topics
+	prefix, suffix, regex := "", "", ""
+
+	// list topics
+	topics, err := client.ListTopics(ctx, prefix, suffix, regex)
+	if err != nil {
+		panic(err)
+	}
+
+	for _, topic := range topics {
+		log.Println("Found topic:", string(topic))
+	}
+}
+
+func Example_offsets() {
+	ctx := context.Background()
+	config := haraqa.DefaultConfig
+	client, err := haraqa.NewClient(config)
+	if err != nil {
+		panic(err)
+	}
+
+	// get the minimum and maximum available offsets of a topic
+	topic := []byte("myTopic")
+	min, max, err := client.Offsets(ctx, topic)
+	if err != nil {
+		panic(err)
+	}
+
+	log.Println("min:", min, "max:", max)
+}
+
+func Example_produce() {
 	config := haraqa.DefaultConfig
 	client, err := haraqa.NewClient(config)
 	if err != nil {
@@ -46,7 +102,7 @@ func ExampleClient_Produce() {
 //Example of the recommended way to produce messages. A ProduceLoop function
 // runs in the background and new messages are sent via a channel to be produced.
 // Messages are batched to increase efficiency
-func ExampleClient_ProduceLoop() {
+func Example_produceLoop() {
 	config := haraqa.DefaultConfig
 	client, err := haraqa.NewClient(config)
 	if err != nil {
@@ -90,7 +146,7 @@ func ExampleClient_ProduceLoop() {
 }
 
 // Example for consuming messages all at once
-func ExampleClient_Consume_batch() {
+func Example_consume() {
 	config := haraqa.DefaultConfig
 	client, err := haraqa.NewClient(config)
 	if err != nil {
@@ -111,5 +167,42 @@ func ExampleClient_Consume_batch() {
 
 	for i := range msgs {
 		log.Println(msgs[i])
+	}
+}
+
+func Example_consumeBuffer() {
+	// when consuming in a loop, it can be more efficient to
+	// use a buffer to avoid unnecesary allocations.
+	// Messages should be processed or copied prior to reusing the buffer
+
+	config := haraqa.DefaultConfig
+	client, err := haraqa.NewClient(config)
+	if err != nil {
+		panic(err)
+	}
+
+	var (
+		ctx   = context.Background()
+		topic = []byte("myTopic")
+
+		offset       int64 = 0    // start at oldest available message
+		maxBatchSize int64 = 1000 // maximum number of messages to return
+	)
+
+	buf := haraqa.NewConsumeBuffer()
+	for {
+		msgs, err := client.Consume(ctx, topic, offset, maxBatchSize, buf)
+		if err != nil {
+			panic(err)
+		}
+
+		if len(msgs) == 0 {
+			break
+		}
+
+		for i := range msgs {
+			log.Println(msgs[i])
+			offset++
+		}
 	}
 }
