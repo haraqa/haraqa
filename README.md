@@ -40,6 +40,10 @@ Metrics can be stored in a topic and later used for graphing or more complex ana
 This [example](https://github.com/haraqa/haraqa/tree/master/examples/time_series) stores
 runtime.MemStats data every second.
 
+#### Aggregation for emails or notifications
+In this [example](https://github.com/haraqa/haraqa/tree/master/examples/emails) users are emailed
+once a day to notify them of the number of profile views they received.
+
 ## Getting started
 ### Broker
 The recommended deployment strategy is to use [Docker](hub.docker.com/r/haraqa/haraqa)
