@@ -3,7 +3,6 @@ package haraqa_test
 import (
 	"context"
 	"log"
-	"time"
 
 	"github.com/haraqa/haraqa"
 )
@@ -45,6 +44,11 @@ func Example() {
 	minOffset, maxOffset, _ := client.Offsets(ctx, topic)
 	log.Println(minOffset, maxOffset)
 
+	// start a watcher on the topic, this will notify of new topic offsets
+	watchEvents := make(chan haraqa.WatchEvent, 1)
+	watchCloser, _ := client.WatchTopics(ctx, watchEvents, topic)
+	defer watchCloser.Close()
+
 	// start consuming from the oldest message in the queue
 	offset := minOffset
 
@@ -56,9 +60,18 @@ func Example() {
 			log.Println("Retrieved message:", string(msg))
 		}
 
-		// if no messages are returned wait a moment for more to come in
+		// if no messages are returned listen to the watcher to know when more are available
 		if len(msgs) == 0 {
-			time.Sleep(time.Millisecond * 10)
+			for {
+				watchEvent := <-watchEvents
+				if watchEvent.Err != nil {
+					// handle error
+				}
+				if watchEvent.MaxOffset > maxOffset {
+					maxOffset = watchEvent.MaxOffset
+					break
+				}
+			}
 			continue
 		}
 

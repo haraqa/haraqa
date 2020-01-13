@@ -1,9 +1,12 @@
 package testing
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -102,5 +105,85 @@ func testConsumer(t *testing.T) {
 	}
 	if string(msgs[2]) != " consumer" {
 		t.Fatal(string(msgs[2]))
+	}
+}
+
+func TestWatcher(t *testing.T) {
+	config := broker.DefaultConfig
+	config.UnixSocket = "/tmp/haraqa.sock"
+	config.Volumes = []string{"watcherVol"}
+	os.Mkdir("watcherVol", 0777)
+	b, err := broker.NewBroker(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer b.Close()
+	go func() {
+		err := b.Listen()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
+	client, err := haraqa.NewClient(haraqa.DefaultConfig)
+	for err != nil {
+		t.Log(err)
+		client, err = haraqa.NewClient(haraqa.DefaultConfig)
+	}
+	ctx := context.Background()
+
+	// create topics
+	topic1, topic2 := []byte("topic1"), []byte("topic2")
+	err = client.CreateTopic(ctx, topic1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = client.CreateTopic(ctx, topic2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dir, err := os.Open(filepath.Join(config.Volumes[0], string(topic2)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	names, err := dir.Readdirnames(-1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(names)
+	// start watcher
+	watchEvents := make(chan haraqa.WatchEvent, 1)
+	closer, err := client.WatchTopics(ctx, watchEvents, topic1, topic2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer closer.Close()
+
+	// produce to topic 1
+	err = client.Produce(ctx, topic1, []byte("hello world"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// handle topic 1 event
+	event := <-watchEvents
+	if event.Err != nil {
+		t.Fatal(event.Err)
+	}
+	if event.MinOffset != 0 || event.MaxOffset != 1 || !bytes.Equal(event.Topic, topic1) {
+		t.Fatal(event)
+	}
+
+	// produce to topic 2
+	err = client.Produce(ctx, topic2, []byte("hello there"), []byte("hello again"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	event = <-watchEvents
+	if event.Err != nil {
+		t.Fatal(event.Err)
+	}
+	if event.MinOffset != 0 || event.MaxOffset != 2 || !bytes.Equal(event.Topic, topic2) {
+		t.Fatal(event)
 	}
 }

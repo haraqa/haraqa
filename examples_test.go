@@ -62,6 +62,40 @@ func Example_listTopics() {
 	}
 }
 
+func Example_watchTopics() {
+	ctx := context.Background()
+	config := haraqa.DefaultConfig
+	client, err := haraqa.NewClient(config)
+	if err != nil {
+		panic(err)
+	}
+
+	// get all topics
+	prefix, suffix, regex := "", "", ""
+	topics, err := client.ListTopics(ctx, prefix, suffix, regex)
+	if err != nil {
+		panic(err)
+	}
+
+	// make a channel to receive messages on
+	ch := make(chan haraqa.WatchEvent, 1)
+
+	// start watching
+	closer, err := client.WatchTopics(ctx, ch, topics...)
+	if err != nil {
+		panic(err)
+	}
+	defer closer.Close()
+
+	for event := range ch {
+		// always check for errors, WatchTopics will be automatically closed if any event.Err is not nil
+		if event.Err != nil {
+			panic(event.Err)
+		}
+		log.Printf("new messages are ready for topic %q, min offset: %d, max offset: %d\n", string(event.Topic), event.MinOffset, event.MaxOffset)
+	}
+}
+
 func Example_offsets() {
 	ctx := context.Background()
 	config := haraqa.DefaultConfig

@@ -4,8 +4,12 @@ import (
 	"context"
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/haraqa/haraqa/internal/protocol"
+	"github.com/pkg/errors"
+	"gopkg.in/fsnotify.v1"
 )
 
 // CreateTopic implements protocol.HaraqaServer CreateTopic
@@ -55,4 +59,144 @@ func (b *Broker) Offsets(ctx context.Context, in *protocol.OffsetRequest) (*prot
 	}
 
 	return &protocol.OffsetResponse{Meta: &protocol.Meta{OK: true}, MinOffset: min, MaxOffset: max}, nil
+}
+
+// WatchTopics implements protocol.HaraqaServer WatchTopics
+func (b *Broker) WatchTopics(srv protocol.Haraqa_WatchTopicsServer) error {
+	req, err := srv.Recv()
+	if err != nil {
+		srv.Send(&protocol.WatchResponse{Meta: &protocol.Meta{OK: false, ErrorMsg: err.Error()}})
+		return err
+	}
+
+	offsets := make(map[string][2]int64)
+	topics := req.GetTopics()
+	if len(topics) == 0 {
+		return nil
+	}
+
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		srv.Send(&protocol.WatchResponse{Meta: &protocol.Meta{OK: false, ErrorMsg: err.Error()}})
+		return err
+	}
+	defer watcher.Close()
+
+	for _, topic := range topics {
+		filename := filepath.Join(b.config.Volumes[len(b.config.Volumes)-1], string(topic))
+		err = watcher.Add(filename)
+		if err != nil {
+			err = errors.Wrapf(err, "unable to watch topic %v", string(topic))
+			srv.Send(&protocol.WatchResponse{Meta: &protocol.Meta{OK: false, ErrorMsg: err.Error()}})
+			return err
+		}
+
+		// get file offsets
+		min, max, err := b.Q.Offsets(topic)
+		if os.IsNotExist(errors.Cause(err)) {
+			offsets[string(topic)] = [2]int64{0, -1}
+			// no need to send initial offsets, none exist yet
+			continue
+		}
+		if err != nil {
+			err = errors.Wrapf(err, "unable to get topic offsets for %v", string(topic))
+			srv.Send(&protocol.WatchResponse{Meta: &protocol.Meta{OK: false, ErrorMsg: err.Error()}})
+			return err
+		}
+		offsets[string(topic)] = [2]int64{min, max}
+	}
+
+	// send an ack
+	err = srv.Send(&protocol.WatchResponse{Meta: &protocol.Meta{OK: true}})
+	if err != nil {
+		return err
+	}
+
+	for topic, offsets := range offsets {
+		if offsets[1] < 0 {
+			continue
+		}
+		// send current offsets
+		err = srv.Send(&protocol.WatchResponse{
+			Meta:      &protocol.Meta{OK: true},
+			Topic:     []byte(topic),
+			MinOffset: offsets[0],
+			MaxOffset: offsets[1],
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	errs := make(chan error, 2)
+	go func() {
+	loop:
+		for {
+			select {
+			// watch for events
+			case event := <-watcher.Events:
+				if event.Op != fsnotify.Write || !strings.HasSuffix(event.Name, ".dat") {
+					continue loop
+				}
+
+				topic := filepath.Base(filepath.Dir(event.Name))
+
+				dat, err := os.Open(event.Name)
+				if err != nil {
+					errs <- errors.Wrapf(err, "trouble getting topic data for %s", topic)
+					return
+				}
+
+				info, err := dat.Stat()
+				if err != nil {
+					errs <- errors.Wrapf(err, "trouble getting topic data for %s", topic)
+					return
+				}
+				o, ok := offsets[topic]
+				if !ok {
+					continue
+				}
+				o[1] = info.Size() / 24
+				offsets[topic] = o
+
+				// send current offsets
+				err = srv.Send(&protocol.WatchResponse{
+					Meta:      &protocol.Meta{OK: true},
+					Topic:     []byte(topic),
+					MinOffset: o[0],
+					MaxOffset: o[1],
+				})
+				if err != nil {
+					errs <- err
+					return
+				}
+
+				// watch for errors
+			case err := <-watcher.Errors:
+				errs <- errors.Wrap(err, "watcher failed")
+				return
+			}
+		}
+	}()
+
+	go func() {
+		for {
+			req, err := srv.Recv()
+			if err != nil {
+				errs <- err
+				return
+			}
+			if req.GetTerm() {
+				errs <- nil
+				return
+			}
+		}
+	}()
+
+	err = <-errs
+	if err != nil {
+		srv.Send(&protocol.WatchResponse{Meta: &protocol.Meta{OK: false, ErrorMsg: err.Error()}})
+		return err
+	}
+	return nil
 }

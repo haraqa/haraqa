@@ -8,6 +8,7 @@ import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
 	haraqa "github.com/haraqa/haraqa"
+	io "io"
 	reflect "reflect"
 )
 
@@ -75,6 +76,26 @@ func (m *MockClient) ListTopics(ctx context.Context, prefix, suffix, regex strin
 func (mr *MockClientMockRecorder) ListTopics(ctx, prefix, suffix, regex interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTopics", reflect.TypeOf((*MockClient)(nil).ListTopics), ctx, prefix, suffix, regex)
+}
+
+// WatchTopics mocks base method
+func (m *MockClient) WatchTopics(ctx context.Context, ch chan haraqa.WatchEvent, topics ...[]byte) (io.Closer, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, ch}
+	for _, a := range topics {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "WatchTopics", varargs...)
+	ret0, _ := ret[0].(io.Closer)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchTopics indicates an expected call of WatchTopics
+func (mr *MockClientMockRecorder) WatchTopics(ctx, ch interface{}, topics ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, ch}, topics...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchTopics", reflect.TypeOf((*MockClient)(nil).WatchTopics), varargs...)
 }
 
 // Offsets mocks base method
