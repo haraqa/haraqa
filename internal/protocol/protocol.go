@@ -153,9 +153,9 @@ func (p *ProduceRequest) Write(conn io.Writer) error {
 }
 
 type ConsumeRequest struct {
-	Topic        []byte
-	Offset       int64
-	MaxBatchSize int64
+	Topic  []byte
+	Offset int64
+	Limit  int64
 }
 
 func (c *ConsumeRequest) Read(b []byte) error {
@@ -175,7 +175,7 @@ func (c *ConsumeRequest) Read(b []byte) error {
 	// read offset
 	c.Offset = int64(binary.BigEndian.Uint64(b[n : n+8]))
 	n += 8
-	c.MaxBatchSize = int64(binary.BigEndian.Uint64(b[n : n+8]))
+	c.Limit = int64(binary.BigEndian.Uint64(b[n : n+8]))
 	return nil
 }
 
@@ -202,7 +202,7 @@ func (c *ConsumeRequest) Write(conn io.Writer) error {
 	n += 8
 
 	// max batch size
-	binary.BigEndian.PutUint64(buf[n:n+8], uint64(c.MaxBatchSize))
+	binary.BigEndian.PutUint64(buf[n:n+8], uint64(c.Limit))
 
 	_, err := conn.Write(buf)
 	return err

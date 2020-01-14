@@ -27,7 +27,7 @@ type Queue interface {
 	DeleteTopic(topic []byte) error
 	ListTopics(prefix, suffix, regex string) ([][]byte, error)
 	Produce(tcpConn *os.File, topic []byte, msgSizes []int64) error
-	ConsumeInfo(topic []byte, offset int64, maxBatchSize int64) (filename []byte, startAt int64, msgSizes []int64, err error)
+	ConsumeInfo(topic []byte, offset int64, limit int64) (filename []byte, startAt int64, msgSizes []int64, err error)
 	Consume(tcpConn *os.File, topic []byte, filename []byte, startAt int64, totalSize int64) error
 	Offsets(topic []byte) (int64, int64, error)
 }
@@ -395,7 +395,7 @@ func sum(s []int64) int64 {
 // ConsumeInfo returns the info required to consume from a specific file. it
 // returns the filepath of the file to be read from, the starting point to begin
 // reading from, and the number and lengths of the messages to be read
-func (q *queue) ConsumeInfo(topic []byte, offset int64, maxBatchSize int64) ([]byte, int64, []int64, error) {
+func (q *queue) ConsumeInfo(topic []byte, offset int64, limit int64) ([]byte, int64, []int64, error) {
 	dir := q.consumeTopics.Get(topic)
 	if dir == nil {
 		var err error
@@ -451,7 +451,7 @@ func (q *queue) ConsumeInfo(topic []byte, offset int64, maxBatchSize int64) ([]b
 	}
 
 	// read the dat file
-	buf := make([]byte, maxBatchSize*24)
+	buf := make([]byte, limit*24)
 	n, err := f.ReadAt(buf[:], offset*24)
 	if err != nil && err != io.EOF {
 		return nil, 0, nil, err

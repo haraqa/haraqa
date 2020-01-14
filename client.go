@@ -86,7 +86,7 @@ type Client interface {
 	// Consume sends a consume request and returns a batch of messages, buf can be nil.
 	//  If the topic does not exist Consume returns haraqa.ErrTopicDoesNotExist.
 	//  If offset is less than 0, the maximum offset of the topic is used.
-	Consume(ctx context.Context, topic []byte, offset int64, maxBatchSize int64, buf *ConsumeBuffer) (msgs [][]byte, err error)
+	Consume(ctx context.Context, topic []byte, offset int64, limit int64, buf *ConsumeBuffer) (msgs [][]byte, err error)
 
 	//Close closes the grpc and data connections to the broker
 	Close() error
@@ -438,7 +438,7 @@ func NewConsumeBuffer() *ConsumeBuffer {
 }
 
 // Consume sends a consume request and returns a batch of messages, buf can be nil
-func (c *client) Consume(ctx context.Context, topic []byte, offset int64, maxBatchSize int64, buf *ConsumeBuffer) ([][]byte, error) {
+func (c *client) Consume(ctx context.Context, topic []byte, offset int64, limit int64, buf *ConsumeBuffer) ([][]byte, error) {
 	if buf == nil {
 		buf = NewConsumeBuffer()
 	}
@@ -451,9 +451,9 @@ func (c *client) Consume(ctx context.Context, topic []byte, offset int64, maxBat
 	}
 
 	req := protocol.ConsumeRequest{
-		Topic:        topic,
-		Offset:       offset,
-		MaxBatchSize: maxBatchSize,
+		Topic:  topic,
+		Offset: offset,
+		Limit:  limit,
 	}
 
 	err = req.Write(c.dataConn)

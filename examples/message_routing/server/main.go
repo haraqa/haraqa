@@ -44,13 +44,13 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		// get headers
 		offset, _ := strconv.ParseInt(r.Header.Get("OFFSET"), 10, 64)
-		maxBatchSize, err := strconv.ParseInt(r.Header.Get("MAX"), 10, 64)
-		if err != nil || maxBatchSize < 1 {
-			maxBatchSize = 100
+		limit, err := strconv.ParseInt(r.Header.Get("MAX"), 10, 64)
+		if err != nil || limit < 1 {
+			limit = 100
 		}
 
 		// Send consume request
-		msgs, err := client.Consume(r.Context(), topic, offset, maxBatchSize, nil)
+		msgs, err := client.Consume(r.Context(), topic, offset, limit, nil)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte(err.Error()))

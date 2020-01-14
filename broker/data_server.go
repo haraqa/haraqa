@@ -100,7 +100,7 @@ func (b *Broker) handleDataConn(c netConn) {
 			}
 
 			// read consume metadata
-			filename, startAt, msgSizes, err := b.Q.ConsumeInfo(consumeReq.Topic, consumeReq.Offset, consumeReq.MaxBatchSize)
+			filename, startAt, msgSizes, err := b.Q.ConsumeInfo(consumeReq.Topic, consumeReq.Offset, consumeReq.Limit)
 			if err != nil {
 				log.Println("consume info error:", err)
 				protocol.ErrorToResponse(conn, err)

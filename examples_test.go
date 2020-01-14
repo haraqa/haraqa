@@ -191,10 +191,10 @@ func Example_consume() {
 		ctx   = context.Background()
 		topic = []byte("myTopic")
 
-		offset       int64 = 0    // start at oldest available message
-		maxBatchSize int64 = 1000 // maximum number of messages to return
+		offset int64 = 0    // start at oldest available message
+		limit  int64 = 1000 // maximum number of messages to return
 	)
-	msgs, err := client.Consume(ctx, topic, offset, maxBatchSize, nil)
+	msgs, err := client.Consume(ctx, topic, offset, limit, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -219,13 +219,13 @@ func Example_consumeBuffer() {
 		ctx   = context.Background()
 		topic = []byte("myTopic")
 
-		offset       int64 = 0    // start at oldest available message
-		maxBatchSize int64 = 1000 // maximum number of messages to return
+		offset int64 = 0    // start at oldest available message
+		limit  int64 = 1000 // maximum number of messages to return
 	)
 
 	buf := haraqa.NewConsumeBuffer()
 	for {
-		msgs, err := client.Consume(ctx, topic, offset, maxBatchSize, buf)
+		msgs, err := client.Consume(ctx, topic, offset, limit, buf)
 		if err != nil {
 			panic(err)
 		}

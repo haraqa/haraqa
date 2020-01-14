@@ -10,10 +10,10 @@ import (
 func Example() {
 	ctx := context.Background()
 	topic := []byte("my_topic")
-	maxBatchSize := int64(2048)
+	limit := int64(2048)
 
 	// setup a channel to send batches of messages
-	ch := make(chan haraqa.ProduceMsg, maxBatchSize)
+	ch := make(chan haraqa.ProduceMsg, limit)
 
 	// make new client & connect to broker
 	config := haraqa.DefaultConfig
@@ -55,7 +55,7 @@ func Example() {
 	// for our example, we want to stop after consuming 10 messages
 	for offset < 10 {
 		// start consuming starting at the offset
-		msgs, _ := client.Consume(ctx, topic, offset, maxBatchSize, nil)
+		msgs, _ := client.Consume(ctx, topic, offset, limit, nil)
 		for _, msg := range msgs {
 			log.Println("Retrieved message:", string(msg))
 		}

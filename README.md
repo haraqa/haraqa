@@ -75,11 +75,12 @@ func main() {
   defer client.Close()
 
   var (
-    ctx = context.Background()
-    topic = []byte("my_topic")
-    msg1 = []byte("hello")
-    msg2 = []byte("world")
+    ctx    = context.Background()
+    topic  = []byte("my_topic")
+    msg1   = []byte("hello")
+    msg2   = []byte("world")
     offset = 0
+    limit  = 2048
   )
 
   // produce messages in a batch
@@ -89,7 +90,7 @@ func main() {
   }
 
   // consume messages in a batch
-  msgs, err := client.Consume(ctx, topic, offset, maxBatchSize, nil)
+  msgs, err := client.Consume(ctx, topic, offset, limit, nil)
   if err != nil {
     panic(err)
   }

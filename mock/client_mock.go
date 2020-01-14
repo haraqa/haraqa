@@ -148,18 +148,18 @@ func (mr *MockClientMockRecorder) ProduceLoop(ctx, topic, ch interface{}) *gomoc
 }
 
 // Consume mocks base method
-func (m *MockClient) Consume(ctx context.Context, topic []byte, offset, maxBatchSize int64, buf *haraqa.ConsumeBuffer) ([][]byte, error) {
+func (m *MockClient) Consume(ctx context.Context, topic []byte, offset, limit int64, buf *haraqa.ConsumeBuffer) ([][]byte, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Consume", ctx, topic, offset, maxBatchSize, buf)
+	ret := m.ctrl.Call(m, "Consume", ctx, topic, offset, limit, buf)
 	ret0, _ := ret[0].([][]byte)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Consume indicates an expected call of Consume
-func (mr *MockClientMockRecorder) Consume(ctx, topic, offset, maxBatchSize, buf interface{}) *gomock.Call {
+func (mr *MockClientMockRecorder) Consume(ctx, topic, offset, limit, buf interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Consume", reflect.TypeOf((*MockClient)(nil).Consume), ctx, topic, offset, maxBatchSize, buf)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Consume", reflect.TypeOf((*MockClient)(nil).Consume), ctx, topic, offset, limit, buf)
 }
 
 // Close mocks base method
