@@ -25,6 +25,32 @@ High Availability Routing And Queueing Application
 * [License](#license)
 
 ## About the Project
+### Overview
+Haraqa is meant for handling and persisting data in a distributed system. One or more
+brokers can be used to send and receive messages. Each broker has a set of 'topics',
+a set of messages stored in the order received.
+
+A Haraqa client can produce and/or consume from a broker's topics. These messages
+can be produced one at a time or in batches. Messages are consumed by making a request
+for a specific offset and limit. The messages can be consumed one at a
+time or in batches.
+
+![Diagram](https://raw.githubusercontent.com/haraqa/haraqa/master/diagram.jpg)
+
+### Persistence and Replication
+Each broker, after receiving a message from a producer, can save the message to multiple
+volumes. These volumes are meant to be distributed in the architecture, such as having
+multiple PersistentVolumes in a Kubernetes cluster, EBS in AWS, or Persistent Disks in
+Google Cloud. The broker reads messages from the last volume when sending to consumer clients.
+
+When retrieving information about a topic (list topics, find a topic's offsets, watching a topic
+for changes, etc) a client makes requests to a gRPC server which returns topic information based
+on the last volume.
+
+If a volume is removed or corrupted during a restart the data is repopulated from the other volumes.
+
+![Replication](https://raw.githubusercontent.com/haraqa/haraqa/master/replication.jpg)
+
 ### Usecases
 #### Log Aggregation
 Haraqa can be used by services to persist logs for debugging or auditing. See the
