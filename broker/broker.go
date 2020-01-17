@@ -28,11 +28,11 @@ type Config struct {
 	DataPort        uint
 	UnixSocket      string
 	UnixMode        os.FileMode
+	GRPCServer      *grpc.Server
 }
 
 type Broker struct {
 	protocol.UnimplementedHaraqaServer
-	s          *grpc.Server
 	config     Config
 	Q          queue.Queue
 	listenWait sync.WaitGroup
@@ -50,16 +50,21 @@ func NewBroker(config Config) (*Broker, error) {
 		return nil, err
 	}
 
-	return &Broker{
+	b := &Broker{
 		config: config,
 		Q:      q,
-	}, nil
+	}
+	if b.config.GRPCServer == nil {
+		b.config.GRPCServer = grpc.NewServer()
+	}
+	protocol.RegisterHaraqaServer(b.config.GRPCServer, b)
+	return b, nil
 }
 
 // Close attempts to gracefully close all connections and the server
 func (b *Broker) Close() error {
-	if b.s != nil {
-		b.s.GracefulStop()
+	if b.config.GRPCServer != nil {
+		b.config.GRPCServer.GracefulStop()
 	}
 
 	b.listenWait.Wait()

@@ -1,0 +1,32 @@
+version: "3.7"
+
+services:
+  haraqa:
+    image: haraqa/haraqa:latest
+    container_name: haraqa.broker
+    ports:
+      - "4353:4353"
+      - "14353:14353"
+      - "6060:6060"
+#    volumes:
+#      - "./.haraqa/1:/.haraqa1:cached"
+#      - "./.haraqa/2:/.haraqa2:cached"
+    command: ["-ballast","80000000",".haraqa1", ".haraqa2"]
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - 9090:9090
+    volumes:
+      - "./prometheus.yml:/etc/prometheus/prometheus.yml"
+    depends_on:
+      - haraqa
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+      - haraqa

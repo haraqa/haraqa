@@ -5,9 +5,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/haraqa/haraqa/internal/protocol"
 	"github.com/pkg/errors"
-	"google.golang.org/grpc"
 )
 
 // Listen starts a new grpc server on the given port
@@ -67,11 +65,8 @@ func (b *Broker) Listen() error {
 	}()
 
 	// serve grpc
-	grpcServer := grpc.NewServer()
-	protocol.RegisterHaraqaServer(grpcServer, b)
-	b.s = grpcServer
 	go func() {
-		if err := grpcServer.Serve(lis); err != nil {
+		if err := b.config.GRPCServer.Serve(lis); err != nil {
 			errs <- errors.Wrap(err, "failed to serve")
 			return
 		}
