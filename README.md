@@ -3,7 +3,7 @@ Haraqa
 High Availability Routing And Queueing Application
 --------------------------------------------------
 
-![Mascot](https://raw.githubusercontent.com/haraqa/haraqa/master/mascot.png)
+![Mascot](https://raw.githubusercontent.com/haraqa/haraqa/media/mascot.png)
 
 [![GoDoc](https://godoc.org/github.com/haraqa/haraqa?status.svg)](https://pkg.go.dev/github.com/haraqa/haraqa?tab=doc)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/haraqa/haraqa)](https://github.com/haraqa/haraqa/blob/master/go.mod#L3)
@@ -13,10 +13,12 @@ High Availability Routing And Queueing Application
 [![stability-unstable](https://img.shields.io/badge/stability-unstable-yellow.svg)](https://github.com/emersion/stability-badges#unstable)
 [![Docker Build](https://img.shields.io/docker/cloud/build/haraqa/haraqa.svg)](https://hub.docker.com/r/haraqa/haraqa/)
 
-**haraqa** is designed to be a developer friendly, highly scalable message queue for data persistence and communication between microservices.
+**haraqa** is designed to be a developer friendly, scalable message queue for data persistence and communication between microservices.
 
 #### Table of Contents
 * [About the Project](#about-the-project)
+  * [Overview](#overview)
+  * [Persistence and Replication](#persistence-and-replication)
   * [Usecases](#usecases)
 * [Getting Started](#getting-started)
   * [Broker](#broker)
@@ -35,7 +37,7 @@ can be produced one at a time or in batches. Messages are consumed by making a r
 for a specific offset and limit. The messages can be consumed one at a
 time or in batches.
 
-![Diagram](https://raw.githubusercontent.com/haraqa/haraqa/master/diagram.jpg)
+![Diagram](https://raw.githubusercontent.com/haraqa/haraqa/media/diagram.jpg)
 
 ### Persistence and Replication
 Each broker, after receiving a message from a producer, can save the message to multiple
@@ -49,7 +51,7 @@ on the last volume.
 
 If a volume is removed or corrupted during a restart the data is repopulated from the other volumes.
 
-![Replication](https://raw.githubusercontent.com/haraqa/haraqa/master/replication.jpg)
+![Replication](https://raw.githubusercontent.com/haraqa/haraqa/media/replication.jpg)
 
 ### Usecases
 #### Log Aggregation
@@ -81,6 +83,10 @@ docker run -it -p 4353:4353 -p 14353:14353 -v $PWD/v1:/v1 haraqa/haraqa /v1
 ```
 go get github.com/haraqa/haraqa
 ```
+##### Client Code Examples
+Client examples can be found in the
+[godoc documentation](https://pkg.go.dev/github.com/haraqa/haraqa?tab=doc#pkg-overview)
+
 ##### Hello World
 ```
 package main
