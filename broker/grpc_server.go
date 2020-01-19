@@ -66,7 +66,8 @@ func (b *Broker) Offsets(ctx context.Context, in *protocol.OffsetRequest) (*prot
 func (b *Broker) WatchTopics(srv protocol.Haraqa_WatchTopicsServer) error {
 	req, err := srv.Recv()
 	if err != nil {
-		srv.Send(&protocol.WatchResponse{Meta: &protocol.Meta{OK: false, ErrorMsg: err.Error()}})
+		// best effort send error response
+		_ = srv.Send(&protocol.WatchResponse{Meta: &protocol.Meta{OK: false, ErrorMsg: err.Error()}})
 		return err
 	}
 
@@ -78,7 +79,8 @@ func (b *Broker) WatchTopics(srv protocol.Haraqa_WatchTopicsServer) error {
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		srv.Send(&protocol.WatchResponse{Meta: &protocol.Meta{OK: false, ErrorMsg: err.Error()}})
+		// best effort send error response
+		_ = srv.Send(&protocol.WatchResponse{Meta: &protocol.Meta{OK: false, ErrorMsg: err.Error()}})
 		return err
 	}
 	defer watcher.Close()
@@ -88,7 +90,8 @@ func (b *Broker) WatchTopics(srv protocol.Haraqa_WatchTopicsServer) error {
 		err = watcher.Add(filename)
 		if err != nil {
 			err = errors.Wrapf(err, "unable to watch topic %v", string(topic))
-			srv.Send(&protocol.WatchResponse{Meta: &protocol.Meta{OK: false, ErrorMsg: err.Error()}})
+			// best effort send error response
+			_ = srv.Send(&protocol.WatchResponse{Meta: &protocol.Meta{OK: false, ErrorMsg: err.Error()}})
 			return err
 		}
 
@@ -101,7 +104,8 @@ func (b *Broker) WatchTopics(srv protocol.Haraqa_WatchTopicsServer) error {
 		}
 		if err != nil {
 			err = errors.Wrapf(err, "unable to get topic offsets for %v", string(topic))
-			srv.Send(&protocol.WatchResponse{Meta: &protocol.Meta{OK: false, ErrorMsg: err.Error()}})
+			// best effort send error response
+			_ = srv.Send(&protocol.WatchResponse{Meta: &protocol.Meta{OK: false, ErrorMsg: err.Error()}})
 			return err
 		}
 		offsets[string(topic)] = [2]int64{min, max}
@@ -196,7 +200,8 @@ func (b *Broker) WatchTopics(srv protocol.Haraqa_WatchTopicsServer) error {
 
 	err = <-errs
 	if err != nil {
-		srv.Send(&protocol.WatchResponse{Meta: &protocol.Meta{OK: false, ErrorMsg: err.Error()}})
+		// best effort send error response
+		_ = srv.Send(&protocol.WatchResponse{Meta: &protocol.Meta{OK: false, ErrorMsg: err.Error()}})
 		return err
 	}
 	return nil

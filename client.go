@@ -92,7 +92,7 @@ type Client interface {
 	Close() error
 
 	// Lock sends a lock request to the broker to implement a distributed lock.
-	//  If 'blocking' is set to true it will block until a lock has been aquired
+	//  If 'blocking' is set to true it will block until a lock has been acquired
 	Lock(ctx context.Context, groupName []byte, blocking bool) (closer io.Closer, locked bool, err error)
 }
 
@@ -549,10 +549,11 @@ type closer struct {
 
 func (c *closer) Close() error {
 	if c.stream != nil {
-		c.stream.Send(&protocol.WatchRequest{
+		// best effort send close request
+		_ = c.stream.Send(&protocol.WatchRequest{
 			Term: true,
 		})
-		c.stream.CloseSend()
+		return c.stream.CloseSend()
 	}
 	return nil
 }

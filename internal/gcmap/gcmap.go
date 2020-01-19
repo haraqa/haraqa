@@ -5,6 +5,9 @@ import (
 	"sync"
 )
 
+// NewMap returns a pointer to a Map struct
+//  channelSize determines the maximum number of
+//  closers which will be chached
 func NewMap(channelSize uint64) *Map {
 	return &Map{
 		m: make(map[string]chan io.Closer),
@@ -14,6 +17,8 @@ func NewMap(channelSize uint64) *Map {
 	}
 }
 
+// Map allows any interface which conforms to the io.Closer type to be cached.
+//  As the cache size grows, entries are removed
 type Map struct {
 	mux sync.Mutex
 	m   map[string]chan io.Closer
@@ -22,6 +27,8 @@ type Map struct {
 	l   int
 }
 
+// Get returns an io.Closer, if any is cached, based on the key
+//  if none are cached it returns nil
 func (m *Map) Get(key []byte) io.Closer {
 	ch, ok := m.m[string(key)]
 	if !ok {
@@ -35,6 +42,7 @@ func (m *Map) Get(key []byte) io.Closer {
 	}
 }
 
+// Put caches the structure if there is room in the cache, or closes it otherwise.
 func (m *Map) Put(key []byte, val io.Closer) {
 	m.mux.Lock()
 	delete(m.d, string(key))

@@ -206,7 +206,7 @@ func Example_consume() {
 
 func Example_consumeBuffer() {
 	// when consuming in a loop, it can be more efficient to
-	// use a buffer to avoid unnecesary allocations.
+	// use a buffer to avoid unnecessary allocations.
 	// Messages should be processed or copied prior to reusing the buffer
 
 	config := haraqa.DefaultConfig

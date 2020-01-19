@@ -7,6 +7,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+// WriteTo copies from the Reader to the writer starting at the offset given in
+//  zeroc.NewReader
 func (r *Reader) WriteTo(w io.Writer) (int64, error) {
 	conn, ok := w.(fd)
 	if !ok {

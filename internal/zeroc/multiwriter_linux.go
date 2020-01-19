@@ -27,6 +27,8 @@ type fd interface {
 	Fd() uintptr
 }
 
+// ReadFrom tees the input from a io.reader with file descriptor function Fd()
+//  to a series of pipes and splices those to the underlying files to be written to
 func (w *MultiWriter) ReadFrom(r io.Reader) (int64, error) {
 	f, ok := r.(fd)
 	if !ok {

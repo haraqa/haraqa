@@ -11,6 +11,8 @@ import (
 	"google.golang.org/grpc"
 )
 
+// DefaultConfig is a default configuration for a broker writing to a single volume
+//  '.haraqa'
 var DefaultConfig = Config{
 	Volumes:         []string{".haraqa"},
 	ConsumePoolSize: 10,
@@ -21,6 +23,7 @@ var DefaultConfig = Config{
 	UnixMode:        0600,
 }
 
+// Config is the configuration for a new Broker
 type Config struct {
 	Volumes         []string
 	ConsumePoolSize uint64
@@ -32,6 +35,8 @@ type Config struct {
 	GRPCServer      *grpc.Server
 }
 
+// Broker is core structure of a haraqa broker, it listens for new grpc and data
+//  connections and shepherds data going into and out of a persistent queue
 type Broker struct {
 	protocol.UnimplementedHaraqaServer
 	config     Config

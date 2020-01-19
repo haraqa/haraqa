@@ -23,14 +23,15 @@ func ErrorToResponse(conn io.Writer, err error) {
 	b[0], b[1] = 0, TypeError
 	binary.BigEndian.PutUint32(b[2:6], uint32(len(b)-6))
 	copy(b[6:], []byte(msg))
-	conn.Write(b)
-	return
+	// best effort write the response to the connection
+	_, _ = conn.Write(b)
 }
 
 // each data message begins with 6 bytes
 // 0-2: message flags/type
 // 2-6: header length
 
+// Types for messages incoming over a data connection
 const (
 	TypeError byte = iota + 1
 	TypePing
@@ -39,6 +40,7 @@ const (
 	TypeClose
 )
 
+// ExtendBuffer increases a buffer's length if needed and returns a buffer of length n
 func ExtendBuffer(buf *[]byte, n int) {
 	if n > cap(*buf) {
 		*buf = append(*buf, make([]byte, n-len(*buf))...)
@@ -46,6 +48,8 @@ func ExtendBuffer(buf *[]byte, n int) {
 	*buf = (*buf)[:n]
 }
 
+// ReadPrefix reads the first 6 bytes of a data connection into the prefix and
+//  interprets any response errors accordingly
 func ReadPrefix(conn io.Reader, prefix []byte) (byte, uint32, error) {
 	if len(prefix) != 6 {
 		return 0, 0, errors.New("invalid prefix length")
@@ -86,11 +90,15 @@ func ReadPrefix(conn io.Reader, prefix []byte) (byte, uint32, error) {
 	}
 }
 
+// ProduceRequest is a wrapper for the binary protocol for a produce message over a
+//  data connection
 type ProduceRequest struct {
 	Topic    []byte
 	MsgSizes []int64
 }
 
+// Read is used in the broker for a ProduceRequest, it reads the given buffer and
+//  populates the ProduceRequest's Topic and MsgSizes fields
 func (p *ProduceRequest) Read(b []byte) error {
 	if len(b) < 2 {
 		return errors.New("invalid produce header length")
@@ -124,6 +132,7 @@ func (p *ProduceRequest) Read(b []byte) error {
 	return nil
 }
 
+// Write is called by the client to serialize a Produce request and write it to the connection
 func (p *ProduceRequest) Write(conn io.Writer) error {
 	headerLength := 2 + len(p.Topic) + len(p.MsgSizes)*8
 	buf := make([]byte, 6+headerLength)
@@ -152,6 +161,8 @@ func (p *ProduceRequest) Write(conn io.Writer) error {
 	return err
 }
 
+// ConsumeRequest is the request made to the broker by the client for a batch of messages from a topic
+// starting at a given offset
 type ConsumeRequest struct {
 	Topic  []byte
 	Offset int64
@@ -208,6 +219,8 @@ func (c *ConsumeRequest) Write(conn io.Writer) error {
 	return err
 }
 
+// ConsumeResponse is the message from a broker to a client notifying of messages
+//  being written to the data cannection and their respective sizes
 type ConsumeResponse struct {
 	MsgSizes []int64
 }

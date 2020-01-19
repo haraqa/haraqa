@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Logger implements log.Logger with a writer that writes to haraqa
 type Logger struct {
 	*log.Logger
 	client haraqa.Client
@@ -16,6 +17,7 @@ type Logger struct {
 	done   chan struct{}
 }
 
+// NewLogger connects to haraqa and returns a new *Logger
 func NewLogger(l *log.Logger, config haraqa.Config, topic []byte) (*Logger, error) {
 	client, err := haraqa.NewClient(config)
 	if err != nil {
@@ -43,6 +45,7 @@ func NewLogger(l *log.Logger, config haraqa.Config, topic []byte) (*Logger, erro
 	return logger, nil
 }
 
+// Close closes the haraqa connection and halts the logger
 func (l *Logger) Close() {
 	close(l.ch)
 	<-l.done
