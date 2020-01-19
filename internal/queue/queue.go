@@ -524,7 +524,7 @@ func (q *queue) Offsets(topic []byte) (int64, int64, error) {
 		if err != nil {
 			continue
 		}
-		if n > max {
+		if n >= max {
 			max = n
 			maxName = names[j]
 		}
