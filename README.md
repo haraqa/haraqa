@@ -1,18 +1,17 @@
 Haraqa
-======
+===
+[![GoDoc](https://godoc.org/github.com/haraqa/haraqa?status.svg)](https://pkg.go.dev/github.com/haraqa/haraqa?tab=doc)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/haraqa/haraqa)](https://github.com/haraqa/haraqa/blob/master/go.mod#L3)
+[![Go Report Card](https://goreportcard.com/badge/github.com/haraqa/haraqa)](https://goreportcard.com/report/haraqa/haraqa)
+[![License](https://img.shields.io/github/license/haraqa/haraqa.svg)](https://github.com/haraqa/haraqa/blob/master/LICENSE)
+[![build](https://github.com/haraqa/haraqa/workflows/build/badge.svg)](https://github.com/haraqa/haraqa/blob/master/.github/workflows/go.yml)
+[![Docker Build](https://img.shields.io/docker/cloud/build/haraqa/haraqa.svg)](https://hub.docker.com/r/haraqa/haraqa/)
+[![Release](https://img.shields.io/github/release/haraqa/haraqa.svg)](https://github.com/haraqa/haraqa/releases)
+
 High Availability Routing And Queueing Application
 --------------------------------------------------
 
 ![Mascot](https://raw.githubusercontent.com/haraqa/haraqa/media/mascot.png)
-
-[![GoDoc](https://godoc.org/github.com/haraqa/haraqa?status.svg)](https://pkg.go.dev/github.com/haraqa/haraqa?tab=doc)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/haraqa/haraqa)](https://github.com/haraqa/haraqa/blob/master/go.mod#L3)
-[![Go Report Card](https://goreportcard.com/badge/github.com/haraqa/haraqa)](https://goreportcard.com/report/haraqa/haraqa)
-[![Release](https://img.shields.io/github/release/haraqa/haraqa.svg)](https://github.com/haraqa/haraqa/releases)
-[![License](https://img.shields.io/github/license/haraqa/haraqa.svg)](https://github.com/haraqa/haraqa/blob/master/LICENSE)
-[![stability-unstable](https://img.shields.io/badge/stability-unstable-yellow.svg)](https://github.com/emersion/stability-badges#unstable)
-[![build](https://github.com/haraqa/haraqa/workflows/build/badge.svg)](https://github.com/haraqa/haraqa/blob/master/.github/workflows/go.yml)
-[![Docker Build](https://img.shields.io/docker/cloud/build/haraqa/haraqa.svg)](https://hub.docker.com/r/haraqa/haraqa/)
 
 **haraqa** is designed to be a developer friendly, scalable message queue for data persistence and communication between microservices.
 
@@ -27,7 +26,8 @@ High Availability Routing And Queueing Application
 * [Contributing](#contributing)
 * [License](#license)
 
-## About the Project
+<h2 align="center">About the Project</h2>
+
 ### Overview
 Haraqa is meant for handling and persisting data in a distributed system. One or more
 brokers can be used to send and receive messages. Each broker has a set of 'topics',
@@ -73,7 +73,8 @@ runtime.MemStats data every second.
 In this [example](https://github.com/haraqa/haraqa/tree/master/examples/emails) users are emailed
 once a day to notify them of the number of profile views they received.
 
-## Getting started
+<h2 align="center">Getting started</h2>
+
 ### Broker
 The recommended deployment strategy is to use [Docker](hub.docker.com/r/haraqa/haraqa)
 ```
