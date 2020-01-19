@@ -16,9 +16,12 @@ Haraqa
   </a>
 </div>
 
-**haraqa** is designed to be a developer friendly, scalable message queue for data persistence and communication between microservices.
+**haraqa** is designed to be a developer friendly, scalable message queue for data
+persistence and real-time data streaming between microservices. Haraqa provides high-throughput,
+low-latency, fault-tolerant pipelines for architectures of any size.
 
-#### Table of Contents
+
+### Table of Contents
 * [About the Project](#about-the-project)
   * [Overview](#overview)
   * [Persistence and Replication](#persistence-and-replication)
@@ -66,21 +69,21 @@ If a volume is removed or corrupted during a restart the data is repopulated fro
 </div>
 
 ### Usecases
-#### Log Aggregation
+* #### Log Aggregation
 Haraqa can be used by services to persist logs for debugging or auditing. See the
 [example](https://github.com/haraqa/haraqa/tree/master/examples/logs) for more information.
 
-#### Message routing between clients
+* #### Message routing between clients
 In this [example](https://github.com/haraqa/haraqa/tree/master/examples/message_routing)
 http clients can send and receive messages asynchronously through POST and GET requests
 to a simple REST server. These messages are stored in haraqa in a topic unique to each client.
 
-#### Time series data
+* #### Time series data
 Metrics can be stored in a topic and later used for graphing or more complex analysis.
 This [example](https://github.com/haraqa/haraqa/tree/master/examples/time_series) stores
 runtime.MemStats data every second.
 
-#### Aggregation for emails or notifications
+* #### Aggregation for emails or notifications
 In this [example](https://github.com/haraqa/haraqa/tree/master/examples/emails) users are emailed
 once a day to notify them of the number of profile views they received.
 
@@ -100,7 +103,10 @@ go get github.com/haraqa/haraqa
 Client examples can be found in the
 [godoc documentation](https://pkg.go.dev/github.com/haraqa/haraqa?tab=doc#pkg-overview)
 
-##### Hello World
+
+<details><summary>Hello World Quickstart</summary>
+<p>
+
 ```
 package main
 
@@ -143,6 +149,9 @@ func main() {
   log.Println(msgs)
 }
 ```
+
+</p>
+</details>
 
 <h2 align="center">Contributing</h2>
 
