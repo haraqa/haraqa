@@ -92,8 +92,8 @@ type Client interface {
 	Close() error
 
 	// Lock sends a lock request to the broker to implement a distributed lock.
-	//  It will block until a lock has been aquired
-	Lock(ctx context.Context, groupName []byte) (io.Closer, error)
+	//  If 'blocking' is set to true it will block until a lock has been aquired
+	Lock(ctx context.Context, groupName []byte, blocking bool) (closer io.Closer, locked bool, err error)
 }
 
 // client implements Client
@@ -204,7 +204,7 @@ func (c *client) CreateTopic(ctx context.Context, topic []byte) error {
 	if !meta.GetOK() {
 		switch meta.GetErrorMsg() {
 		case protocol.ErrTopicExists.Error():
-			err = protocol.ErrTopicExists
+			return ErrTopicExists
 		default:
 			err = errors.New(meta.GetErrorMsg())
 		}
@@ -610,10 +610,10 @@ func (c *client) WatchTopics(ctx context.Context, ch chan WatchEvent, topics ...
 }
 
 // Lock implements the Lock function of the haraqa Client
-func (c *client) Lock(ctx context.Context, groupName []byte) (io.Closer, error) {
+func (c *client) Lock(ctx context.Context, groupName []byte, blocking bool) (io.Closer, bool, error) {
 	l, err := c.grpcClient.Lock(ctx)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	req := &protocol.LockRequest{
 		Group: groupName,
@@ -624,21 +624,23 @@ func (c *client) Lock(ctx context.Context, groupName []byte) (io.Closer, error) 
 	for {
 		err = l.Send(req)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		resp, err := l.Recv()
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		if resp.GetLocked() {
 			break
+		} else if !blocking {
+			return nil, false, nil
 		}
 	}
 
 	return &lockCloser{
 		l:         l,
 		groupName: groupName,
-	}, nil
+	}, true, nil
 }
 
 type lockCloser struct {

@@ -253,9 +253,14 @@ func Example_lock() {
 	ctx := context.Background()
 
 	// make a lock for this group on this topic
-	lock, err := client.Lock(ctx, []byte(group+topic))
+	blocking := false
+	lock, locked, err := client.Lock(ctx, []byte(group+topic), blocking)
 	if err != nil {
 		panic(err)
+	}
+	if !locked {
+		log.Println("could not get lock")
+		return
 	}
 	defer lock.Close()
 

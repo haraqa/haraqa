@@ -60,9 +60,12 @@ func main() {
 func newConsumer(client haraqa.Client, topic []byte, groupName []byte) int64 {
 	ctx := context.Background()
 
-	// lock the consumer group
-	lock, err := client.Lock(ctx, append(groupName, topic...))
+	// lock the consumer group, return fast if lock fails
+	lock, locked, err := client.Lock(ctx, append(groupName, topic...), false)
 	check(err)
+	if !locked {
+		return 0
+	}
 
 	// unlock to free next consumer
 	defer lock.Close()
@@ -110,8 +113,10 @@ func getNextOffset(client haraqa.Client, group, topic []byte) int64 {
 
 	// create and retry if topic does not exist
 	if err == haraqa.ErrTopicDoesNotExist {
-		err = client.CreateTopic(ctx, topic)
-		check(err)
+		err = client.CreateTopic(ctx, append(group, topic...))
+		if err != haraqa.ErrTopicExists {
+			check(err)
+		}
 		msgs, err = client.Consume(ctx, append(group, topic...), -1, 5, nil)
 	}
 	check(err)
