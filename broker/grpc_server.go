@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/haraqa/haraqa/internal/protocol"
 	"github.com/pkg/errors"
@@ -199,4 +200,44 @@ func (b *Broker) WatchTopics(srv protocol.Haraqa_WatchTopicsServer) error {
 		return err
 	}
 	return nil
+}
+
+// Lock implements protocol.HaraqaServer Lock
+func (b *Broker) Lock(srv protocol.Haraqa_LockServer) error {
+	var locked bool
+	var group []byte
+	t := time.NewTimer(time.Second * 30)
+
+	defer func() {
+		if locked {
+			b.releaseGroupLock(group)
+		}
+	}()
+
+	for {
+		req, err := srv.Recv()
+		if err != nil {
+			return err
+		}
+
+		if req.Group != nil {
+			group = req.Group
+		}
+
+		if req.GetLock() {
+			t.Reset(time.Duration(req.GetTime()) * time.Millisecond)
+			locked = b.getGroupLock(group, t)
+		} else {
+			b.releaseGroupLock(group)
+			locked = false
+		}
+
+		err = srv.Send(&protocol.LockResponse{
+			Meta:   &protocol.Meta{OK: true},
+			Locked: locked,
+		})
+		if err != nil {
+			return err
+		}
+	}
 }

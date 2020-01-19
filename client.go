@@ -88,8 +88,12 @@ type Client interface {
 	//  If offset is less than 0, the maximum offset of the topic is used.
 	Consume(ctx context.Context, topic []byte, offset int64, limit int64, buf *ConsumeBuffer) (msgs [][]byte, err error)
 
-	//Close closes the grpc and data connections to the broker
+	// Close closes the grpc and data connections to the broker
 	Close() error
+
+	// Lock sends a lock request to the broker to implement a distributed lock.
+	//  It will block until a lock has been aquired
+	Lock(ctx context.Context, groupName []byte) (io.Closer, error)
 }
 
 // client implements Client
@@ -603,4 +607,48 @@ func (c *client) WatchTopics(ctx context.Context, ch chan WatchEvent, topics ...
 	}()
 
 	return &cl, nil
+}
+
+// Lock implements the Lock function of the haraqa Client
+func (c *client) Lock(ctx context.Context, groupName []byte) (io.Closer, error) {
+	l, err := c.grpcClient.Lock(ctx)
+	if err != nil {
+		return nil, err
+	}
+	req := &protocol.LockRequest{
+		Group: groupName,
+		Time:  c.config.Timeout.Milliseconds(),
+		Lock:  true,
+	}
+
+	for {
+		err = l.Send(req)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := l.Recv()
+		if err != nil {
+			return nil, err
+		}
+		if resp.GetLocked() {
+			break
+		}
+	}
+
+	return &lockCloser{
+		l:         l,
+		groupName: groupName,
+	}, nil
+}
+
+type lockCloser struct {
+	l         protocol.Haraqa_LockClient
+	groupName []byte
+}
+
+func (c *lockCloser) Close() error {
+	return c.l.Send(&protocol.LockRequest{
+		Group: c.groupName,
+		Lock:  false,
+	})
 }

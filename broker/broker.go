@@ -3,6 +3,7 @@ package broker
 import (
 	"os"
 	"sync"
+	"time"
 
 	"github.com/haraqa/haraqa/internal/protocol"
 	"github.com/haraqa/haraqa/internal/queue"
@@ -36,6 +37,9 @@ type Broker struct {
 	config     Config
 	Q          queue.Queue
 	listenWait sync.WaitGroup
+
+	groupMux   sync.Mutex
+	groupLocks map[string]chan struct{}
 }
 
 // NewBroker creates a new instance of the haraqa grpc server
@@ -51,8 +55,9 @@ func NewBroker(config Config) (*Broker, error) {
 	}
 
 	b := &Broker{
-		config: config,
-		Q:      q,
+		config:     config,
+		Q:          q,
+		groupLocks: make(map[string]chan struct{}),
 	}
 	if b.config.GRPCServer == nil {
 		b.config.GRPCServer = grpc.NewServer()
@@ -70,4 +75,38 @@ func (b *Broker) Close() error {
 	b.listenWait.Wait()
 
 	return nil
+}
+
+func (b *Broker) getGroupLock(group []byte, t *time.Timer) bool {
+	b.groupMux.Lock()
+	ch, ok := b.groupLocks[string(group)]
+	if !ok {
+		ch = make(chan struct{}, 1)
+		b.groupLocks[string(group)] = ch
+	}
+	b.groupMux.Unlock()
+
+	select {
+	case ch <- struct{}{}:
+		// lock acquired
+		return true
+	case <-t.C:
+		// lock not acquired
+		return false
+	}
+}
+
+func (b *Broker) releaseGroupLock(group []byte) {
+	b.groupMux.Lock()
+	ch, ok := b.groupLocks[string(group)]
+	b.groupMux.Unlock()
+	if !ok {
+		return
+	}
+
+	// unlock if locked
+	select {
+	case <-ch:
+	default:
+	}
 }

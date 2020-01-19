@@ -16,6 +16,8 @@ service Haraqa {
   rpc Offsets (OffsetRequest) returns (OffsetResponse) {}
   // Streams requests for watching one or more topics, returns updated offsets
   rpc WatchTopics(stream WatchRequest) returns (stream WatchResponse) {}
+  // Locks a consumer group, waits for an unlock
+  rpc Lock(stream LockRequest) returns (stream LockResponse) {}
 }
 
 message Meta {
@@ -81,4 +83,15 @@ message WatchResponse {
   bytes topic = 2;
   int64 min_offset = 3;
   int64 max_offset = 4;
+}
+
+message LockRequest {
+  bytes group = 1;
+  int64 time = 2;
+  bool lock = 3;
+}
+
+message LockResponse {
+  Meta meta = 1;
+  bool locked = 2;
 }

@@ -63,6 +63,7 @@ func TestClient(t *testing.T) {
 	}()
 	defer b.Close()
 
+	t.Run("lock", testLock)
 	t.Run("producer", testProduce)
 	t.Run("consumer", testConsumer)
 	wg.Wait()
@@ -185,5 +186,48 @@ func TestWatcher(t *testing.T) {
 	}
 	if event.MinOffset != 0 || event.MaxOffset != 2 || !bytes.Equal(event.Topic, topic2) {
 		t.Fatal(event)
+	}
+}
+
+func testLock(t *testing.T) {
+	config := haraqa.DefaultConfig
+	config.Timeout = time.Second * 1
+	client1, err := haraqa.NewClient(config)
+	for err != nil {
+		t.Log(err)
+		client1, err = haraqa.NewClient(config)
+	}
+	defer client1.Close()
+
+	client2, err := haraqa.NewClient(config)
+	for err != nil {
+		t.Log(err)
+		client2, err = haraqa.NewClient(config)
+	}
+	defer client2.Close()
+
+	lock1, err := client1.Lock(context.Background(), []byte("group"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	before := time.Now()
+	go func() {
+		time.Sleep(time.Second * 3)
+		err := lock1.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	lock2, err := client2.Lock(context.Background(), []byte("group"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	lock2.Close()
+	after := time.Now()
+
+	if after.Sub(before) < time.Second*3 {
+		t.Fatal("did not hold lock long enough")
 	}
 }
