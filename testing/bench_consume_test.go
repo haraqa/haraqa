@@ -83,5 +83,4 @@ func benchConsumer(batchSize int) func(b *testing.B) {
 	}
 }
 
-var discard []byte
 var discardBatch [][]byte

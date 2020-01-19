@@ -206,9 +206,12 @@ func testLock(t *testing.T) {
 	}
 	defer client2.Close()
 
-	lock1, err := client1.Lock(context.Background(), []byte("group"))
+	lock1, locked, err := client1.Lock(context.Background(), []byte("group"), true)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if !locked {
+		t.Fatal("failed to lock client 1")
 	}
 
 	before := time.Now()
@@ -220,11 +223,14 @@ func testLock(t *testing.T) {
 		}
 	}()
 
-	lock2, err := client2.Lock(context.Background(), []byte("group"))
+	lock2, locked, err := client2.Lock(context.Background(), []byte("group"), true)
 	if err != nil {
 		t.Fatal(err)
 	}
 	lock2.Close()
+	if !locked {
+		t.Fatal("failed to lock client 2")
+	}
 	after := time.Now()
 
 	if after.Sub(before) < time.Second*3 {

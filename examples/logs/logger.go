@@ -11,7 +11,7 @@ import (
 
 type Logger struct {
 	*log.Logger
-	client *haraqa.Client
+	client haraqa.Client
 	ch     chan haraqa.ProduceMsg
 	done   chan struct{}
 }
