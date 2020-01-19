@@ -3,10 +3,8 @@ package testing
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -113,7 +111,7 @@ func TestWatcher(t *testing.T) {
 	config := broker.DefaultConfig
 	config.UnixSocket = "/tmp/haraqa.sock"
 	config.Volumes = []string{"watcherVol"}
-	os.Mkdir("watcherVol", 0777)
+	_ = os.Mkdir("watcherVol", 0777)
 	b, err := broker.NewBroker(config)
 	if err != nil {
 		t.Fatal(err)
@@ -134,24 +132,9 @@ func TestWatcher(t *testing.T) {
 
 	// create topics
 	topic1, topic2 := []byte("topic1"), []byte("topic2")
-	err = client.CreateTopic(ctx, topic1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = client.CreateTopic(ctx, topic2)
-	if err != nil {
-		t.Fatal(err)
-	}
+	_ = client.CreateTopic(ctx, topic1)
+	_ = client.CreateTopic(ctx, topic2)
 
-	dir, err := os.Open(filepath.Join(config.Volumes[0], string(topic2)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	names, err := dir.Readdirnames(-1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	fmt.Println(names)
 	// start watcher
 	watchEvents := make(chan haraqa.WatchEvent, 1)
 	closer, err := client.WatchTopics(ctx, watchEvents, topic1, topic2)
@@ -161,10 +144,7 @@ func TestWatcher(t *testing.T) {
 	defer closer.Close()
 
 	// produce to topic 1
-	err = client.Produce(ctx, topic1, []byte("hello world"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	_ = client.Produce(ctx, topic1, []byte("hello world"))
 
 	// handle topic 1 event
 	event := <-watchEvents
@@ -176,10 +156,7 @@ func TestWatcher(t *testing.T) {
 	}
 
 	// produce to topic 2
-	err = client.Produce(ctx, topic2, []byte("hello there"), []byte("hello again"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	_ = client.Produce(ctx, topic2, []byte("hello there"), []byte("hello again"))
 	event = <-watchEvents
 	if event.Err != nil {
 		t.Fatal(event.Err)

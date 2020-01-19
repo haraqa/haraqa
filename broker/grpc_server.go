@@ -134,69 +134,12 @@ func (b *Broker) WatchTopics(srv protocol.Haraqa_WatchTopicsServer) error {
 	}
 
 	errs := make(chan error, 2)
-	go func() {
-	loop:
-		for {
-			select {
-			// watch for events
-			case event := <-watcher.Events:
-				if event.Op != fsnotify.Write || !strings.HasSuffix(event.Name, ".dat") {
-					continue loop
-				}
 
-				topic := filepath.Base(filepath.Dir(event.Name))
+	// send new file offsets to the connection
+	go b.watch(srv, watcher, errs, offsets)
 
-				dat, err := os.Open(event.Name)
-				if err != nil {
-					errs <- errors.Wrapf(err, "trouble getting topic data for %s", topic)
-					return
-				}
-
-				info, err := dat.Stat()
-				if err != nil {
-					errs <- errors.Wrapf(err, "trouble getting topic data for %s", topic)
-					return
-				}
-				o, ok := offsets[topic]
-				if !ok {
-					continue
-				}
-				o[1] = info.Size() / 24
-				offsets[topic] = o
-
-				// send current offsets
-				err = srv.Send(&protocol.WatchResponse{
-					Meta:      &protocol.Meta{OK: true},
-					Topic:     []byte(topic),
-					MinOffset: o[0],
-					MaxOffset: o[1],
-				})
-				if err != nil {
-					errs <- err
-					return
-				}
-
-				// watch for errors
-			case err := <-watcher.Errors:
-				errs <- errors.Wrap(err, "watcher failed")
-				return
-			}
-		}
-	}()
-
-	go func() {
-		for {
-			req, err := srv.Recv()
-			if err != nil {
-				errs <- err
-				return
-			}
-			if req.GetTerm() {
-				errs <- nil
-				return
-			}
-		}
-	}()
+	// read from the connetion, wait for a term signal
+	go b.watchTerm(srv, errs)
 
 	err = <-errs
 	if err != nil {
@@ -205,6 +148,70 @@ func (b *Broker) WatchTopics(srv protocol.Haraqa_WatchTopicsServer) error {
 		return err
 	}
 	return nil
+}
+
+func (b *Broker) watchTerm(srv protocol.Haraqa_WatchTopicsServer, errs chan error) {
+	for {
+		req, err := srv.Recv()
+		if err != nil {
+			errs <- err
+			return
+		}
+		if req.GetTerm() {
+			errs <- nil
+			return
+		}
+	}
+}
+
+func (b *Broker) watch(srv protocol.Haraqa_WatchTopicsServer, watcher *fsnotify.Watcher, errs chan error, offsets map[string][2]int64) {
+loop:
+	for {
+		select {
+		// watch for events
+		case event := <-watcher.Events:
+			if event.Op != fsnotify.Write || !strings.HasSuffix(event.Name, ".dat") {
+				continue loop
+			}
+
+			topic := filepath.Base(filepath.Dir(event.Name))
+
+			dat, err := os.Open(event.Name)
+			if err != nil {
+				errs <- errors.Wrapf(err, "trouble getting topic data for %s", topic)
+				return
+			}
+
+			info, err := dat.Stat()
+			if err != nil {
+				errs <- errors.Wrapf(err, "trouble getting topic data for %s", topic)
+				return
+			}
+			o, ok := offsets[topic]
+			if !ok {
+				continue
+			}
+			o[1] = info.Size() / 24
+			offsets[topic] = o
+
+			// send current offsets
+			err = srv.Send(&protocol.WatchResponse{
+				Meta:      &protocol.Meta{OK: true},
+				Topic:     []byte(topic),
+				MinOffset: o[0],
+				MaxOffset: o[1],
+			})
+			if err != nil {
+				errs <- err
+				return
+			}
+
+			// watch for errors
+		case err := <-watcher.Errors:
+			errs <- errors.Wrap(err, "watcher failed")
+			return
+		}
+	}
 }
 
 // Lock implements protocol.HaraqaServer Lock

@@ -41,91 +41,108 @@ func (b *Broker) handleDataConn(c netConn) {
 			return
 		}
 
-		if t == protocol.TypeClose {
+		switch t {
+		case protocol.TypeClose:
 			return
-		}
-		if t == protocol.TypePing {
+
+		case protocol.TypePing:
 			_, err = conn.Write(prefix[:])
 			if err != nil {
 				log.Println("ping message write resp error:", err)
 				protocol.ErrorToResponse(conn, err)
 				return
 			}
-			continue
-		}
 
-		// read header
-		protocol.ExtendBuffer(&buf, int(hLen))
-		_, err = io.ReadFull(conn, buf)
-		if err != nil {
-			log.Println("read header buffer error:", err)
-			protocol.ErrorToResponse(conn, err)
-			return
-		}
-
-		switch t {
 		case protocol.TypeProduce:
-			// read header
-			err = produceReq.Read(buf)
+			err = b.handleProduce(conn, &produceReq, &buf, hLen, prefix[:])
 			if err != nil {
-				log.Println("produce message read error:", err)
-				protocol.ErrorToResponse(conn, err)
-				return
-			}
-
-			// write to queue
-			err = b.Q.Produce(conn, produceReq.Topic, produceReq.MsgSizes)
-			if err != nil {
-				log.Println("produce message queue error:", err)
-				protocol.ErrorToResponse(conn, err)
-				return
-			}
-
-			// write response
-			prefix[2], prefix[3] = 0, 0
-			_, err = conn.Write(prefix[:])
-			if err != nil {
-				log.Println("produce message write resp error:", err)
-				protocol.ErrorToResponse(conn, err)
+				log.Println(err)
 				return
 			}
 
 		case protocol.TypeConsume:
-			// read header
-			err = consumeReq.Read(buf)
+			err = b.handleConsume(conn, &consumeReq, &consumeResp, &buf, hLen, prefix[:])
 			if err != nil {
-				log.Println("consume message read error:", err)
-				protocol.ErrorToResponse(conn, err)
-				return
-			}
-
-			// read consume metadata
-			filename, startAt, msgSizes, err := b.Q.ConsumeInfo(consumeReq.Topic, consumeReq.Offset, consumeReq.Limit)
-			if err != nil {
-				log.Println("consume info error:", err)
-				protocol.ErrorToResponse(conn, err)
-				return
-			}
-
-			// setup consume header
-			consumeResp.MsgSizes = msgSizes
-			err = consumeResp.Write(conn)
-			if err != nil {
-				log.Println("consume write header error:", err)
-				protocol.ErrorToResponse(conn, err)
-				return
-			}
-
-			// write consume body
-			var totalSize int64
-			for i := range msgSizes {
-				totalSize += msgSizes[i]
-			}
-			err = b.Q.Consume(conn, consumeReq.Topic, filename, startAt, totalSize)
-			if err != nil {
-				log.Println("consume write error:", err)
+				log.Println(err)
 				return
 			}
 		}
 	}
+}
+
+func (b *Broker) handleProduce(conn *os.File, produceReq *protocol.ProduceRequest, buf *[]byte, hLen uint32, prefix []byte) error {
+	// read header
+	protocol.ExtendBuffer(buf, int(hLen))
+	_, err := io.ReadFull(conn, *buf)
+	if err != nil {
+		protocol.ErrorToResponse(conn, err)
+		return errors.Wrap(err, "read produce header buffer error")
+	}
+
+	// read header
+	err = produceReq.Read(*buf)
+	if err != nil {
+		protocol.ErrorToResponse(conn, err)
+		return errors.Wrap(err, "produce message read error")
+	}
+
+	// write to queue
+	err = b.Q.Produce(conn, produceReq.Topic, produceReq.MsgSizes)
+	if err != nil {
+		protocol.ErrorToResponse(conn, err)
+		return errors.Wrap(err, "produce message queue error")
+	}
+
+	// write response
+	prefix[2], prefix[3] = 0, 0
+	_, err = conn.Write(prefix[:])
+	if err != nil {
+		protocol.ErrorToResponse(conn, err)
+		return errors.Wrap(err, "produce message write resp error")
+	}
+	return nil
+}
+
+func (b *Broker) handleConsume(conn *os.File, consumeReq *protocol.ConsumeRequest, consumeResp *protocol.ConsumeResponse, buf *[]byte, hLen uint32, prefix []byte) error {
+	// read header
+	protocol.ExtendBuffer(buf, int(hLen))
+	_, err := io.ReadFull(conn, *buf)
+	if err != nil {
+		log.Println("read header buffer error:", err)
+		protocol.ErrorToResponse(conn, err)
+		return errors.Wrap(err, "read consume header buffer error")
+	}
+
+	// read header
+	err = consumeReq.Read(*buf)
+	if err != nil {
+		protocol.ErrorToResponse(conn, err)
+		return errors.Wrap(err, "consume message read error")
+	}
+
+	// read consume metadata
+	filename, startAt, msgSizes, err := b.Q.ConsumeInfo(consumeReq.Topic, consumeReq.Offset, consumeReq.Limit)
+	if err != nil {
+		protocol.ErrorToResponse(conn, err)
+		return errors.Wrap(err, "consume info error")
+	}
+
+	// setup consume header
+	consumeResp.MsgSizes = msgSizes
+	err = consumeResp.Write(conn)
+	if err != nil {
+		protocol.ErrorToResponse(conn, err)
+		return errors.Wrap(err, "consume write header error")
+	}
+
+	// write consume body
+	var totalSize int64
+	for i := range msgSizes {
+		totalSize += msgSizes[i]
+	}
+	err = b.Q.Consume(conn, consumeReq.Topic, filename, startAt, totalSize)
+	if err != nil {
+		return errors.Wrap(err, "consume write error")
+	}
+	return nil
 }

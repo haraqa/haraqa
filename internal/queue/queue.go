@@ -430,33 +430,11 @@ func (q *queue) ConsumeInfo(topic []byte, offset int64, limit int64) ([]byte, in
 	}
 	filename := filepath.Join(q.volumes[len(q.volumes)-1], string(topic), formatFilename(baseOffset))
 
-	// open the dat file
-	f, err := os.Open(filename + ".dat")
+	// read from .dat file
+	buf, err := q.readDat(filename+".dat", offset, limit)
 	if err != nil {
 		return nil, 0, nil, err
 	}
-	defer f.Close()
-
-	// if the offset is negative (get the latest message), find the latest message offset
-	if offset < 0 {
-		info, err := f.Stat()
-		if err != nil {
-			return nil, 0, nil, err
-		}
-		if info.Size() < 24 {
-			return nil, 0, nil, nil
-		}
-
-		offset = info.Size()/24 - 1
-	}
-
-	// read the dat file
-	buf := make([]byte, limit*24)
-	n, err := f.ReadAt(buf[:], offset*24)
-	if err != nil && err != io.EOF {
-		return nil, 0, nil, err
-	}
-	buf = buf[:n-n%24]
 	if len(buf) < 24 {
 		return nil, 0, nil, nil
 	}
@@ -469,6 +447,37 @@ func (q *queue) ConsumeInfo(topic []byte, offset int64, limit int64) ([]byte, in
 	}
 
 	return []byte(filename + ".hrq"), startAt, msgSizes, nil
+}
+
+func (q *queue) readDat(filename string, offset, limit int64) ([]byte, error) {
+	// open the dat file
+	f, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	// if the offset is negative (get the latest message), find the latest message offset
+	if offset < 0 {
+		info, err := f.Stat()
+		if err != nil {
+			return nil, err
+		}
+		if info.Size() < 24 {
+			return nil, nil
+		}
+
+		offset = info.Size()/24 - 1
+	}
+
+	// read the dat file
+	buf := make([]byte, limit*24)
+	n, err := f.ReadAt(buf[:], offset*24)
+	if err != nil && err != io.EOF {
+		return nil, err
+	}
+	buf = buf[:n-n%24]
+	return buf, nil
 }
 
 func (q *queue) Consume(tcpConn *os.File, topic []byte, filename []byte, startAt int64, totalSize int64) error {
