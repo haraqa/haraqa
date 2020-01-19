@@ -8,10 +8,13 @@ Haraqa
 [![Docker Build](https://img.shields.io/docker/cloud/build/haraqa/haraqa.svg)](https://hub.docker.com/r/haraqa/haraqa/)
 [![Release](https://img.shields.io/github/release/haraqa/haraqa.svg)](https://github.com/haraqa/haraqa/releases)
 
-High Availability Routing And Queueing Application
---------------------------------------------------
+<h2 align="center">High Availability Routing And Queueing Application</h2>
 
-![Mascot](https://raw.githubusercontent.com/haraqa/haraqa/media/mascot.png)
+<div align="center">
+  <a href="https://github.com/haraqa/haraqa">
+    <img src="https://raw.githubusercontent.com/haraqa/haraqa/media/mascot.png"/>
+  </a>
+</div>
 
 **haraqa** is designed to be a developer friendly, scalable message queue for data persistence and communication between microservices.
 
@@ -38,7 +41,11 @@ can be produced one at a time or in batches. Messages are consumed by making a r
 for a specific offset and limit. The messages can be consumed one at a
 time or in batches.
 
-![Diagram](https://raw.githubusercontent.com/haraqa/haraqa/media/diagram.jpg)
+<div align="center">
+  <a href="https://raw.githubusercontent.com/haraqa/haraqa/media/diagram.jpg">
+    <img src="https://raw.githubusercontent.com/haraqa/haraqa/media/diagram.jpg"/>
+  </a>
+</div>
 
 ### Persistence and Replication
 Each broker, after receiving a message from a producer, can save the message to multiple
@@ -52,7 +59,11 @@ on the last volume.
 
 If a volume is removed or corrupted during a restart the data is repopulated from the other volumes.
 
-![Replication](https://raw.githubusercontent.com/haraqa/haraqa/media/replication.jpg)
+<div align="center">
+  <a href="https://raw.githubusercontent.com/haraqa/haraqa/media/replication.jpg">
+    <img src="https://raw.githubusercontent.com/haraqa/haraqa/media/replication.jpg"/>
+  </a>
+</div>
 
 ### Usecases
 #### Log Aggregation
@@ -133,8 +144,10 @@ func main() {
 }
 ```
 
-## Contributing
+<h2 align="center">Contributing</h2>
+
 We want this project to be the best it can be and all feedback, feature requests or pull requests are welcome.
 
-## License
+<h2 align="center">License</h2>
+
 MIT © 2019 [haraqa](https://github.com/haraqa/) and [contributors](https://github.com/haraqa/haraqa/graphs/contributors). See `LICENSE` for more information.
