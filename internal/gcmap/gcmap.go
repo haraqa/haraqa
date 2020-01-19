@@ -36,8 +36,8 @@ func (m *Map) Get(key []byte) io.Closer {
 }
 
 func (m *Map) Put(key []byte, val io.Closer) {
-	delete(m.d, string(key))
 	m.mux.Lock()
+	delete(m.d, string(key))
 	ch, ok := m.m[string(key)]
 	if !ok {
 		ch = m.newChannel(key)
