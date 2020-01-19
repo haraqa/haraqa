@@ -240,3 +240,42 @@ func Example_consumeBuffer() {
 		}
 	}
 }
+
+func Example_lock() {
+	config := haraqa.DefaultConfig
+	client, err := haraqa.NewClient(config)
+	if err != nil {
+		panic(err)
+	}
+	topic := "mytopic"
+	group := "mygroup"
+
+	ctx := context.Background()
+
+	// make a lock for this group on this topic
+	lock, err := client.Lock(ctx, []byte(group+topic))
+	if err != nil {
+		panic(err)
+	}
+	defer lock.Close()
+
+	// we have the lock, now do something
+
+	// make a channel to receive watch messages on
+	ch := make(chan haraqa.WatchEvent, 1)
+
+	// start watching
+	closer, err := client.WatchTopics(ctx, ch, []byte(topic))
+	if err != nil {
+		panic(err)
+	}
+	defer closer.Close()
+
+	for event := range ch {
+		// always check for errors, WatchTopics will be automatically closed if any event.Err is not nil
+		if event.Err != nil {
+			panic(event.Err)
+		}
+		log.Printf("new messages are ready for topic %q, min offset: %d, max offset: %d\n", string(event.Topic), event.MinOffset, event.MaxOffset)
+	}
+}
