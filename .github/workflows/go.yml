@@ -1,4 +1,4 @@
-name: Go
+name: build
 on: [push]
 jobs:
 
@@ -26,7 +26,7 @@ jobs:
 
     - name: Test
       run: go test ./testing -mod=readonly -race -timeout 30s
-    
+
     - name: Benchmark
       run: go test -bench=. -benchtime=1000x -run=XXX ./testing
 
