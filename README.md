@@ -71,20 +71,20 @@ If a volume is removed or corrupted during a restart the data is repopulated fro
 ### Usecases
 * #### Log Aggregation
 Haraqa can be used by services to persist logs for debugging or auditing. See the
-[example](https://github.com/haraqa/haraqa/tree/master/examples/logs) for more information.
+[example](https://github.com/haraqa/haraqa/tree/master/internal/examples/logs) for more information.
 
 * #### Message routing between clients
-In this [example](https://github.com/haraqa/haraqa/tree/master/examples/message_routing)
+In this [example](https://github.com/haraqa/haraqa/tree/master/internal/examples/message_routing)
 http clients can send and receive messages asynchronously through POST and GET requests
 to a simple REST server. These messages are stored in haraqa in a topic unique to each client.
 
 * #### Time series data
 Metrics can be stored in a topic and later used for graphing or more complex analysis.
-This [example](https://github.com/haraqa/haraqa/tree/master/examples/time_series) stores
+This [example](https://github.com/haraqa/haraqa/tree/master/internal/examples/time_series) stores
 runtime.MemStats data every second.
 
 * #### Aggregation for emails or notifications
-In this [example](https://github.com/haraqa/haraqa/tree/master/examples/emails) users are emailed
+In this [example](https://github.com/haraqa/haraqa/tree/master/internal/examples/emails) users are emailed
 once a day to notify them of the number of profile views they received.
 
 <h2 align="center">Getting started</h2>
@@ -103,6 +103,8 @@ go get github.com/haraqa/haraqa
 Client examples can be found in the
 [godoc documentation](https://pkg.go.dev/github.com/haraqa/haraqa?tab=doc#pkg-overview)
 
+##### Additional Examples
+Additional examples are located in the internal examples folder [internal/examples](https://github.com/haraqa/haraqa/tree/master/internal/examples)
 
 <details><summary>Hello World Quickstart</summary>
 <p>

@@ -1,6 +1,6 @@
 .git
 .github
-examples
+internal/examples
 mock
 profiles
 .dockerignore
