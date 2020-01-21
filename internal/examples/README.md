@@ -12,7 +12,7 @@ Kubernetes deployment example to deploy 2 stateful brokers each with a replicati
 Replication is split between 2 persistent volumes and the disk local to the broker.
 
 # Extensions
-## [encypted](https://github.com/haraqa/haraqa/tree/master/internal/examples/encypted)
+## [encrypted](https://github.com/haraqa/haraqa/tree/master/internal/examples/encrypted)
 The regular `haraqa.Client` is extended to encrypt all messages being produced/consumed
 using aes symetric encryption.
 
