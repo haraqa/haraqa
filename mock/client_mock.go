@@ -175,3 +175,19 @@ func (mr *MockClientMockRecorder) Close() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockClient)(nil).Close))
 }
+
+// Lock mocks base method
+func (m *MockClient) Lock(ctx context.Context, groupName []byte, blocking bool) (io.Closer, bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Lock", ctx, groupName, blocking)
+	ret0, _ := ret[0].(io.Closer)
+	ret1, _ := ret[1].(bool)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// Lock indicates an expected call of Lock
+func (mr *MockClientMockRecorder) Lock(ctx, groupName, blocking interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Lock", reflect.TypeOf((*MockClient)(nil).Lock), ctx, groupName, blocking)
+}
