@@ -79,16 +79,15 @@ func (mr *MockClientMockRecorder) ListTopics(ctx, prefix, suffix, regex interfac
 }
 
 // WatchTopics mocks base method
-func (m *MockClient) WatchTopics(ctx context.Context, ch chan haraqa.WatchEvent, topics ...[]byte) (io.Closer, error) {
+func (m *MockClient) WatchTopics(ctx context.Context, ch chan haraqa.WatchEvent, topics ...[]byte) error {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, ch}
 	for _, a := range topics {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "WatchTopics", varargs...)
-	ret0, _ := ret[0].(io.Closer)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // WatchTopics indicates an expected call of WatchTopics

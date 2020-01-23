@@ -137,20 +137,23 @@ func TestWatcher(t *testing.T) {
 
 	// start watcher
 	watchEvents := make(chan haraqa.WatchEvent, 1)
-	closer, err := client.WatchTopics(ctx, watchEvents, topic1, topic2)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer closer.Close()
+	ctxCancel, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go func() {
+		err = client.WatchTopics(ctxCancel, watchEvents, topic1, topic2)
+		if err != nil && err != ctxCancel.Err() {
+			panic(err)
+		}
+	}()
+
+	// wait a moment so goroutine can establish watch
+	time.Sleep(time.Millisecond * 20)
 
 	// produce to topic 1
 	_ = client.Produce(ctx, topic1, []byte("hello world"))
 
 	// handle topic 1 event
 	event := <-watchEvents
-	if event.Err != nil {
-		t.Fatal(event.Err)
-	}
 	if event.MinOffset != 0 || event.MaxOffset != 1 || !bytes.Equal(event.Topic, topic1) {
 		t.Fatal(event)
 	}
@@ -158,9 +161,6 @@ func TestWatcher(t *testing.T) {
 	// produce to topic 2
 	_ = client.Produce(ctx, topic2, []byte("hello there"), []byte("hello again"))
 	event = <-watchEvents
-	if event.Err != nil {
-		t.Fatal(event.Err)
-	}
 	if event.MinOffset != 0 || event.MaxOffset != 2 || !bytes.Equal(event.Topic, topic2) {
 		t.Fatal(event)
 	}

@@ -65,9 +65,9 @@ type Client interface {
 	ListTopics(ctx context.Context, prefix, suffix, regex string) (topics [][]byte, err error)
 
 	// WatchTopics sets up a loop to watch for new offsets in a topic, responses are
-	//  sent at haraqa.WatchEvent structs. The loop closes when closer is closed
-	//  or if an error is found. Errors are returned inside the WatchEvent
-	WatchTopics(ctx context.Context, ch chan WatchEvent, topics ...[]byte) (io.Closer, error)
+	//  sent at haraqa.WatchEvent structs. The loop closes when an error is found
+	//  or if there is a context.Cancel event
+	WatchTopics(ctx context.Context, ch chan WatchEvent, topics ...[]byte) error
 
 	// Offsets returns the minimum and maximum available offsets of a topic
 	Offsets(ctx context.Context, topic []byte) (min, max int64, err error)
@@ -540,32 +540,20 @@ type WatchEvent struct {
 	Topic     []byte
 	MinOffset int64
 	MaxOffset int64
-	Err       error
-}
-
-type closer struct {
-	stream protocol.Haraqa_WatchTopicsClient
-}
-
-func (c *closer) Close() error {
-	if c.stream != nil {
-		// best effort send close request
-		_ = c.stream.Send(&protocol.WatchRequest{
-			Term: true,
-		})
-		return c.stream.CloseSend()
-	}
-	return nil
 }
 
 // WatchTopics loads WatchEvents into a channel, a WatchEvent indicates new messages present in a topic
-func (c *client) WatchTopics(ctx context.Context, ch chan WatchEvent, topics ...[]byte) (io.Closer, error) {
+func (c *client) WatchTopics(ctx context.Context, ch chan WatchEvent, topics ...[]byte) error {
 	if len(topics) == 0 {
-		return nil, errors.New("invalid number of topics sent")
+		return errors.New("invalid number of topics sent")
 	}
 	stream, err := c.grpcClient.WatchTopics(ctx)
 	if err != nil {
-		return nil, err
+		// check if error was cause by context deadline
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return err
 	}
 
 	req := protocol.WatchRequest{
@@ -573,41 +561,66 @@ func (c *client) WatchTopics(ctx context.Context, ch chan WatchEvent, topics ...
 	}
 	err = stream.Send(&req)
 	if err != nil {
-		return nil, err
+		// check if error was cause by context deadline
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return err
 	}
 
 	// receive ack
 	resp, err := stream.Recv()
 	if err != nil {
-		return nil, err
+		// check if error was cause by context deadline
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return err
 	}
 	if !resp.GetMeta().GetOK() {
-		return nil, errors.New(resp.GetMeta().GetErrorMsg())
+		return errors.New(resp.GetMeta().GetErrorMsg())
 	}
 
-	cl := closer{stream: stream}
-	go func() {
-		for {
-			resp, err := stream.Recv()
-			if err != nil {
-				ch <- WatchEvent{Err: err}
-				return
-			}
-			if !resp.GetMeta().GetOK() {
-				err = errors.New(resp.GetMeta().GetErrorMsg())
-				ch <- WatchEvent{Err: err}
-				return
-			}
-
-			ch <- WatchEvent{
-				Topic:     resp.GetTopic(),
-				MinOffset: resp.GetMinOffset(),
-				MaxOffset: resp.GetMaxOffset(),
-			}
-		}
+	defer func() {
+		// best effort send close request
+		_ = stream.Send(&protocol.WatchRequest{
+			Term: true,
+		})
+		_ = stream.CloseSend()
 	}()
 
-	return &cl, nil
+	for {
+		// check for a cancel event
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		// wait until the stream sends a message
+		resp, err := stream.Recv()
+		if err != nil {
+			// check if error was cause by context deadline
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			return err
+		}
+		if !resp.GetMeta().GetOK() {
+			err = errors.New(resp.GetMeta().GetErrorMsg())
+			return err
+		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case ch <- WatchEvent{
+			Topic:     resp.GetTopic(),
+			MinOffset: resp.GetMinOffset(),
+			MaxOffset: resp.GetMaxOffset(),
+		}:
+		}
+	}
 }
 
 // Lock implements the Lock function of the haraqa Client

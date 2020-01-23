@@ -3,6 +3,7 @@ package haraqa_test
 import (
 	"context"
 	"log"
+	"time"
 
 	"github.com/haraqa/haraqa"
 )
@@ -79,20 +80,22 @@ func Example_watchTopics() {
 
 	// make a channel to receive messages on
 	ch := make(chan haraqa.WatchEvent, 1)
+	defer close(ch)
+
+	// start handler go routine
+	go func() {
+		for event := range ch {
+			log.Printf("new messages are ready for topic %q, min offset: %d, max offset: %d\n", string(event.Topic), event.MinOffset, event.MaxOffset)
+		}
+	}()
 
 	// start watching
-	closer, err := client.WatchTopics(ctx, ch, topics...)
-	if err != nil {
-		panic(err)
-	}
-	defer closer.Close()
+	ctx, cancel := context.WithTimeout(ctx, time.Second*20)
+	defer cancel()
 
-	for event := range ch {
-		// always check for errors, WatchTopics will be automatically closed if any event.Err is not nil
-		if event.Err != nil {
-			panic(event.Err)
-		}
-		log.Printf("new messages are ready for topic %q, min offset: %d, max offset: %d\n", string(event.Topic), event.MinOffset, event.MaxOffset)
+	err = client.WatchTopics(ctx, ch, topics...)
+	if err != nil && err != ctx.Err() {
+		panic(err)
 	}
 }
 
@@ -269,18 +272,18 @@ func Example_lock() {
 	// make a channel to receive watch messages on
 	ch := make(chan haraqa.WatchEvent, 1)
 
-	// start watching
-	closer, err := client.WatchTopics(ctx, ch, []byte(topic))
-	if err != nil {
-		panic(err)
-	}
-	defer closer.Close()
-
-	for event := range ch {
-		// always check for errors, WatchTopics will be automatically closed if any event.Err is not nil
-		if event.Err != nil {
-			panic(event.Err)
+	// start handler
+	go func() {
+		for event := range ch {
+			log.Printf("new messages are ready for topic %q, min offset: %d, max offset: %d\n", string(event.Topic), event.MinOffset, event.MaxOffset)
 		}
-		log.Printf("new messages are ready for topic %q, min offset: %d, max offset: %d\n", string(event.Topic), event.MinOffset, event.MaxOffset)
+	}()
+
+	// start watching with a timeout
+	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
+	defer cancel()
+	err = client.WatchTopics(ctx, ch, []byte(topic))
+	if err != nil && err != ctx.Err() {
+		panic(err)
 	}
 }
