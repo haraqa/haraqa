@@ -32,8 +32,9 @@ var DefaultConfig = Config{
 	Host:         "127.0.0.1",
 	GRPCPort:     4353,
 	DataPort:     14353,
+	UnixSocket:   "",
 	CreateTopics: true,
-	Timeout:      time.Second * 5,
+	Timeout:      0,
 }
 
 //Config for new clients, see DefaultConfig for recommended values
@@ -41,9 +42,9 @@ type Config struct {
 	Host         string        // address of the haraqa broker
 	GRPCPort     int           // broker's grpc port (default 4353)
 	DataPort     int           // broker's data port (default 14353)
-	CreateTopics bool          // if a topic does not exist, automatically create it
 	UnixSocket   string        // if set, the unix socket is used for the data connection
-	Timeout      time.Duration // the timeout for grpc requests
+	CreateTopics bool          // if a topic does not exist, automatically create it
+	Timeout      time.Duration // the timeout for grpc requests, 0 for no timeout
 }
 
 // Client is the connection to the haraqa broker. While it's technically possible
@@ -191,8 +192,11 @@ func (c *client) dataConnect() error {
 //CreateTopic creates a new topic. It returns a ErrTopicExists error if the
 // topic has already been created
 func (c *client) CreateTopic(ctx context.Context, topic []byte) error {
-	ctx, cancel := context.WithTimeout(ctx, c.config.Timeout)
-	defer cancel()
+	if c.config.Timeout != 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, c.config.Timeout)
+		defer cancel()
+	}
 
 	// send message request
 	r, err := c.grpcClient.CreateTopic(ctx, &protocol.CreateTopicRequest{
@@ -216,8 +220,11 @@ func (c *client) CreateTopic(ctx context.Context, topic []byte) error {
 
 // DeleteTopic permanentaly deletes all messages in a topic queue
 func (c *client) DeleteTopic(ctx context.Context, topic []byte) error {
-	ctx, cancel := context.WithTimeout(ctx, c.config.Timeout)
-	defer cancel()
+	if c.config.Timeout != 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, c.config.Timeout)
+		defer cancel()
+	}
 
 	// send message request
 	r, err := c.grpcClient.DeleteTopic(ctx, &protocol.DeleteTopicRequest{
@@ -244,8 +251,11 @@ func (c *client) ListTopics(ctx context.Context, prefix, suffix, regex string) (
 		return nil, err
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, c.config.Timeout)
-	defer cancel()
+	if c.config.Timeout != 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, c.config.Timeout)
+		defer cancel()
+	}
 
 	// send message request
 	r, err := c.grpcClient.ListTopics(ctx, &protocol.ListTopicsRequest{Prefix: prefix, Suffix: suffix, Regex: regex})
@@ -420,8 +430,11 @@ func (c *client) ProduceLoop(ctx context.Context, topic []byte, ch chan ProduceM
 // Offsets returns the min and max offsets available for a topic
 //  min, max, err := client.Offset([]byte("myTopic"))
 func (c *client) Offsets(ctx context.Context, topic []byte) (int64, int64, error) {
-	ctx, cancel := context.WithTimeout(ctx, c.config.Timeout)
-	defer cancel()
+	if c.config.Timeout != 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, c.config.Timeout)
+		defer cancel()
+	}
 
 	resp, err := c.grpcClient.Offsets(ctx, &protocol.OffsetRequest{
 		Topic: topic,
