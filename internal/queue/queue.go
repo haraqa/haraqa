@@ -457,17 +457,26 @@ func (q *queue) readDat(filename string, offset, limit int64) ([]byte, error) {
 	}
 	defer f.Close()
 
-	// if the offset is negative (get the latest message), find the latest message offset
-	if offset < 0 {
+	var datSize int64
+	if offset < 0 || limit < 0 {
 		info, err := f.Stat()
 		if err != nil {
 			return nil, err
 		}
-		if info.Size() < 24 {
+		datSize = info.Size()
+		if datSize < 24 {
 			return nil, nil
 		}
+	}
 
-		offset = info.Size()/24 - 1
+	// if the offset is negative (get the latest message), find the latest message offset
+	if offset < 0 {
+		offset = datSize/24 - 1
+	}
+
+	// if limit is less than 1 set to dat size
+	if limit < 1 {
+		limit = datSize/24 + 1
 	}
 
 	// read the dat file
