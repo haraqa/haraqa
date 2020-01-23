@@ -86,6 +86,17 @@ func (b *Broker) handleProduce(conn *os.File, produceReq *protocol.ProduceReques
 		return errors.Wrap(err, "produce message read error")
 	}
 
+	// check msg sizes
+	if b.config.MaxSize > 0 {
+		for i := range produceReq.MsgSizes {
+			if produceReq.MsgSizes[i] > b.config.MaxSize {
+				err = errors.Errorf("invalid message size. exceeds maximum limit of %d bytes", b.config.MaxSize)
+				protocol.ErrorToResponse(conn, err)
+				return err
+			}
+		}
+	}
+
 	// write to queue
 	err = b.Q.Produce(conn, produceReq.Topic, produceReq.MsgSizes)
 	if err != nil {

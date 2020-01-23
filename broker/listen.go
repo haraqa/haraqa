@@ -66,7 +66,7 @@ func (b *Broker) Listen() error {
 
 	// serve grpc
 	go func() {
-		if err := b.config.GRPCServer.Serve(lis); err != nil {
+		if err := b.GRPCServer.Serve(lis); err != nil {
 			errs <- errors.Wrap(err, "failed to serve")
 			return
 		}

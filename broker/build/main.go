@@ -27,7 +27,8 @@ func main() {
 	flag.UintVar(&config.GRPCPort, "grpc", config.GRPCPort, "Port to listen on for grpc connections")
 	flag.UintVar(&config.DataPort, "data", config.DataPort, "Port to listen on for data connections")
 	flag.StringVar(&config.UnixSocket, "unix", config.UnixSocket, "Unix socket for local data connections")
-	flag.IntVar(&config.MaxEntries, "maxentries", config.MaxEntries, "Max entries per file")
+	flag.IntVar(&config.MaxEntries, "max_entries", config.MaxEntries, "Max entries per file")
+	flag.Int64Var(&config.MaxSize, "max_size", config.MaxSize, "maximum message size the broker will accept, if -1 any message size is accepted")
 
 	flag.Parse()
 
@@ -36,10 +37,10 @@ func main() {
 
 	// get volumes from args
 	config.Volumes = flag.Args()
-	config.GRPCServer = grpc.NewServer(
+	config.GRPCOptions = []grpc.ServerOption{
 		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
 		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
-	)
+	}
 
 	log.Printf("config: %+v\n", config)
 	b, err := broker.NewBroker(config)
@@ -48,7 +49,7 @@ func main() {
 	}
 
 	// start http server
-	grpc_prometheus.Register(config.GRPCServer)
+	grpc_prometheus.Register(b.GRPCServer)
 	go func() {
 		if fileserver {
 			http.Handle("/topics/", http.StripPrefix("/topics/", http.FileServer(http.Dir(config.Volumes[len(config.Volumes)-1]))))

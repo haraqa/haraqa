@@ -94,6 +94,49 @@ The recommended deployment strategy is to use [Docker](hub.docker.com/r/haraqa/h
 ```
 docker run -it -p 4353:4353 -p 14353:14353 -v $PWD/v1:/v1 haraqa/haraqa /v1
 ```
+flag.Int64Var(&ballast, "ballast", 1<<30, "Garbage collection ballast")
+flag.UintVar(&httpPort, "http", 6060, "Port for serving pprof metrics and files")
+flag.BoolVar(&fileserver, "fileserver", true, "If true, files are served at http port")
+
+
+
+<details><summary>Details</summary>
+<p>
+
+```
+docker run -it [port mapping] [volume mounts] haraqa/haraqa [flags] [volumes]
+```
+
+##### Flags:
+```
+  -grpc         Port to listen on for grpc connections (default 4353)
+  -data         Port to listen on for data connections (default 14353)
+  -unix         Unix socket to listen on for data connections (default /tmp/haraqa.sock)
+  -http         Port to listen on for metrics and file serving (default 6060)
+  -fileserver   If true, serve topic files on http://[broker address]:[http port]/topics (default true)
+  -max_entries  The maximum number of messages per file before creating a new file (default 10000)
+  -max_size     Maximum message size the broker will accept, if -1 any message size is accepted (default -1)
+  -ballast      Memory ballast size in bytes, the minimum memory footprint before garbage collection is done (default 1073741824)
+```
+
+##### Volumes:
+Volumes will be written to in the order given and recovered from in the reverse
+order. Consumer requests are read from the last volume. For this reason it's
+recommended to use a local volume last.
+
+For instance, given
+```
+docker run haraqa/haraqa /vol1 /vol2 /vol3
+```
+
+When a message is received it will be written to /vol1, then /vol2, then /vol3.
+When a message is consumed it will be read from /vol3.
+
+During recovery, if data exists in /vol3 it will be replicated to volumes /vol1 and /vol2.
+If /vol3 is empty, /vol2 will be replicated to /vol1 and /vol3.
+
+</p>
+</details>
 
 ### Client
 ```

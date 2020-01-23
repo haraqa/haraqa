@@ -16,7 +16,8 @@ import (
 var DefaultConfig = Config{
 	Volumes:         []string{".haraqa"},
 	ConsumePoolSize: 10,
-	MaxEntries:      250000,
+	MaxEntries:      10000,
+	MaxSize:         -1,
 	GRPCPort:        4353,
 	DataPort:        14353,
 	UnixSocket:      "/tmp/haraqa.sock",
@@ -25,14 +26,15 @@ var DefaultConfig = Config{
 
 // Config is the configuration for a new Broker
 type Config struct {
-	Volumes         []string
-	ConsumePoolSize uint64
-	MaxEntries      int
-	GRPCPort        uint
-	DataPort        uint
-	UnixSocket      string
-	UnixMode        os.FileMode
-	GRPCServer      *grpc.Server
+	Volumes         []string            // Volumes to persist messages to in order of which to write
+	ConsumePoolSize uint64              // Number of expected consumers per topic
+	MaxEntries      int                 // Maximum number of entries per file before creating a new file
+	MaxSize         int64               // Maximum message size the broker will accept, if -1 any message size is accepted
+	GRPCPort        uint                // port on which to listen for grpc connections
+	DataPort        uint                // port on which to listen for data connections
+	UnixSocket      string              // unixfile on which to listen for a local data connection
+	UnixMode        os.FileMode         // file mode of unixfile
+	GRPCOptions     []grpc.ServerOption // options to start the grpc server with
 }
 
 // Broker is core structure of a haraqa broker, it listens for new grpc and data
@@ -40,6 +42,7 @@ type Config struct {
 type Broker struct {
 	protocol.UnimplementedHaraqaServer
 	config     Config
+	GRPCServer *grpc.Server
 	Q          queue.Queue
 	listenWait sync.WaitGroup
 
@@ -61,20 +64,19 @@ func NewBroker(config Config) (*Broker, error) {
 
 	b := &Broker{
 		config:     config,
+		GRPCServer: grpc.NewServer(config.GRPCOptions...),
 		Q:          q,
 		groupLocks: make(map[string]chan struct{}),
 	}
-	if b.config.GRPCServer == nil {
-		b.config.GRPCServer = grpc.NewServer()
-	}
-	protocol.RegisterHaraqaServer(b.config.GRPCServer, b)
+
+	protocol.RegisterHaraqaServer(b.GRPCServer, b)
 	return b, nil
 }
 
 // Close attempts to gracefully close all connections and the server
 func (b *Broker) Close() error {
-	if b.config.GRPCServer != nil {
-		b.config.GRPCServer.GracefulStop()
+	if b.GRPCServer != nil {
+		b.GRPCServer.GracefulStop()
 	}
 
 	b.listenWait.Wait()
