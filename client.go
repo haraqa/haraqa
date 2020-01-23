@@ -88,7 +88,7 @@ type Client interface {
 	// Consume sends a consume request and returns a batch of messages, buf can be nil.
 	//  If the topic does not exist Consume returns haraqa.ErrTopicDoesNotExist.
 	//  If offset is less than 0, the maximum offset of the topic is used.
-	//  If limit is less than 0, the broker determins the number of messages sent
+	//  If limit is less than 0, the broker determines the number of messages sent
 	Consume(ctx context.Context, topic []byte, offset int64, limit int64, buf *ConsumeBuffer) (msgs [][]byte, err error)
 
 	// Close closes the grpc and data connections to the broker
