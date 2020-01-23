@@ -65,8 +65,8 @@ type Client interface {
 	ListTopics(ctx context.Context, prefix, suffix, regex string) (topics [][]byte, err error)
 
 	// WatchTopics sets up a loop to watch for new offsets in a topic, responses are
-	//  sent at haraqa.WatchEvent structs. The loop closes when an error is found
-	//  or if there is a context.Cancel event
+	//  sent at haraqa.WatchEvent structs. The loop blocks until an error is found
+	//  or if there is a context cancel event
 	WatchTopics(ctx context.Context, ch chan WatchEvent, topics ...[]byte) error
 
 	// Offsets returns the minimum and maximum available offsets of a topic
@@ -80,7 +80,8 @@ type Client interface {
 
 	// ProduceLoop accepts messages from a channel for the most efficient batching
 	//  from multiple concurrent goroutines. The batch size is determined by the
-	//  capacity of the channel
+	//  capacity of the channel. ProduceLoop blocks until the channel is closed or
+	//  the context has been canceled
 	ProduceLoop(ctx context.Context, topic []byte, ch chan ProduceMsg) error
 
 	// Consume sends a consume request and returns a batch of messages, buf can be nil.
@@ -368,8 +369,18 @@ func (c *client) ProduceLoop(ctx context.Context, topic []byte, ch chan ProduceM
 
 	errs := make([]chan error, 0, cap(ch))
 	msgs := make([][]byte, 0, cap(ch))
+	var ok bool
 
-	for msg := range ch {
+	for {
+		var msg ProduceMsg
+		select {
+		case <-ctx.Done():
+			ok = false
+		case msg, ok = <-ch:
+		}
+		if !ok {
+			break
+		}
 		msgs = append(msgs, msg.Msg)
 		if msg.Err != nil {
 			errs = append(errs, msg.Err)
@@ -403,7 +414,7 @@ func (c *client) ProduceLoop(ctx context.Context, topic []byte, ch chan ProduceM
 			return err
 		}
 	}
-	return nil
+	return ctx.Err()
 }
 
 // Offsets returns the min and max offsets available for a topic
