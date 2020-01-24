@@ -90,11 +90,6 @@ The recommended deployment strategy is to use [Docker](hub.docker.com/r/haraqa/h
 ```
 docker run -it -p 4353:4353 -p 14353:14353 -v $PWD/v1:/v1 haraqa/haraqa /v1
 ```
-flag.Int64Var(&ballast, "ballast", 1<<30, "Garbage collection ballast")
-flag.UintVar(&httpPort, "http", 6060, "Port for serving pprof metrics and files")
-flag.BoolVar(&fileserver, "fileserver", true, "If true, files are served at http port")
-
-
 
 <details><summary>Details</summary>
 <p>
