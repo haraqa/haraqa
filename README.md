@@ -70,22 +70,18 @@ If a volume is removed or corrupted during a restart the data is repopulated fro
 
 ### Usecases
 * #### Log Aggregation
-Haraqa can be used by services to persist logs for debugging or auditing. See the
-[example](https://github.com/haraqa/haraqa/tree/master/internal/examples/logs) for more information.
-
+  * [Example](https://github.com/haraqa/haraqa/tree/master/internal/examples/logs).
+  Haraqa can be used by services to persist logs for debugging or auditing. See the
 * #### Message routing between clients
-In this [example](https://github.com/haraqa/haraqa/tree/master/internal/examples/message_routing)
+  * [Example](https://github.com/haraqa/haraqa/tree/master/internal/examples/message_routing).
 http clients can send and receive messages asynchronously through POST and GET requests
 to a simple REST server. These messages are stored in haraqa in a topic unique to each client.
-
 * #### Time series data
-Metrics can be stored in a topic and later used for graphing or more complex analysis.
-This [example](https://github.com/haraqa/haraqa/tree/master/internal/examples/time_series) stores
-runtime.MemStats data every second.
-
+  * [Example](https://github.com/haraqa/haraqa/tree/master/internal/examples/time_series).
+  Metrics can be stored in a topic and later used for graphing or more complex analysis.
 * #### Aggregation for emails or notifications
-In this [example](https://github.com/haraqa/haraqa/tree/master/internal/examples/emails) users are emailed
-once a day to notify them of the number of profile views they received.
+  * [Example](https://github.com/haraqa/haraqa/tree/master/internal/examples/emails).
+  Notifications can be aggregated and sent out in batches for daily/weekly emails or push notifications.
 
 <h2 align="center">Getting started</h2>
 
@@ -197,6 +193,14 @@ func main() {
 
 </p>
 </details>
+
+#### Command Line Client
+
+See the [hrqa repository](https://github.com/haraqa/hrqa) for more details
+
+```
+go get github.com/haraqa/hrqa
+```
 
 <h2 align="center">Contributing</h2>
 
