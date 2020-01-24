@@ -661,12 +661,22 @@ func (c *client) Lock(ctx context.Context, groupName []byte, blocking bool) (io.
 	}
 
 	for {
+		select {
+		case <-ctx.Done():
+		default:
+		}
 		err = l.Send(req)
 		if err != nil {
+			if ctx.Err() != nil {
+				err = ctx.Err()
+			}
 			return nil, false, err
 		}
 		resp, err := l.Recv()
 		if err != nil {
+			if ctx.Err() != nil {
+				err = ctx.Err()
+			}
 			return nil, false, err
 		}
 		if resp.GetLocked() {
