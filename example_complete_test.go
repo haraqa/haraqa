@@ -16,8 +16,7 @@ func Example() {
 	ch := make(chan haraqa.ProduceMsg, limit)
 
 	// make new client & connect to broker
-	config := haraqa.DefaultConfig
-	client, _ := haraqa.NewClient(config)
+	client, _ := haraqa.NewClient(haraqa.WithAddr("127.0.0.1"))
 	defer client.Close()
 
 	// create a new topic

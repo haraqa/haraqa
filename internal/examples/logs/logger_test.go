@@ -4,13 +4,12 @@ import (
 	"log"
 	"os"
 
-	"github.com/haraqa/haraqa"
 	"github.com/haraqa/haraqa/internal/examples/logs"
 )
 
 func ExampleLogger() {
 	logger := log.New(os.Stderr, "ERROR", log.LstdFlags)
-	logErr, err := logs.NewLogger(logger, haraqa.DefaultConfig, []byte("Errors"))
+	logErr, err := logs.NewLogger(logger, []byte("Errors"))
 	if err != nil {
 		panic(err)
 	}

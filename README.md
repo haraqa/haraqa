@@ -154,8 +154,7 @@ import (
 )
 
 func main() {
-  config := haraqa.DefaultConfig
-  client, err := haraqa.NewClient(config)
+  client, err := haraqa.NewClient(haraqa.WithAddr("127.0.0.1"))
   if err != nil {
     panic(err)
   }

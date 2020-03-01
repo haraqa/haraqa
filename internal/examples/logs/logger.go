@@ -12,14 +12,14 @@ import (
 // Logger implements log.Logger with a writer that writes to haraqa
 type Logger struct {
 	*log.Logger
-	client haraqa.Client
+	client *haraqa.Client
 	ch     chan haraqa.ProduceMsg
 	done   chan struct{}
 }
 
 // NewLogger connects to haraqa and returns a new *Logger
-func NewLogger(l *log.Logger, config haraqa.Config, topic []byte) (*Logger, error) {
-	client, err := haraqa.NewClient(config)
+func NewLogger(l *log.Logger, topic []byte) (*Logger, error) {
+	client, err := haraqa.NewClient()
 	if err != nil {
 		return nil, err
 	}

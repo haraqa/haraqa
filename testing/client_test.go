@@ -68,12 +68,9 @@ func TestClient(t *testing.T) {
 }
 
 func testProduce(t *testing.T) {
-	config := haraqa.DefaultConfig
-	config.UnixSocket = "/tmp/haraqa.sock"
-
-	client, err := haraqa.NewClient(config)
+	client, err := haraqa.NewClient(haraqa.WithUnixSocket("/tmp/haraqa.sock"))
 	for err != nil {
-		client, err = haraqa.NewClient(config)
+		client, err = haraqa.NewClient(haraqa.WithUnixSocket("/tmp/haraqa.sock"))
 	}
 	ctx := context.Background()
 	err = client.Produce(ctx, []byte("world"), []byte("hello"))
@@ -83,12 +80,10 @@ func testProduce(t *testing.T) {
 }
 
 func testConsumer(t *testing.T) {
-	config := haraqa.DefaultConfig
-	config.Timeout = time.Second * 1
-	client, err := haraqa.NewClient(config)
+	client, err := haraqa.NewClient(haraqa.WithTimeout(time.Second * 1))
 	for err != nil {
 		t.Log(err)
-		client, err = haraqa.NewClient(config)
+		client, err = haraqa.NewClient(haraqa.WithTimeout(time.Second * 1))
 	}
 	ctx := context.Background()
 	msgs, err := client.Consume(ctx, []byte("world"), 20, 10, nil)
@@ -104,6 +99,44 @@ func testConsumer(t *testing.T) {
 	}
 	if string(msgs[2]) != " consumer" {
 		t.Fatal(string(msgs[2]))
+	}
+}
+
+func TestAes(t *testing.T) {
+	b, err := broker.NewBroker(broker.DefaultConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer b.Close()
+	go func() {
+		err := b.Listen()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	aesKey := [32]byte{}
+	copy(aesKey[:], []byte("SECRET_KEY"))
+
+	client, err := haraqa.NewClient(haraqa.WithAESGCM(aesKey))
+	for err != nil {
+		t.Log(err)
+		client, err = haraqa.NewClient(haraqa.WithAESGCM(aesKey))
+	}
+	ctx := context.Background()
+	topic := []byte("aes-topic")
+	msgs := [][]byte{[]byte("hello"), []byte("world")}
+	err = client.Produce(ctx, topic, msgs...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	consumedMsgs, err := client.Consume(ctx, topic, 0, 100, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(consumedMsgs[0]) != "hello" || string(consumedMsgs[1]) != "world" {
+		t.Fatal(consumedMsgs)
 	}
 }
 
@@ -123,10 +156,10 @@ func TestWatcher(t *testing.T) {
 			t.Fatal(err)
 		}
 	}()
-	client, err := haraqa.NewClient(haraqa.DefaultConfig)
+	client, err := haraqa.NewClient()
 	for err != nil {
 		t.Log(err)
-		client, err = haraqa.NewClient(haraqa.DefaultConfig)
+		client, err = haraqa.NewClient()
 	}
 	ctx := context.Background()
 
@@ -167,19 +200,17 @@ func TestWatcher(t *testing.T) {
 }
 
 func testLock(t *testing.T) {
-	config := haraqa.DefaultConfig
-	config.Timeout = time.Second * 1
-	client1, err := haraqa.NewClient(config)
+	client1, err := haraqa.NewClient(haraqa.WithTimeout(time.Second * 1))
 	for err != nil {
 		t.Log(err)
-		client1, err = haraqa.NewClient(config)
+		client1, err = haraqa.NewClient(haraqa.WithTimeout(time.Second * 1))
 	}
 	defer client1.Close()
 
-	client2, err := haraqa.NewClient(config)
+	client2, err := haraqa.NewClient(haraqa.WithTimeout(time.Second * 1))
 	for err != nil {
 		t.Log(err)
-		client2, err = haraqa.NewClient(config)
+		client2, err = haraqa.NewClient(haraqa.WithTimeout(time.Second * 1))
 	}
 	defer client2.Close()
 

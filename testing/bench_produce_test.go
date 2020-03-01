@@ -39,7 +39,7 @@ func BenchmarkProduce(b *testing.B) {
 
 func benchProducer(batchSize int) func(b *testing.B) {
 	return func(b *testing.B) {
-		client, err := haraqa.NewClient(haraqa.DefaultConfig)
+		client, err := haraqa.NewClient()
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -68,7 +68,7 @@ func benchProducer(batchSize int) func(b *testing.B) {
 
 func benchProducerLoop(batchSize int) func(b *testing.B) {
 	return func(b *testing.B) {
-		client, err := haraqa.NewClient(haraqa.DefaultConfig)
+		client, err := haraqa.NewClient()
 		if err != nil {
 			b.Fatal(err)
 		}

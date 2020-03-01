@@ -18,8 +18,6 @@ import (
 	"google.golang.org/grpc"
 )
 
-//go:generate mockgen -source client.go -destination mock/client_mock.go -package mock
-
 var (
 	//ErrTopicExists is returned if a CreateTopic request is made to an existing topic
 	ErrTopicExists = protocol.ErrTopicExists
@@ -27,81 +25,20 @@ var (
 	ErrTopicDoesNotExist = protocol.ErrTopicDoesNotExist
 )
 
-//DefaultConfig is the configuration for standard, local deployment of the haraqa broker
-var DefaultConfig = Config{
-	Host:         "127.0.0.1",
-	GRPCPort:     4353,
-	DataPort:     14353,
-	UnixSocket:   "",
-	CreateTopics: true,
-	Timeout:      0,
-}
-
-//Config for new clients, see DefaultConfig for recommended values
-type Config struct {
-	Host         string        // address of the haraqa broker
-	GRPCPort     int           // broker's grpc port (default 4353)
-	DataPort     int           // broker's data port (default 14353)
-	UnixSocket   string        // if set, the unix socket is used for the data connection
-	CreateTopics bool          // if a topic does not exist, automatically create it
-	Timeout      time.Duration // the timeout for grpc requests, 0 for no timeout
-}
-
 // Client is the connection to the haraqa broker. While it's technically possible
 // to produce and consume using the same client, it's recommended to use separate
 // clients for producing and consuming. Use NewClient(config) to start a client
 // session.
-//
-// For unit tests use the haraqa/mock package -> mock.NewMockClient
-type Client interface {
-	// CreateTopic creates a new topic. It returns haraqa.ErrTopicExists if the topic
-	//  has already been created
-	CreateTopic(ctx context.Context, topic []byte) error
+type Client struct {
+	addr         string        // address of the haraqa broker
+	gRPCPort     int           // broker's grpc port (default 4353)
+	dataPort     int           // broker's data port (default 14353)
+	unixSocket   string        // if set, the unix socket is used for the data connection
+	createTopics bool          // if a topic does not exist, automatically create it
+	timeout      time.Duration // the timeout for grpc requests, 0 for no timeout
+	preProcess   []func(msgs [][]byte) error
+	postProcess  []func(msgs [][]byte) error
 
-	// DeleteTopic permanently removes all messages in a topic and the topic itself
-	DeleteTopic(ctx context.Context, topic []byte) error
-
-	// ListTopics returns a list of all topics matching the given prefix, suffix, and regex
-	//  if prefix, suffix and regex are blank all topics are returned
-	ListTopics(ctx context.Context, prefix, suffix, regex string) (topics [][]byte, err error)
-
-	// WatchTopics sets up a loop to watch for new offsets in a topic, responses are
-	//  sent at haraqa.WatchEvent structs. The loop blocks until an error is found
-	//  or if there is a context cancel event
-	WatchTopics(ctx context.Context, ch chan WatchEvent, topics ...[]byte) error
-
-	// Offsets returns the minimum and maximum available offsets of a topic
-	Offsets(ctx context.Context, topic []byte) (min, max int64, err error)
-
-	// Produce sends the message(s) to the broker topic as a single batch. If
-	//  config.CreateTopic is true it will automatically create the topic if it
-	//  doesn't already exist. Otherwise, if the topic does not exist Produce will
-	//  return error haraqa.ErrTopicDoesNotExist
-	Produce(ctx context.Context, topic []byte, msgs ...[]byte) error
-
-	// ProduceLoop accepts messages from a channel for the most efficient batching
-	//  from multiple concurrent goroutines. The batch size is determined by the
-	//  capacity of the channel. ProduceLoop blocks until the channel is closed or
-	//  the context has been canceled
-	ProduceLoop(ctx context.Context, topic []byte, ch chan ProduceMsg) error
-
-	// Consume sends a consume request and returns a batch of messages, buf can be nil.
-	//  If the topic does not exist Consume returns haraqa.ErrTopicDoesNotExist.
-	//  If offset is less than 0, the maximum offset of the topic is used.
-	//  If limit is less than 0, the broker determines the number of messages sent
-	Consume(ctx context.Context, topic []byte, offset int64, limit int64, buf *ConsumeBuffer) (msgs [][]byte, err error)
-
-	// Close closes the grpc and data connections to the broker
-	Close() error
-
-	// Lock sends a lock request to the broker to implement a distributed lock.
-	//  If 'blocking' is set to true it will block until a lock has been acquired
-	Lock(ctx context.Context, groupName []byte, blocking bool) (closer io.Closer, locked bool, err error)
-}
-
-// client implements Client
-type client struct {
-	config       Config
 	grpcConn     *grpc.ClientConn
 	grpcClient   protocol.HaraqaClient
 	dataConnLock sync.Mutex
@@ -110,41 +47,45 @@ type client struct {
 }
 
 // NewClient creates a new haraqa client based on the given config
-//  cfg := haraqa.DefaultConfig
-//  client, err := haraqa.NewClient(cfg)
+//  client, err := haraqa.NewClient()
 //  if err != nil {
 //    panic(err)
 //  }
 //  defer client.Close()
-func NewClient(config Config) (Client, error) {
-	if config.Host == "" {
-		return nil, errors.New("invalid host")
+func NewClient(options ...Option) (*Client, error) {
+
+	c := &Client{
+		addr:         "127.0.0.1",
+		gRPCPort:     4353,
+		dataPort:     14353,
+		unixSocket:   "",
+		createTopics: true,
+		timeout:      0,
+		preProcess:   make([]func([][]byte) error, 0),
+		postProcess:  make([]func([][]byte) error, 0),
 	}
-	if config.GRPCPort == 0 || (config.UnixSocket == "" && config.DataPort == 0) {
-		return nil, errors.New("invalid ports")
+	for _, opt := range options {
+		if err := opt(c); err != nil {
+			return nil, err
+		}
 	}
 
 	// Set up a connection to the server.
-	grpcConn, err := grpc.Dial(config.Host+":"+strconv.Itoa(config.GRPCPort), grpc.WithInsecure(), grpc.WithBlock(), grpc.WithTimeout(config.Timeout))
+	var err error
+	c.grpcConn, err = grpc.Dial(c.addr+":"+strconv.Itoa(c.gRPCPort), grpc.WithInsecure(), grpc.WithBlock(), grpc.WithTimeout(c.timeout))
 	if err != nil {
-		return nil, errors.Wrapf(err, "unable to connect to grpc port %q", config.Host+":"+strconv.Itoa(config.GRPCPort))
+		return nil, errors.Wrapf(err, "unable to connect to grpc port %q", c.addr+":"+strconv.Itoa(c.gRPCPort))
 	}
-	grpcClient := protocol.NewHaraqaClient(grpcConn)
-	if grpcClient == nil {
+	c.grpcClient = protocol.NewHaraqaClient(c.grpcConn)
+	if c.grpcClient == nil {
 		return nil, errors.New("unable to create new grpc client")
-	}
-
-	c := &client{
-		config:     config,
-		grpcConn:   grpcConn,
-		grpcClient: grpcClient,
 	}
 
 	return c, nil
 }
 
 // Close closes the client connection
-func (c *client) Close() error {
+func (c *Client) Close() error {
 	c.dataConnLock.Lock()
 	defer c.dataConnLock.Unlock()
 
@@ -167,22 +108,22 @@ func (c *client) Close() error {
 
 // dataConnect connects a new data client connection to the haraqa broker. it should be called
 // before any consume or produce grpc calls
-func (c *client) dataConnect() error {
+func (c *Client) dataConnect() error {
 	if c.dataConn != nil {
 		return nil
 	}
 	var err error
 	var dataConn net.Conn
 	// connect to data port
-	if c.config.UnixSocket != "" {
-		dataConn, err = net.Dial("unix", c.config.UnixSocket)
+	if c.unixSocket != "" {
+		dataConn, err = net.Dial("unix", c.unixSocket)
 		if err != nil {
-			return errors.Wrapf(err, "unable to connect to unix socket %q", c.config.UnixSocket)
+			return errors.Wrapf(err, "unable to connect to unix socket %q", c.unixSocket)
 		}
 	} else {
-		dataConn, err = net.Dial("tcp", c.config.Host+":"+strconv.Itoa(c.config.DataPort))
+		dataConn, err = net.Dial("tcp", c.addr+":"+strconv.Itoa(c.dataPort))
 		if err != nil {
-			return errors.Wrapf(err, "unable to connect to data port %q", c.config.Host+":"+strconv.Itoa(c.config.DataPort))
+			return errors.Wrapf(err, "unable to connect to data port %q", c.addr+":"+strconv.Itoa(c.dataPort))
 		}
 	}
 
@@ -192,10 +133,10 @@ func (c *client) dataConnect() error {
 
 //CreateTopic creates a new topic. It returns a ErrTopicExists error if the
 // topic has already been created
-func (c *client) CreateTopic(ctx context.Context, topic []byte) error {
-	if c.config.Timeout != 0 {
+func (c *Client) CreateTopic(ctx context.Context, topic []byte) error {
+	if c.timeout != 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, c.config.Timeout)
+		ctx, cancel = context.WithTimeout(ctx, c.timeout)
 		defer cancel()
 	}
 
@@ -220,10 +161,10 @@ func (c *client) CreateTopic(ctx context.Context, topic []byte) error {
 }
 
 // DeleteTopic permanentaly deletes all messages in a topic queue
-func (c *client) DeleteTopic(ctx context.Context, topic []byte) error {
-	if c.config.Timeout != 0 {
+func (c *Client) DeleteTopic(ctx context.Context, topic []byte) error {
+	if c.timeout != 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, c.config.Timeout)
+		ctx, cancel = context.WithTimeout(ctx, c.timeout)
 		defer cancel()
 	}
 
@@ -245,16 +186,16 @@ func (c *client) DeleteTopic(ctx context.Context, topic []byte) error {
 // If prefix is given, only topics matching the prefix are included.
 // If suffix is given, only topics matching the suffix are included.
 // If regex is given, only topics matching the regexp are included.
-func (c *client) ListTopics(ctx context.Context, prefix, suffix, regex string) ([][]byte, error) {
+func (c *Client) ListTopics(ctx context.Context, prefix, suffix, regex string) ([][]byte, error) {
 	// check regex before attempting
 	_, err := regexp.Compile(regex)
 	if err != nil {
 		return nil, err
 	}
 
-	if c.config.Timeout != 0 {
+	if c.timeout != 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, c.config.Timeout)
+		ctx, cancel = context.WithTimeout(ctx, c.timeout)
 		defer cancel()
 	}
 
@@ -270,10 +211,19 @@ func (c *client) ListTopics(ctx context.Context, prefix, suffix, regex string) (
 	return r.GetTopics(), nil
 }
 
-// Produce one or more messages as a batch to a common topic
-func (c *client) Produce(ctx context.Context, topic []byte, msgs ...[]byte) error {
+// Produce sends the message(s) to the broker topic as a single batch. If
+//  config.CreateTopic is true it will automatically create the topic if it
+//  doesn't already exist. Otherwise, if the topic does not exist Produce will
+//  return error haraqa.ErrTopicDoesNotExist
+func (c *Client) Produce(ctx context.Context, topic []byte, msgs ...[]byte) error {
 	if len(msgs) == 0 {
 		return nil
+	}
+
+	for _, process := range c.preProcess {
+		if err := process(msgs); err != nil {
+			return err
+		}
 	}
 
 	c.dataConnLock.Lock()
@@ -282,7 +232,7 @@ func (c *client) Produce(ctx context.Context, topic []byte, msgs ...[]byte) erro
 	return c.produce(ctx, topic, msgs...)
 }
 
-func (c *client) produce(ctx context.Context, topic []byte, msgs ...[]byte) error {
+func (c *Client) produce(ctx context.Context, topic []byte, msgs ...[]byte) error {
 	// reconnect to data endpoint if required
 	err := c.dataConnect()
 	if err != nil {
@@ -359,16 +309,17 @@ func NewProduceMsg(msg []byte) ProduceMsg {
 	}
 }
 
-// ProduceLoop starts a loop that reads from the channel and sends the messages as
-// a batch to the broker. The batch size, the number of messages in a batch, is equal
-// to the capacity of the channel given.
+// ProduceLoop accepts messages from a channel for the most efficient batching
+//  from multiple concurrent goroutines. The batch size is determined by the
+//  capacity of the channel. ProduceLoop blocks until the channel is closed or
+//  the context has been canceled.
 // If the capacity is 0 an error is returned. Batches do not need to be filled before being
 // sent so it is recommended to set the batch size to a reasonably high value.
 // Messages are sent when either the number of messages reaches the channel capacity
 // or when the channel has been drained and there are no remaining messages in the channel.
-// If the channel is closed the ProduceLoop is gracefully stopped and any remaining
-// messages in the channel are sent
-func (c *client) ProduceLoop(ctx context.Context, topic []byte, ch chan ProduceMsg) error {
+// If the channel is closed of the context is cancelled, the ProduceLoop is
+// gracefully stopped and any remaining messages in the channel are sent
+func (c *Client) ProduceLoop(ctx context.Context, topic []byte, ch chan ProduceMsg) error {
 	if cap(ch) == 0 {
 		return errors.New("invalid channel capacity, channels must have a capacity of at least 1")
 	}
@@ -397,6 +348,14 @@ func (c *client) ProduceLoop(ctx context.Context, topic []byte, ch chan ProduceM
 			errs = append(errs, msg.Err)
 		}
 		if len(msgs) == cap(ch) || (len(ch) == 0 && len(msgs) > 0) {
+			for _, process := range c.preProcess {
+				if err := process(msgs); err != nil {
+					for i := range errs {
+						errs[i] <- err
+					}
+					return err
+				}
+			}
 			// send produce batch
 			c.dataConnLock.Lock()
 			err := c.produce(ctx, topic, msgs...)
@@ -414,6 +373,14 @@ func (c *client) ProduceLoop(ctx context.Context, topic []byte, ch chan ProduceM
 	}
 
 	if len(msgs) > 0 {
+		for _, process := range c.preProcess {
+			if err := process(msgs); err != nil {
+				for i := range errs {
+					errs[i] <- err
+				}
+				return err
+			}
+		}
 		//send one last batch
 		c.dataConnLock.Lock()
 		err := c.produce(ctx, topic, msgs...)
@@ -430,10 +397,10 @@ func (c *client) ProduceLoop(ctx context.Context, topic []byte, ch chan ProduceM
 
 // Offsets returns the min and max offsets available for a topic
 //  min, max, err := client.Offset([]byte("myTopic"))
-func (c *client) Offsets(ctx context.Context, topic []byte) (int64, int64, error) {
-	if c.config.Timeout != 0 {
+func (c *Client) Offsets(ctx context.Context, topic []byte) (int64, int64, error) {
+	if c.timeout != 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, c.config.Timeout)
+		ctx, cancel = context.WithTimeout(ctx, c.timeout)
 		defer cancel()
 	}
 
@@ -453,7 +420,19 @@ func (c *client) Offsets(ctx context.Context, topic []byte) (int64, int64, error
 	return resp.GetMinOffset(), resp.GetMaxOffset(), nil
 }
 
-// ConsumeBuffer is a reusable set of buffers used to consume
+// ConsumeBuffer is a reusable set of buffers used to consume. The use of a
+// ConsumeBuffer prevents unneccesary allocations when consuming.
+//  buf := NewConsumerBuffer()
+//  for {
+//		msgs, err := c.Consume(ctx, topic, offset, limit, buf)
+//		if err != nil {
+//			panic(err)
+//		}
+//		for _, msg := range msgs{
+//			fmt.Println(string(msg))
+//		}
+//		offset += int64(len(msgs))
+//  }
 type ConsumeBuffer struct {
 	headerBuf []byte
 	bodyBuf   []byte
@@ -466,8 +445,11 @@ func NewConsumeBuffer() *ConsumeBuffer {
 	return new(ConsumeBuffer)
 }
 
-// Consume sends a consume request and returns a batch of messages, buf can be nil
-func (c *client) Consume(ctx context.Context, topic []byte, offset int64, limit int64, buf *ConsumeBuffer) ([][]byte, error) {
+// Consume sends a consume request and returns a batch of messages, buf can be nil.
+//  If the topic does not exist Consume returns haraqa.ErrTopicDoesNotExist.
+//  If offset is less than 0, the maximum offset of the topic is used.
+//  If limit is less than 0, the broker determines the number of messages sent
+func (c *Client) Consume(ctx context.Context, topic []byte, offset int64, limit int64, buf *ConsumeBuffer) ([][]byte, error) {
 	if buf == nil {
 		buf = NewConsumeBuffer()
 	}
@@ -549,6 +531,11 @@ func (c *client) Consume(ctx context.Context, topic []byte, offset int64, limit 
 		buf.msgBuf[i] = buf.bodyBuf[n : n+resp.MsgSizes[i] : n+resp.MsgSizes[i]]
 		n += resp.MsgSizes[i]
 	}
+	for _, process := range c.postProcess {
+		if err = process(buf.msgBuf); err != nil {
+			return nil, err
+		}
+	}
 	return buf.msgBuf, nil
 }
 
@@ -560,15 +547,18 @@ func sum(in []int64) int64 {
 	return out
 }
 
-// WatchEvent is the structure returned by the WatchTopics channel
+// WatchEvent is the structure returned by the WatchTopics channel. It
+// represents the min and max offsets of a topic when that topic receives new messages.
 type WatchEvent struct {
 	Topic     []byte
 	MinOffset int64
 	MaxOffset int64
 }
 
-// WatchTopics loads WatchEvents into a channel, a WatchEvent indicates new messages present in a topic
-func (c *client) WatchTopics(ctx context.Context, ch chan WatchEvent, topics ...[]byte) error {
+// WatchTopics sets up a loop to watch for new offsets in a topic, responses are
+//  sent at haraqa.WatchEvent structs. The loop blocks until an error is found
+//  or if there is a context cancel event
+func (c *Client) WatchTopics(ctx context.Context, ch chan WatchEvent, topics ...[]byte) error {
 	if len(topics) == 0 {
 		return errors.New("invalid number of topics sent")
 	}
@@ -648,15 +638,16 @@ func (c *client) WatchTopics(ctx context.Context, ch chan WatchEvent, topics ...
 	}
 }
 
-// Lock implements the Lock function of the haraqa Client
-func (c *client) Lock(ctx context.Context, groupName []byte, blocking bool) (io.Closer, bool, error) {
+// Lock sends a lock request to the broker to implement a distributed lock.
+//  If 'blocking' is set to true it will block until a lock has been acquired
+func (c *Client) Lock(ctx context.Context, groupName []byte, blocking bool) (io.Closer, bool, error) {
 	l, err := c.grpcClient.Lock(ctx)
 	if err != nil {
 		return nil, false, err
 	}
 	req := &protocol.LockRequest{
 		Group: groupName,
-		Time:  c.config.Timeout.Milliseconds(),
+		Time:  c.timeout.Milliseconds(),
 		Lock:  true,
 	}
 

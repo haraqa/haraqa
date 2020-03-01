@@ -21,7 +21,7 @@ func check(err error) {
 func main() {
 	go senderLoop()
 
-	client, err := haraqa.NewClient(haraqa.DefaultConfig)
+	client, err := haraqa.NewClient()
 	check(err)
 
 	http.Handle("/profile/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -33,14 +33,14 @@ func main() {
 	client.Close()
 }
 
-func addView(client haraqa.Client, username string) {
+func addView(client *haraqa.Client, username string) {
 	ctx := context.Background()
 	err := client.Produce(ctx, []byte("profile-views:"+username), []byte{0})
 	check(err)
 }
 
 func senderLoop() {
-	client, err := haraqa.NewClient(haraqa.DefaultConfig)
+	client, err := haraqa.NewClient()
 	check(err)
 	defer client.Close()
 
@@ -81,7 +81,7 @@ func senderLoop() {
 	}
 }
 
-func getTopicOffset(ctx context.Context, client haraqa.Client, topic []byte) int64 {
+func getTopicOffset(ctx context.Context, client *haraqa.Client, topic []byte) int64 {
 	// this would be where you call a database, cache or another topic
 	// we'll use haraqa as our datastore
 	offsetTopic := []byte("emailSender:" + string(topic))
@@ -102,7 +102,7 @@ func getTopicOffset(ctx context.Context, client haraqa.Client, topic []byte) int
 	return offset
 }
 
-func setTopicOffset(ctx context.Context, client haraqa.Client, topic []byte, offset int64) {
+func setTopicOffset(ctx context.Context, client *haraqa.Client, topic []byte, offset int64) {
 	offsetTopic := []byte("emailSender:" + string(topic))
 
 	var msg [8]byte

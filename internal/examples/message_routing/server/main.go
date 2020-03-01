@@ -20,11 +20,10 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// allow for sharding
-	config := haraqa.DefaultConfig
-	config.Host = getBrokerByTopic(topic)
+	broker := getBrokerByTopic(topic)
 
 	// open a new client for this topic
-	client, err := haraqa.NewClient(config)
+	client, err := haraqa.NewClient(haraqa.WithBroker(broker))
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))

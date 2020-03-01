@@ -35,7 +35,7 @@ func BenchmarkConsume(b *testing.B) {
 }
 
 func createConsumeTopic() {
-	client, err := haraqa.NewClient(haraqa.DefaultConfig)
+	client, err := haraqa.NewClient()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -61,7 +61,7 @@ func benchConsumer(batchSize int) func(b *testing.B) {
 	return func(b *testing.B) {
 		ctx := context.Background()
 
-		client, err := haraqa.NewClient(haraqa.DefaultConfig)
+		client, err := haraqa.NewClient()
 		if err != nil {
 			b.Fatal(err)
 		}

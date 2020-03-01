@@ -19,7 +19,7 @@ func main() {
 	numPartitions := 5
 	batchSize := 10
 
-	client, err := haraqa.NewClient(haraqa.DefaultConfig)
+	client, err := haraqa.NewClient()
 	check(err)
 
 	ch := make(chan haraqa.ProduceMsg, batchSize)

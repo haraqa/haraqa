@@ -11,12 +11,6 @@ Docker compose deployment example for running a local broker instance with prome
 Kubernetes deployment example to deploy 2 stateful brokers each with a replication factor of 3.
 Replication is split between 2 persistent volumes and the disk local to the broker.
 
-# Extensions
-## [encrypted](https://github.com/haraqa/haraqa/tree/master/internal/examples/encrypted)
-The regular `haraqa.Client` is extended to encrypt all messages being produced/consumed
-using aes symetric encryption.
-
-
 # Usecases
 ## [logs](https://github.com/haraqa/haraqa/tree/master/internal/examples/logs)
 The `haraqa.Client` is used to implement a log.Logger extension which produces logs to a topic.
@@ -35,7 +29,7 @@ Time series metrics are added in series to a topic to be consumed later
 
 # Client implementations
 ## [producer_partitions](https://github.com/haraqa/haraqa/tree/master/internal/examples/producer_partitions)
-A common topic prefix is extended to multiple topics on the broker. Producers send messages to a single
+A common topic is extended to multiple topics on the broker for scalability. Producers send messages to a single
 channel from which multiple ProducerLoops read and send
 
 ## [consumer_group](https://github.com/haraqa/haraqa/tree/master/internal/examples/consumer_group)

@@ -11,7 +11,7 @@ import (
 
 func main() {
 	// connect to the broker
-	client, err := haraqa.NewClient(haraqa.DefaultConfig)
+	client, err := haraqa.NewClient()
 	if err != nil {
 		panic(err)
 	}

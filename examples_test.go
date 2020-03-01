@@ -12,8 +12,7 @@ import (
 // that topic already exists
 func Example_createTopic() {
 	ctx := context.Background()
-	config := haraqa.DefaultConfig
-	client, err := haraqa.NewClient(config)
+	client, err := haraqa.NewClient()
 	if err != nil {
 		panic(err)
 	}
@@ -27,8 +26,7 @@ func Example_createTopic() {
 
 func Example_deleteTopic() {
 	ctx := context.Background()
-	config := haraqa.DefaultConfig
-	client, err := haraqa.NewClient(config)
+	client, err := haraqa.NewClient()
 	if err != nil {
 		panic(err)
 	}
@@ -42,8 +40,7 @@ func Example_deleteTopic() {
 
 func Example_listTopics() {
 	ctx := context.Background()
-	config := haraqa.DefaultConfig
-	client, err := haraqa.NewClient(config)
+	client, err := haraqa.NewClient()
 	if err != nil {
 		panic(err)
 	}
@@ -65,8 +62,7 @@ func Example_listTopics() {
 
 func Example_watchTopics() {
 	ctx := context.Background()
-	config := haraqa.DefaultConfig
-	client, err := haraqa.NewClient(config)
+	client, err := haraqa.NewClient()
 	if err != nil {
 		panic(err)
 	}
@@ -101,8 +97,7 @@ func Example_watchTopics() {
 
 func Example_offsets() {
 	ctx := context.Background()
-	config := haraqa.DefaultConfig
-	client, err := haraqa.NewClient(config)
+	client, err := haraqa.NewClient()
 	if err != nil {
 		panic(err)
 	}
@@ -118,8 +113,7 @@ func Example_offsets() {
 }
 
 func Example_produce() {
-	config := haraqa.DefaultConfig
-	client, err := haraqa.NewClient(config)
+	client, err := haraqa.NewClient()
 	if err != nil {
 		panic(err)
 	}
@@ -140,8 +134,7 @@ func Example_produce() {
 // runs in the background and new messages are sent via a channel to be produced.
 // Messages are batched to increase efficiency
 func Example_produceLoop() {
-	config := haraqa.DefaultConfig
-	client, err := haraqa.NewClient(config)
+	client, err := haraqa.NewClient()
 	if err != nil {
 		panic(err)
 	}
@@ -184,8 +177,7 @@ func Example_produceLoop() {
 
 // Example for consuming messages all at once
 func Example_consume() {
-	config := haraqa.DefaultConfig
-	client, err := haraqa.NewClient(config)
+	client, err := haraqa.NewClient()
 	if err != nil {
 		panic(err)
 	}
@@ -212,8 +204,7 @@ func Example_consumeBuffer() {
 	// use a buffer to avoid unnecessary allocations.
 	// Messages should be processed or copied prior to reusing the buffer
 
-	config := haraqa.DefaultConfig
-	client, err := haraqa.NewClient(config)
+	client, err := haraqa.NewClient()
 	if err != nil {
 		panic(err)
 	}
@@ -245,8 +236,7 @@ func Example_consumeBuffer() {
 }
 
 func Example_lock() {
-	config := haraqa.DefaultConfig
-	client, err := haraqa.NewClient(config)
+	client, err := haraqa.NewClient()
 	if err != nil {
 		panic(err)
 	}

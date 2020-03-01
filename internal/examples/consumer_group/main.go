@@ -19,7 +19,7 @@ func check(err error) {
 func main() {
 	topic := []byte("mytopic")
 	// produce 100 messages to a topic
-	producer, err := haraqa.NewClient(haraqa.DefaultConfig)
+	producer, err := haraqa.NewClient()
 	check(err)
 	msgs := make([][]byte, 100)
 	for i := range msgs {
@@ -35,7 +35,7 @@ func main() {
 	for i := 0; i < 5; i++ {
 		wg.Add(1)
 		go func() {
-			client, err := haraqa.NewClient(haraqa.DefaultConfig)
+			client, err := haraqa.NewClient()
 			check(err)
 			defer client.Close()
 
@@ -49,7 +49,7 @@ func main() {
 	wg.Wait()
 }
 
-func newConsumer(client haraqa.Client, topic []byte, groupName []byte) int64 {
+func newConsumer(client *haraqa.Client, topic []byte, groupName []byte) int64 {
 	ctx := context.Background()
 
 	// lock the consumer group, block until locked
@@ -83,7 +83,7 @@ func newConsumer(client haraqa.Client, topic []byte, groupName []byte) int64 {
 
 // getNextOffset gets the next offset for a topic/group
 //  this uses haraqa, but could also be a cache or data store
-func getNextOffset(client haraqa.Client, group, topic []byte) int64 {
+func getNextOffset(client *haraqa.Client, group, topic []byte) int64 {
 	ctx := context.Background()
 
 	// get last offset
@@ -107,7 +107,7 @@ func getNextOffset(client haraqa.Client, group, topic []byte) int64 {
 	return nextOffset
 }
 
-func setNextOffset(client haraqa.Client, group, topic []byte, offset int64) {
+func setNextOffset(client *haraqa.Client, group, topic []byte, offset int64) {
 	msg := [8]byte{}
 	binary.BigEndian.PutUint64(msg[:], uint64(offset))
 	err := client.Produce(context.Background(), append(group, topic...), msg[:])
