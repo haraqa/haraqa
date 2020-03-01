@@ -1,12 +1,13 @@
 # ===================================================
 # Compiler image (use debian for -race detection)
 # ===================================================
-FROM golang:1.13 as compiler
+FROM golang:1.14 as compiler
 RUN mkdir /profiles && mkdir /haraqa
 WORKDIR /haraqa
 COPY go.mod .
 RUN go mod download
 COPY . .
+RUN cd broker/build && go mod download
 
 # Prevent caching when --build-arg CACHEBUST=$$(date +%s)
 ARG CACHEBUST=1
