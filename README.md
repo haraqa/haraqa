@@ -2,9 +2,10 @@ Haraqa
 ===
 [![GoDoc](https://godoc.org/github.com/haraqa/haraqa?status.svg)](https://pkg.go.dev/github.com/haraqa/haraqa?tab=doc)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/haraqa/haraqa)](https://github.com/haraqa/haraqa/blob/master/go.mod#L3)
-[![Go Report Card](https://goreportcard.com/badge/github.com/haraqa/haraqa)](https://goreportcard.com/report/haraqa/haraqa)
+[![Report Card](https://goreportcard.com/badge/github.com/haraqa/haraqa)](https://goreportcard.com/report/haraqa/haraqa)
 [![License](https://img.shields.io/github/license/haraqa/haraqa.svg)](https://github.com/haraqa/haraqa/blob/master/LICENSE)
-[![build](https://github.com/haraqa/haraqa/workflows/build/badge.svg)](https://github.com/haraqa/haraqa/blob/master/.github/workflows/go.yml)
+[![Build](https://github.com/haraqa/haraqa/workflows/build/badge.svg)](https://github.com/haraqa/haraqa/blob/master/.github/workflows/go.yml)
+[![GolangCI](https://img.shields.io/badge/golangci-results-9cf)](https://golangci.com/r/github.com/haraqa/haraqa)
 [![Docker Build](https://img.shields.io/docker/cloud/build/haraqa/haraqa.svg)](https://hub.docker.com/r/haraqa/haraqa/)
 [![Release](https://img.shields.io/github/release/haraqa/haraqa.svg)](https://github.com/haraqa/haraqa/releases)
 
@@ -71,7 +72,7 @@ If a volume is removed or corrupted during a restart the data is repopulated fro
 ### Usecases
 * #### Log Aggregation
   * [Example](https://github.com/haraqa/haraqa/tree/master/internal/examples/logs).
-  Haraqa can be used by services to persist logs for debugging or auditing. See the
+  Haraqa can be used by services to persist logs for debugging or auditing.
 * #### Message routing between clients
   * [Example](https://github.com/haraqa/haraqa/tree/master/internal/examples/message_routing).
 http clients can send and receive messages asynchronously through POST and GET requests

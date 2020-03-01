@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"strconv"
 	"sync"
@@ -26,8 +27,10 @@ func getInt(name string, defaultValue int) int {
 func main() {
 	wait := make(chan struct{})
 
-	config := haraqa.DefaultConfig
-	config.Host = os.Getenv("HOST")
+	addr := os.Getenv("HOST")
+	if addr == "" {
+		addr = "127.0.0.1"
+	}
 	topic := os.Getenv("TOPIC")
 	n := getInt("N", 250000)
 	msgSize := getInt("MSG_SIZE", 100)
@@ -35,7 +38,7 @@ func main() {
 	numTopics := getInt("NUM_TOPICS", 4)
 	var wg sync.WaitGroup
 
-	client, err := haraqa.NewClient(config)
+	client, err := haraqa.NewClient(haraqa.WithAddr(addr))
 	if err != nil {
 		panic(err)
 	}
@@ -43,7 +46,7 @@ func main() {
 
 	for i := 0; i < numTopics; i++ {
 		cfg := produceConfig{
-			config:    config,
+			addr:      addr,
 			topic:     []byte(topic + "_" + strconv.Itoa(i)),
 			n:         n,
 			msgSize:   msgSize,
@@ -65,11 +68,10 @@ func main() {
 	}
 
 	// wait for clock to get to the nearest 2 min (allows some rudimentary coordination across containers)
-	time.Sleep(time.Second * 5)
-	//	now := time.Now()
-	//	then := now.Add(time.Minute * 1).Round(time.Minute * 2)
-	//log.Println("Ready to go, starting at", then.String())
-	//	<-time.After(then.Sub(time.Now()))
+	now := time.Now()
+	then := now.Add(time.Minute * 1).Round(time.Minute * 2)
+	log.Println("Ready to go, starting at", then.String())
+	<-time.After(then.Sub(time.Now()))
 
 	// start the load, print the time
 	start := time.Now()
@@ -81,7 +83,7 @@ func main() {
 }
 
 type produceConfig struct {
-	config    haraqa.Config
+	addr      string
 	topic     []byte
 	batchSize int
 	n         int
@@ -89,7 +91,7 @@ type produceConfig struct {
 }
 
 func produce(config produceConfig, wait chan struct{}) error {
-	client, err := haraqa.NewClient(config.config)
+	client, err := haraqa.NewClient(haraqa.WithAddr(config.addr))
 	if err != nil {
 		return err
 	}
@@ -103,7 +105,6 @@ func produce(config produceConfig, wait chan struct{}) error {
 		<-wait
 		defer close(ch)
 		for j := 0; j < config.n; j++ {
-			//	log.Println(j)
 			ch <- haraqa.ProduceMsg{Msg: msg}
 		}
 	}()
