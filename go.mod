@@ -6,11 +6,12 @@ require (
 	github.com/fsnotify/fsnotify v1.4.7 // indirect
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/mock v1.3.1
-	github.com/pkg/errors v0.8.1
-	golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553 // indirect
-	golang.org/x/sys v0.0.0-20200107162124-548cf772de50 // indirect
+	github.com/golang/protobuf v1.3.4 // indirect
+	github.com/pkg/errors v0.9.1
+	golang.org/x/net v0.0.0-20200301022130-244492dfa37a // indirect
+	golang.org/x/sys v0.0.0-20200301153931-2f85c7ec1e52 // indirect
 	golang.org/x/text v0.3.2 // indirect
-	google.golang.org/genproto v0.0.0-20191230161307-f3c370f40bfb // indirect
-	google.golang.org/grpc v1.26.0
+	google.golang.org/genproto v0.0.0-20200228133532-8c2c7df3a383 // indirect
+	google.golang.org/grpc v1.27.1
 	gopkg.in/fsnotify.v1 v1.4.7
 )
