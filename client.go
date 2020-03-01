@@ -72,8 +72,13 @@ func NewClient(options ...Option) (*Client, error) {
 
 	// Set up a connection to the server.
 	var err error
-	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
-	defer cancel()
+	ctx := context.Background()
+	if c.timeout != 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, c.timeout)
+		defer cancel()
+	}
+
 	c.grpcConn, err = grpc.DialContext(ctx, c.addr+":"+strconv.Itoa(c.gRPCPort), grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to connect to grpc port %q", c.addr+":"+strconv.Itoa(c.gRPCPort))
