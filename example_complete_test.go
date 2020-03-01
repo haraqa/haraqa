@@ -46,7 +46,9 @@ func Example() {
 	// start a watcher on the topic, this will notify of new topic offsets
 	watchEvents := make(chan haraqa.WatchEvent, 1)
 	ctxCancel, cancel := context.WithCancel(ctx)
-	go client.WatchTopics(ctxCancel, watchEvents, topic)
+	go func() {
+		_ = client.WatchTopics(ctxCancel, watchEvents, topic)
+	}()
 
 	// close watcher on end
 	defer cancel()
@@ -88,9 +90,9 @@ func Example() {
 	_ = client.DeleteTopic(ctx, topic)
 }
 
-func sendMessage(ch chan haraqa.ProduceMsg) error {
+func sendMessage(ch chan haraqa.ProduceMsg) {
 	msg := haraqa.NewProduceMsg([]byte("hello world"))
 	ch <- msg
 	err := <-msg.Err
-	return err
+	log.Println(err)
 }

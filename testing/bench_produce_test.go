@@ -21,7 +21,8 @@ func BenchmarkProduce(b *testing.B) {
 	go func() {
 		err := brkr.Listen()
 		if err != nil {
-			b.Fatal(err)
+			b.Log(err)
+			b.Fail()
 		}
 	}()
 	defer brkr.Close()
@@ -45,12 +46,12 @@ func benchProducer(batchSize int) func(b *testing.B) {
 		}
 		ctx := context.Background()
 		topic := []byte("something")
-		client.CreateTopic(ctx, topic)
+		_ = client.CreateTopic(ctx, topic)
 
 		msgs := make([][]byte, batchSize)
 		for i := range msgs {
 			msgs[i] = make([]byte, 100)
-			rand.Read(msgs[i])
+			_, _ = rand.Read(msgs[i])
 		}
 
 		b.ReportAllocs()
@@ -74,10 +75,10 @@ func benchProducerLoop(batchSize int) func(b *testing.B) {
 		}
 		ctx := context.Background()
 		topic := []byte("something")
-		client.CreateTopic(ctx, topic)
+		_ = client.CreateTopic(ctx, topic)
 
 		msg := make([]byte, 100)
-		rand.Read(msg)
+		_, _ = rand.Read(msg)
 
 		ch := make(chan haraqa.ProduceMsg, batchSize)
 		var wg sync.WaitGroup
@@ -85,7 +86,8 @@ func benchProducerLoop(batchSize int) func(b *testing.B) {
 		go func() {
 			err := client.ProduceLoop(ctx, topic, ch)
 			if err != nil {
-				b.Fatal(err)
+				b.Log(err)
+				b.Fail()
 			}
 			wg.Done()
 		}()

@@ -22,7 +22,8 @@ func BenchmarkConsume(b *testing.B) {
 	go func() {
 		err := brkr.Listen()
 		if err != nil {
-			b.Fatal(err)
+			b.Log(err)
+			b.Fail()
 		}
 	}()
 	createConsumeTopic()
@@ -40,13 +41,13 @@ func createConsumeTopic() {
 		log.Fatal(err)
 	}
 	topic := []byte("consumable")
-	client.CreateTopic(context.Background(), topic)
+	_ = client.CreateTopic(context.Background(), topic)
 
 	msgs := make([][]byte, 1000)
 	for i := range msgs {
 		n, _ := rand.Int(rand.Reader, big.NewInt(20))
 		msgs[i] = make([]byte, n.Int64()+90)
-		rand.Read(msgs[i])
+		_, _ = rand.Read(msgs[i])
 	}
 
 	err = client.Produce(context.Background(), topic, msgs...)

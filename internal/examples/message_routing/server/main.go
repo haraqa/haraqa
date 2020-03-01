@@ -23,7 +23,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	broker := getBrokerByTopic(topic)
 
 	// open a new client for this topic
-	client, err := haraqa.NewClient(haraqa.WithBroker(broker))
+	client, err := haraqa.NewClient(haraqa.WithAddr(broker))
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))

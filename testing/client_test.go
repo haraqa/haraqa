@@ -56,7 +56,8 @@ func TestClient(t *testing.T) {
 	go func() {
 		err := b.Listen()
 		if err != nil {
-			t.Fatal(err)
+			t.Log(err)
+			t.Fail()
 		}
 	}()
 	defer b.Close()
@@ -111,7 +112,8 @@ func TestAes(t *testing.T) {
 	go func() {
 		err := b.Listen()
 		if err != nil {
-			t.Fatal(err)
+			t.Log(err)
+			t.Fail()
 		}
 	}()
 
@@ -153,7 +155,8 @@ func TestWatcher(t *testing.T) {
 	go func() {
 		err := b.Listen()
 		if err != nil {
-			t.Fatal(err)
+			t.Log(err)
+			t.Fail()
 		}
 	}()
 	client, err := haraqa.NewClient()
@@ -175,7 +178,8 @@ func TestWatcher(t *testing.T) {
 	go func() {
 		err = client.WatchTopics(ctxCancel, watchEvents, topic1, topic2)
 		if err != nil && err != ctxCancel.Err() {
-			panic(err)
+			t.Log(err)
+			t.Fail()
 		}
 	}()
 
@@ -227,7 +231,8 @@ func testLock(t *testing.T) {
 		time.Sleep(time.Second * 3)
 		err := lock1.Close()
 		if err != nil {
-			t.Fatal(err)
+			t.Log(err)
+			t.Fail()
 		}
 	}()
 
