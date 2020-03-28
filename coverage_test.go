@@ -39,7 +39,7 @@ func TestAll(t *testing.T) {
 	}()
 
 	defer func() {
-		os.RemoveAll(broker.DefaultConfig.Volumes[0])
+		_ = os.RemoveAll(broker.DefaultConfig.Volumes[0])
 	}()
 
 	t.Run("New client", testNewClient)
@@ -59,14 +59,20 @@ func testNewClient(t *testing.T) {
 
 	t.Run("New client w/valid option", func(t *testing.T) {
 		c, err := NewClient(WithTimeout(time.Second * 2))
-		defer c.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = c.Close()
 		if err != nil {
 			t.Fatal(err)
 		}
 	})
 	t.Run("New client w/no options", func(t *testing.T) {
 		c, err := NewClient()
-		defer c.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = c.Close()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -289,7 +295,7 @@ func testProduce(t *testing.T) {
 		if err.Error() != "invalid channel capacity, channels must have a capacity of at least 1" {
 			t.Fatal(err)
 		}
-		ch = make(chan ProduceMsg, 0)
+		ch = make(chan ProduceMsg)
 		err = c.ProduceLoop(ctx, []byte("test-topic"), ch)
 		if err.Error() != "invalid channel capacity, channels must have a capacity of at least 1" {
 			t.Fatal(err)

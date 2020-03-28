@@ -5,7 +5,7 @@ Haraqa
 [![Report Card](https://goreportcard.com/badge/github.com/haraqa/haraqa)](https://goreportcard.com/report/haraqa/haraqa)
 [![License](https://img.shields.io/github/license/haraqa/haraqa.svg)](https://github.com/haraqa/haraqa/blob/master/LICENSE)
 [![Build](https://github.com/haraqa/haraqa/workflows/build/badge.svg)](https://github.com/haraqa/haraqa/blob/master/.github/workflows/go.yml)
-[![GolangCI](https://img.shields.io/badge/golangci-results-9cf)](https://golangci.com/r/github.com/haraqa/haraqa)
+[![Coverage Status](https://coveralls.io/repos/github/haraqa/haraqa/badge.svg)](https://coveralls.io/github/haraqa/haraqa)
 [![Docker Build](https://img.shields.io/docker/cloud/build/haraqa/haraqa.svg)](https://hub.docker.com/r/haraqa/haraqa/)
 [![Release](https://img.shields.io/github/release/haraqa/haraqa.svg)](https://github.com/haraqa/haraqa/releases)
 
