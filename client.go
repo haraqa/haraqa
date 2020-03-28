@@ -547,14 +547,11 @@ func sum(in []int64) int64 {
 
 // contextErrorOverride sends the ctx.Error() if present, otherwise it sends err
 func contextErrorOverride(ctx context.Context, err error) error {
-	if err != nil {
-		// check if error was cause by context deadline
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-		return err
+	// check if error was cause by context deadline
+	if ctx.Err() != nil {
+		return ctx.Err()
 	}
-	return nil
+	return err
 }
 
 // WatchEvent is the structure returned by the WatchTopics channel. It
