@@ -23,7 +23,7 @@ jobs:
 
     - name: Test
       run: |
-        go test ./testing -mod=readonly -race -timeout 30s -covermode=count -coverprofile=cover.out
+        go test ./testing -mod=readonly -race -timeout 30s -covermode=atomic -coverprofile=cover.out
         goveralls -coverprofile=cover.out -service=github-actions -repotoken $COVERALLS_TOKEN
 
     - name: Benchmark
