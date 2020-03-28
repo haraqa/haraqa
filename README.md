@@ -1,7 +1,6 @@
 Haraqa
 ===
 [![GoDoc](https://godoc.org/github.com/haraqa/haraqa?status.svg)](https://pkg.go.dev/github.com/haraqa/haraqa?tab=doc)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/haraqa/haraqa)](https://github.com/haraqa/haraqa/blob/master/go.mod#L3)
 [![Report Card](https://goreportcard.com/badge/github.com/haraqa/haraqa)](https://goreportcard.com/report/haraqa/haraqa)
 [![License](https://img.shields.io/github/license/haraqa/haraqa.svg)](https://github.com/haraqa/haraqa/blob/master/LICENSE)
 [![Build](https://github.com/haraqa/haraqa/workflows/build/badge.svg)](https://github.com/haraqa/haraqa/blob/master/.github/workflows/go.yml)

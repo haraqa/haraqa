@@ -19,7 +19,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-//go:generate mockgen -source queue.go -destination queue_mock.go -package queue
+//go:generate mockgen -source queue.go -destination ../mocks/queue.go -package mocks
 
 // Queue is the interface for dealing with topics and messages in the haraqa queue
 type Queue interface {
@@ -93,7 +93,7 @@ func NewQueue(volumes []string, maxEntries int, consumePoolSize uint64) (Queue, 
 
 				// copy each file to its destination
 				for _, src := range files {
-					dst, err := os.Create(filepath.Join(emptyVolumes[i], topic, src.Name()))
+					dst, err := os.Create(filepath.Join(emptyVolumes[i], topic, filepath.Base(src.Name())))
 					if err != nil {
 						return nil, err
 					}
@@ -402,7 +402,7 @@ func (q *queue) ConsumeInfo(topic []byte, offset int64, limit int64) ([]byte, in
 		dir, err = os.Open(filepath.Join(q.volumes[len(q.volumes)-1], string(topic)))
 		if err != nil {
 			if os.IsNotExist(err) {
-				return nil, 0, nil, protocol.ErrTopicDoesNotExist
+				err = protocol.ErrTopicDoesNotExist
 			}
 			return nil, 0, nil, err
 		}
@@ -512,22 +512,20 @@ func (q *queue) Offsets(topic []byte) (int64, int64, error) {
 	dir, err := os.Open(path)
 	if err != nil {
 		if _, ok := err.(*os.PathError); ok {
-			return 0, 0, os.ErrNotExist
+			err = os.ErrNotExist
 		}
 		return 0, 0, err
 	}
 	defer dir.Close()
 
 	names, err := dir.Readdirnames(-1)
-	if err != nil {
-		if errors.Cause(err) == os.ErrNotExist {
+	if len(names) == 0 {
+		if err == nil || errors.Cause(err) == os.ErrNotExist {
 			err = os.ErrNotExist
 		}
 		return 0, 0, err
 	}
-	if len(names) == 0 {
-		return 0, 0, os.ErrNotExist
-	}
+
 	var min, max int64
 	min = math.MaxInt64
 	var maxName string

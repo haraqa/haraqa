@@ -7,7 +7,7 @@ import (
 
 // NewMap returns a pointer to a Map struct
 //  channelSize determines the maximum number of
-//  closers which will be chached
+//  closers which will be cached
 func NewMap(channelSize uint64) *Map {
 	return &Map{
 		m: make(map[string]chan io.Closer),

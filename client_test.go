@@ -3,6 +3,7 @@ package haraqa
 import (
 	"bytes"
 	"context"
+	"log"
 	"net"
 	"os"
 	"testing"
@@ -30,12 +31,13 @@ func TestAll(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	go func() {
-		err := b.Listen()
-		if err != nil {
+		err := b.Listen(ctx)
+		if err != nil && err != ctx.Err() {
 			t.Log(err)
 		}
-		b.Close()
 	}()
 
 	defer func() {
@@ -51,12 +53,11 @@ func TestAll(t *testing.T) {
 	t.Run("Offsets", testOffsets)
 	t.Run("WatchTopic", testWatchTopics)
 	t.Run("Lock", testLock)
-
 	t.Run("Options", testOptions)
+	log.Print("hello, is it me you're looking for")
 }
 
 func testNewClient(t *testing.T) {
-
 	t.Run("New client w/valid option", func(t *testing.T) {
 		c, err := NewClient(WithTimeout(time.Second * 2))
 		if err != nil {
@@ -309,7 +310,12 @@ func testProduce(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		ch := make(chan ProduceMsg, 1)
-		go c.ProduceLoop(ctx, []byte("test-topic"), ch)
+		go func() {
+			err := c.ProduceLoop(ctx, []byte("test-topic"), ch)
+			if err != nil {
+				t.Log(err)
+			}
+		}()
 
 		msg := NewProduceMsg([]byte("hello world"))
 		ch <- msg
@@ -329,7 +335,12 @@ func testProduce(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		ch := make(chan ProduceMsg, 1)
-		go c.ProduceLoop(ctx, []byte("test-topic"), ch)
+		go func() {
+			err := c.ProduceLoop(ctx, []byte("test-topic"), ch)
+			if err != nil {
+				t.Log(err)
+			}
+		}()
 
 		msg := NewProduceMsg([]byte("hello world"))
 		ch <- msg

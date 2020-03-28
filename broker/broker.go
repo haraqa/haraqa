@@ -44,7 +44,6 @@ type Broker struct {
 	config     Config
 	GRPCServer *grpc.Server
 	Q          queue.Queue
-	listenWait sync.WaitGroup
 
 	groupMux   sync.Mutex
 	groupLocks map[string]chan struct{}
@@ -71,17 +70,6 @@ func NewBroker(config Config) (*Broker, error) {
 
 	protocol.RegisterHaraqaServer(b.GRPCServer, b)
 	return b, nil
-}
-
-// Close attempts to gracefully close all connections and the server
-func (b *Broker) Close() error {
-	if b.GRPCServer != nil {
-		b.GRPCServer.GracefulStop()
-	}
-
-	b.listenWait.Wait()
-
-	return nil
 }
 
 func (b *Broker) getGroupLock(group []byte, t *time.Timer) bool {

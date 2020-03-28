@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"net/http"
@@ -59,7 +60,7 @@ func main() {
 	}()
 
 	log.Printf("Listening on ports %d (grpc) and %d (data) and unix socket %s (data)\n", config.GRPCPort, config.DataPort, config.UnixSocket)
-	if err := b.Listen(); err != nil {
+	if err := b.Listen(context.Background()); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
 }

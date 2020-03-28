@@ -1,18 +1,20 @@
 package broker
 
 import (
+	"context"
+	"log"
 	"net"
 	"os"
+	"runtime"
 	"strconv"
 
 	"github.com/pkg/errors"
 )
 
-// Listen starts a new grpc server on the given port
-func (b *Broker) Listen() error {
-	b.listenWait.Add(1)
-	defer b.listenWait.Done()
-	errs := make(chan error, 2)
+// Listen starts a new grpc server & listener on the given ports
+func (b *Broker) Listen(ctx context.Context) error {
+	log.Println(runtime.Caller(1))
+	errs := make(chan error, 3)
 
 	// open tcp file data port
 	dataListener, err := net.Listen("tcp", ":"+strconv.FormatUint(uint64(b.config.DataPort), 10))
@@ -73,5 +75,10 @@ func (b *Broker) Listen() error {
 		errs <- nil
 	}()
 
-	return <-errs
+	select {
+	case err := <-errs:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }

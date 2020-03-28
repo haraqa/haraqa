@@ -19,9 +19,11 @@ func BenchmarkConsume(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	go func() {
-		err := brkr.Listen()
-		if err != nil {
+		err := brkr.Listen(ctx)
+		if err != nil && err != ctx.Err() {
 			b.Log(err)
 			b.Fail()
 		}
@@ -31,8 +33,6 @@ func BenchmarkConsume(b *testing.B) {
 	b.Run("consume 10", benchConsumer(10))
 	b.Run("consume 100", benchConsumer(100))
 	b.Run("consume 1000", benchConsumer(1000))
-
-	brkr.Close()
 }
 
 func createConsumeTopic() {

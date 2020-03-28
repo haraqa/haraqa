@@ -419,7 +419,7 @@ func (c *Client) Offsets(ctx context.Context, topic []byte) (int64, int64, error
 }
 
 // ConsumeBuffer is a reusable set of buffers used to consume. The use of a
-// ConsumeBuffer prevents unneccesary allocations when consuming.
+// ConsumeBuffer prevents unnecesary allocations when consuming.
 //  buf := NewConsumerBuffer()
 //  for {
 //		msgs, err := c.Consume(ctx, topic, offset, limit, buf)

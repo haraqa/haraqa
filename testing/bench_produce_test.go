@@ -18,14 +18,15 @@ func BenchmarkProduce(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	go func() {
-		err := brkr.Listen()
-		if err != nil {
+		err := brkr.Listen(ctx)
+		if err != nil && err != ctx.Err() {
 			b.Log(err)
 			b.Fail()
 		}
 	}()
-	defer brkr.Close()
 	fmt.Println("")
 	b.Run("produce 1", benchProducer(1))
 	b.Run("produce 10", benchProducer(10))
