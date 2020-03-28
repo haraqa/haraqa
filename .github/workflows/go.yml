@@ -18,13 +18,13 @@ jobs:
 
     - name: Get dependencies
       run: |
-        go get -v -t -d ./...
+        go mod download
         go get github.com/mattn/goveralls
 
     - name: Test
       run: |
         go test ./testing -mod=readonly -race -timeout 30s -covermode=atomic -coverprofile=cover.out
-        $GOPATH/bin/goveralls -coverprofile=cover.out -service=github-actions -repotoken $COVERALLS_TOKEN
+        $(go env GOPATH)/bin/goveralls -coverprofile=cover.out -service=github-actions -repotoken $COVERALLS_TOKEN
 
     - name: Benchmark
       run: go test -bench=. -benchtime=1000x -run=XXX ./testing
