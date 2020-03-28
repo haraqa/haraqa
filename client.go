@@ -10,6 +10,7 @@ import (
 	"net"
 	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -243,6 +244,12 @@ func (c *Client) produce(ctx context.Context, topic []byte, msgs ...[]byte) erro
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err != nil {
+			c.dataConn.Close()
+			c.dataConn = nil
+		}
+	}()
 
 	msgSizes := make([]int64, len(msgs))
 	var totalSize int64
@@ -258,9 +265,16 @@ func (c *Client) produce(ctx context.Context, topic []byte, msgs ...[]byte) erro
 	}
 	err = req.Write(c.dataConn)
 	if err != nil {
-		c.dataConn.Close()
-		c.dataConn = nil
-		return errors.Wrap(err, "could not write produce header")
+		// check for broken pipe, try to reconnect and retry
+		if strings.HasPrefix(err.Error(), "write tcp") {
+			c.dataConn = nil
+			if c.dataConnect() == nil {
+				err = req.Write(c.dataConn)
+			}
+		}
+		if err != nil {
+			return errors.Wrap(err, "could not write produce header")
+		}
 	}
 
 	// send messages
@@ -270,16 +284,13 @@ func (c *Client) produce(ctx context.Context, topic []byte, msgs ...[]byte) erro
 	}
 	_, err = c.dataConn.Write(c.dataBuf[:n])
 	if err != nil {
-		c.dataConn.Close()
-		c.dataConn = nil
 		return errors.Wrap(err, "unable to write data connection")
 	}
 
 	var prefix [6]byte
-	p, _, err := protocol.ReadPrefix(c.dataConn, prefix[:])
+	var p byte
+	p, _, err = protocol.ReadPrefix(c.dataConn, prefix[:])
 	if err != nil {
-		c.dataConn.Close()
-		c.dataConn = nil
 		if errors.Cause(err) == protocol.ErrTopicDoesNotExist {
 			err = c.CreateTopic(ctx, topic)
 			if err != nil && errors.Cause(err) != protocol.ErrTopicExists {
@@ -290,9 +301,8 @@ func (c *Client) produce(ctx context.Context, topic []byte, msgs ...[]byte) erro
 		return errors.Wrap(err, "could not read from data connection")
 	}
 	if p != protocol.TypeProduce {
-		c.dataConn.Close()
-		c.dataConn = nil
-		return errors.Wrapf(err, "invalid response read from data connection")
+		err = errors.New("invalid response read from data connection")
+		return err
 	}
 
 	return nil
@@ -330,7 +340,10 @@ func (c *Client) ProduceLoop(ctx context.Context, topic []byte, ch chan ProduceM
 	}
 
 	// reconnect to data endpoint if required
-	if err := c.dataConnect(); err != nil {
+	c.dataConnLock.Lock()
+	err := c.dataConnect()
+	c.dataConnLock.Unlock()
+	if err != nil {
 		return err
 	}
 
@@ -387,6 +400,7 @@ func (c *Client) produceLoopProcess(ctx context.Context, topic []byte, msgs [][]
 	c.dataConnLock.Lock()
 	err := c.produce(ctx, topic, msgs...)
 	c.dataConnLock.Unlock()
+
 	for i := range errs {
 		errs[i] <- err
 	}
@@ -458,6 +472,12 @@ func (c *Client) Consume(ctx context.Context, topic []byte, offset int64, limit 
 	if err != nil {
 		return nil, errors.Wrap(err, "could not connect to data port")
 	}
+	defer func() {
+		if err != nil {
+			c.dataConn.Close()
+			c.dataConn = nil
+		}
+	}()
 
 	req := protocol.ConsumeRequest{
 		Topic:  topic,
@@ -467,32 +487,38 @@ func (c *Client) Consume(ctx context.Context, topic []byte, offset int64, limit 
 
 	err = req.Write(c.dataConn)
 	if err != nil {
-		c.dataConn.Close()
-		c.dataConn = nil
-		return nil, errors.Wrap(err, "could not write to data connection")
+		// check for broken pipe, try to reconnect and retry
+		if strings.HasPrefix(err.Error(), "write tcp") {
+			c.dataConn = nil
+			if c.dataConnect() == nil {
+				err = req.Write(c.dataConn)
+			}
+		}
+		if err != nil {
+			return nil, errors.Wrap(err, "could not write to data connection")
+		}
 	}
 
-	var prefix [6]byte
-	p, hLen, err := protocol.ReadPrefix(c.dataConn, prefix[:])
+	var (
+		p      byte
+		hLen   uint32
+		prefix [6]byte
+	)
+	p, hLen, err = protocol.ReadPrefix(c.dataConn, prefix[:])
 	if err != nil {
-		c.dataConn.Close()
-		c.dataConn = nil
 		if errors.Cause(err) == protocol.ErrTopicDoesNotExist {
 			return nil, ErrTopicDoesNotExist
 		}
 		return nil, errors.Wrapf(err, "could not read from data connection")
 	}
 	if p != protocol.TypeConsume {
-		c.dataConn.Close()
-		c.dataConn = nil
-		return nil, errors.Wrapf(err, "invalid response type read from data connection")
+		err = errors.New("invalid response type read from data connection")
+		return nil, err
 	}
 
 	protocol.ExtendBuffer(&buf.headerBuf, int(hLen))
 	_, err = io.ReadFull(c.dataConn, buf.headerBuf)
 	if err != nil {
-		c.dataConn.Close()
-		c.dataConn = nil
 		return nil, errors.Wrap(err, "could not read error from data connection")
 	}
 
@@ -501,8 +527,6 @@ func (c *Client) Consume(ctx context.Context, topic []byte, offset int64, limit 
 	}
 	err = resp.Read(buf.headerBuf)
 	if err != nil {
-		c.dataConn.Close()
-		c.dataConn = nil
 		return nil, errors.Wrapf(err, "invalid response read from data connection")
 	}
 	if cap(resp.MsgSizes) > cap(buf.msgSizes) {
@@ -514,8 +538,6 @@ func (c *Client) Consume(ctx context.Context, topic []byte, offset int64, limit 
 
 	_, err = io.ReadFull(c.dataConn, buf.bodyBuf)
 	if err != nil {
-		c.dataConn.Close()
-		c.dataConn = nil
 		return nil, errors.Wrap(err, "unable to read batch messages from connection")
 	}
 
@@ -530,8 +552,8 @@ func (c *Client) Consume(ctx context.Context, topic []byte, offset int64, limit 
 		n += resp.MsgSizes[i]
 	}
 	for _, process := range c.postProcess {
-		if err = process(buf.msgBuf); err != nil {
-			return nil, err
+		if e := process(buf.msgBuf); e != nil {
+			return nil, e
 		}
 	}
 	return buf.msgBuf, nil

@@ -261,99 +261,136 @@ func testDeleteTopics(c *Client) func(t *testing.T) {
 
 func testProduce(c *Client) func(t *testing.T) {
 	return func(t *testing.T) {
-		t.Run("Invalid Produce Loop", func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-			var ch chan ProduceMsg
+		ctx := context.Background()
+
+		// invalid channel
+		var ch chan ProduceMsg
+		err := c.ProduceLoop(ctx, []byte("test-topic"), ch)
+		if err.Error() != "invalid channel capacity, channels must have a capacity of at least 1" {
+			t.Fatal(err)
+		}
+
+		// invalid channel length
+		ch = make(chan ProduceMsg)
+		err = c.ProduceLoop(ctx, []byte("test-topic"), ch)
+		if err.Error() != "invalid channel capacity, channels must have a capacity of at least 1" {
+			t.Fatal(err)
+		}
+
+		// produce 0 messages
+		err = c.Produce(ctx, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// produce
+		ctx, cancel := context.WithCancel(ctx)
+		ch = make(chan ProduceMsg, 1)
+		go func() {
 			err := c.ProduceLoop(ctx, []byte("test-topic"), ch)
-			if err.Error() != "invalid channel capacity, channels must have a capacity of at least 1" {
-				t.Fatal(err)
-			}
-			ch = make(chan ProduceMsg)
-			err = c.ProduceLoop(ctx, []byte("test-topic"), ch)
-			if err.Error() != "invalid channel capacity, channels must have a capacity of at least 1" {
-				t.Fatal(err)
-			}
-		})
-		t.Run("Produce Loop", func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-			ch := make(chan ProduceMsg, 1)
-			go func() {
-				err := c.ProduceLoop(ctx, []byte("test-topic"), ch)
-				if err != nil {
-					t.Log(err)
-				}
-			}()
-
-			msg := NewProduceMsg([]byte("hello world"))
-			ch <- msg
-			err := <-msg.Err
 			if err != nil {
-				t.Fatal(err)
+				t.Log(err)
 			}
-		})
-		t.Run("Produce Loop w/ invalid preprocess", func(t *testing.T) {
-			c.preProcess = []func(msgs [][]byte) error{func(msgs [][]byte) error {
-				return errMock
-			}}
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-			ch := make(chan ProduceMsg, 1)
-			go func() {
-				err := c.ProduceLoop(ctx, []byte("test-topic"), ch)
-				if err != nil {
-					t.Log(err)
-				}
-			}()
+		}()
+		msg := NewProduceMsg([]byte("hello world"))
+		ch <- msg
+		err = <-msg.Err
+		if err != nil {
+			t.Fatal(err)
+		}
+		cancel()
 
-			msg := NewProduceMsg([]byte("hello world"))
-			ch <- msg
-			err := <-msg.Err
-			if err != errMock {
-				t.Fatal(err)
-			}
-		})
-		t.Run("Produce 0 messages", func(t *testing.T) {
-			ctx := context.Background()
-			err := c.Produce(ctx, nil)
+		// produce loop w/invalid preProcess
+		c.preProcess = []func(msgs [][]byte) error{func(msgs [][]byte) error {
+			return errMock
+		}}
+		ctx, cancel = context.WithCancel(context.Background())
+		go func() {
+			err := c.ProduceLoop(ctx, []byte("test-topic"), ch)
 			if err != nil {
-				t.Fatal(err)
+				t.Log(err)
 			}
-		})
-		t.Run("Produce message with invalid preprocess", func(t *testing.T) {
-			c.preProcess = []func(msgs [][]byte) error{func(msgs [][]byte) error {
-				return errMock
-			}}
-			ctx := context.Background()
-			err := c.Produce(ctx, nil, []byte("message"))
-			if err != errMock {
-				t.Fatal(err)
-			}
-		})
+		}()
+		msg = NewProduceMsg([]byte("hello world"))
+		ch <- msg
+		err = <-msg.Err
+		if err != errMock {
+			t.Fatal(err)
+		}
+		cancel()
+
+		// produce w/ invalid preprocess
+		err = c.Produce(ctx, nil, []byte("message"))
+		if err != errMock {
+			t.Fatal(err)
+		}
+
 		c.preProcess = nil
+
+		// produce w/ invalid dataconn
+		c.dataConn = nil
+		dataport := c.dataPort
+		c.dataPort = -1
+		err = c.Produce(ctx, nil, []byte("message"))
+		if _, ok := errors.Cause(err).(*net.OpError); !ok {
+			t.Fatal(err)
+		}
+
+		// produce loop w/invalid dataconn
+		err = c.ProduceLoop(ctx, []byte("test-topic"), ch)
+		if _, ok := errors.Cause(err).(*net.OpError); !ok {
+			t.Fatal(err)
+		}
+
+		c.dataPort = dataport
 	}
 }
 
 func testConsume(c *Client) func(t *testing.T) {
 	return func(t *testing.T) {
-		t.Run("Consume", func(t *testing.T) {
-			ctx := context.Background()
-			topic := []byte("consumeTopic")
-			msg := []byte("consume message")
-			err := c.Produce(ctx, topic, msg)
-			if err != nil {
-				t.Fatal(err)
-			}
+		ctx := context.Background()
+		topic := []byte("consumeTopic")
+		msg := []byte("consume message")
+		err := c.Produce(ctx, topic, msg)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-			msgs, err := c.Consume(ctx, topic, 0, 1, nil)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if len(msgs) != 1 || !bytes.Equal(msgs[0], msg) {
-				t.Fatal(msgs)
-			}
-		})
+		// consume w/invalid dataconn
+		dataPort := c.dataPort
+		c.dataConn = nil
+		c.dataPort = -1
+		_, err = c.Consume(ctx, topic, 0, 1, nil)
+		if _, ok := errors.Cause(err).(*net.OpError); !ok {
+			t.Fatal(err)
+		}
+		c.dataPort = dataPort
+
+		// consume
+		msgs, err := c.Consume(ctx, topic, 0, 1, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(msgs) != 1 || !bytes.Equal(msgs[0], msg) {
+			t.Fatal(msgs)
+		}
+
+		// consume with closed datacon
+		c.dataConn.Close()
+		_, err = c.Consume(ctx, topic, 0, 1, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// consume with err postProcess
+		c.postProcess = []func(msgs [][]byte) error{func(msgs [][]byte) error {
+			return errMock
+		}}
+		_, err = c.Consume(ctx, topic, 0, 1, nil)
+		if err != errMock {
+			t.Fatal(err)
+		}
+		c.postProcess = nil
 	}
 }
 
