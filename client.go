@@ -84,9 +84,6 @@ func NewClient(options ...Option) (*Client, error) {
 		return nil, errors.Wrapf(err, "unable to connect to grpc port %q", c.addr+":"+strconv.Itoa(c.gRPCPort))
 	}
 	c.grpcClient = protocol.NewHaraqaClient(c.grpcConn)
-	if c.grpcClient == nil {
-		return nil, errors.New("unable to create new grpc client")
-	}
 
 	return c, nil
 }
@@ -96,19 +93,18 @@ func (c *Client) Close() error {
 	c.dataConnLock.Lock()
 	defer c.dataConnLock.Unlock()
 
-	var errs []error
-
-	if err := c.grpcConn.Close(); err != nil {
-		errs = append(errs, err)
+	errs := make([]error, 0, 2)
+	if c.grpcConn != nil {
+		errs = append(errs, c.grpcConn.Close())
 	}
 	if c.dataConn != nil {
-		if err := c.dataConn.Close(); err != nil {
-			errs = append(errs, err)
-		}
+		errs = append(errs, c.dataConn.Close())
 	}
 
-	if len(errs) > 0 {
-		return errors.Wrapf(errs[0], "error closing haraqa client total errors: (%d)", len(errs))
+	for i := range errs {
+		if errs[i] != nil {
+			return errors.Wrap(errs[i], "error closing haraqa client")
+		}
 	}
 	return nil
 }
@@ -195,9 +191,11 @@ func (c *Client) DeleteTopic(ctx context.Context, topic []byte) error {
 // If regex is given, only topics matching the regexp are included.
 func (c *Client) ListTopics(ctx context.Context, prefix, suffix, regex string) ([][]byte, error) {
 	// check regex before attempting
-	_, err := regexp.Compile(regex)
-	if err != nil {
-		return nil, err
+	if regex != "" {
+		_, err := regexp.Compile(regex)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if c.timeout != 0 {
@@ -355,21 +353,7 @@ func (c *Client) ProduceLoop(ctx context.Context, topic []byte, ch chan ProduceM
 			errs = append(errs, msg.Err)
 		}
 		if len(msgs) == cap(ch) || (len(ch) == 0 && len(msgs) > 0) {
-			for _, process := range c.preProcess {
-				if err := process(msgs); err != nil {
-					for i := range errs {
-						errs[i] <- err
-					}
-					return err
-				}
-			}
-			// send produce batch
-			c.dataConnLock.Lock()
-			err := c.produce(ctx, topic, msgs...)
-			c.dataConnLock.Unlock()
-			for i := range errs {
-				errs[i] <- err
-			}
+			err := c.produceLoopProcess(ctx, topic, msgs, errs)
 			if err != nil {
 				return err
 			}
@@ -380,26 +364,33 @@ func (c *Client) ProduceLoop(ctx context.Context, topic []byte, ch chan ProduceM
 	}
 
 	if len(msgs) > 0 {
-		for _, process := range c.preProcess {
-			if err := process(msgs); err != nil {
-				for i := range errs {
-					errs[i] <- err
-				}
-				return err
-			}
-		}
-		//send one last batch
-		c.dataConnLock.Lock()
-		err := c.produce(ctx, topic, msgs...)
-		c.dataConnLock.Unlock()
-		for i := range errs {
-			errs[i] <- err
-		}
+		// send one last batch
+		err := c.produceLoopProcess(ctx, topic, msgs, errs)
 		if err != nil {
 			return err
 		}
 	}
 	return ctx.Err()
+}
+
+// produceLoopProcess produces a series of messages and sends the error result to the error channels
+func (c *Client) produceLoopProcess(ctx context.Context, topic []byte, msgs [][]byte, errs []chan error) error {
+	for _, process := range c.preProcess {
+		if err := process(msgs); err != nil {
+			for i := range errs {
+				errs[i] <- err
+			}
+			return err
+		}
+	}
+	//send batch
+	c.dataConnLock.Lock()
+	err := c.produce(ctx, topic, msgs...)
+	c.dataConnLock.Unlock()
+	for i := range errs {
+		errs[i] <- err
+	}
+	return err
 }
 
 // Offsets returns the min and max offsets available for a topic
@@ -554,6 +545,18 @@ func sum(in []int64) int64 {
 	return out
 }
 
+// contextErrorOverride sends the ctx.Error() if present, otherwise it sends err
+func contextErrorOverride(ctx context.Context, err error) error {
+	if err != nil {
+		// check if error was cause by context deadline
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return err
+	}
+	return nil
+}
+
 // WatchEvent is the structure returned by the WatchTopics channel. It
 // represents the min and max offsets of a topic when that topic receives new messages.
 type WatchEvent struct {
@@ -571,11 +574,7 @@ func (c *Client) WatchTopics(ctx context.Context, ch chan WatchEvent, topics ...
 	}
 	stream, err := c.grpcClient.WatchTopics(ctx)
 	if err != nil {
-		// check if error was cause by context deadline
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-		return err
+		return contextErrorOverride(ctx, err)
 	}
 
 	req := protocol.WatchRequest{
@@ -583,21 +582,13 @@ func (c *Client) WatchTopics(ctx context.Context, ch chan WatchEvent, topics ...
 	}
 	err = stream.Send(&req)
 	if err != nil {
-		// check if error was cause by context deadline
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-		return err
+		return contextErrorOverride(ctx, err)
 	}
 
 	// receive ack
 	resp, err := stream.Recv()
 	if err != nil {
-		// check if error was cause by context deadline
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-		return err
+		return contextErrorOverride(ctx, err)
 	}
 	if !resp.GetMeta().GetOK() {
 		return errors.New(resp.GetMeta().GetErrorMsg())
@@ -622,11 +613,7 @@ func (c *Client) WatchTopics(ctx context.Context, ch chan WatchEvent, topics ...
 		// wait until the stream sends a message
 		resp, err := stream.Recv()
 		if err != nil {
-			// check if error was cause by context deadline
-			if ctx.Err() != nil {
-				return ctx.Err()
-			}
-			return err
+			return contextErrorOverride(ctx, err)
 		}
 		if !resp.GetMeta().GetOK() {
 			err = errors.New(resp.GetMeta().GetErrorMsg())
@@ -665,17 +652,11 @@ func (c *Client) Lock(ctx context.Context, groupName []byte, blocking bool) (io.
 		}
 		err = l.Send(req)
 		if err != nil {
-			if ctx.Err() != nil {
-				err = ctx.Err()
-			}
-			return nil, false, err
+			return nil, false, contextErrorOverride(ctx, err)
 		}
 		resp, err := l.Recv()
 		if err != nil {
-			if ctx.Err() != nil {
-				err = ctx.Err()
-			}
-			return nil, false, err
+			return nil, false, contextErrorOverride(ctx, err)
 		}
 		if resp.GetLocked() {
 			break

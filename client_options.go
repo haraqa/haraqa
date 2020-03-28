@@ -71,10 +71,8 @@ func WithTimeout(timeout time.Duration) Option {
 // messages when consuming.
 func WithAESGCM(aesKey [32]byte) Option {
 	return func(c *Client) error {
-		ci, err := aes.NewCipher(aesKey[:])
-		if err != nil {
-			return err
-		}
+		// error is always nil for len(aesKey) == 32
+		ci, _ := aes.NewCipher(aesKey[:])
 
 		gcm, err := cipher.NewGCM(ci)
 		if err != nil {

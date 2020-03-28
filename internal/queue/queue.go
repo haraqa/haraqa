@@ -511,12 +511,18 @@ func (q *queue) Offsets(topic []byte) (int64, int64, error) {
 
 	dir, err := os.Open(path)
 	if err != nil {
+		if _, ok := err.(*os.PathError); ok {
+			return 0, 0, os.ErrNotExist
+		}
 		return 0, 0, err
 	}
 	defer dir.Close()
 
 	names, err := dir.Readdirnames(-1)
 	if err != nil {
+		if errors.Cause(err) == os.ErrNotExist {
+			err = os.ErrNotExist
+		}
 		return 0, 0, err
 	}
 	if len(names) == 0 {
@@ -550,7 +556,7 @@ func (q *queue) Offsets(topic []byte) (int64, int64, error) {
 
 		info, err := datFile.Stat()
 		if err == nil {
-			max += (info.Size() / 24) - 1
+			max += (info.Size() / 24)
 		}
 		datFile.Close()
 	}
