@@ -3,7 +3,6 @@ package haraqa
 import (
 	"bytes"
 	"context"
-	"log"
 	"net"
 	"os"
 	"testing"
@@ -45,16 +44,19 @@ func TestAll(t *testing.T) {
 	}()
 
 	t.Run("New client", testNewClient)
-	t.Run("Create Topic", testCreateTopic)
-	t.Run("List Topics", testListTopics)
-	t.Run("Delete Topics", testDeleteTopics)
-	t.Run("Produce", testProduce)
-	t.Run("Consume", testConsume)
-	t.Run("Offsets", testOffsets)
-	t.Run("WatchTopic", testWatchTopics)
-	t.Run("Lock", testLock)
+	c, err := NewClient(WithTimeout(time.Second * 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Run("Create Topic", testCreateTopic(c))
+	t.Run("List Topics", testListTopics(c))
+	t.Run("Delete Topics", testDeleteTopics(c))
+	t.Run("Produce", testProduce(c))
+	t.Run("Consume", testConsume(c))
+	t.Run("Offsets", testOffsets(c))
+	t.Run("WatchTopic", testWatchTopics(c))
+	t.Run("Lock", testLock(c))
 	t.Run("Options", testOptions)
-	log.Print("hello, is it me you're looking for")
 }
 
 func testNewClient(t *testing.T) {
@@ -118,21 +120,10 @@ func testNewClient(t *testing.T) {
 	})
 }
 
-func testCreateTopic(t *testing.T) {
-	t.Run("CreateTopic", func(t *testing.T) {
-		c, err := NewClient(WithTimeout(time.Second * 1))
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		err = c.CreateTopic(context.Background(), []byte("test-topic"))
+func testCreateTopic(c *Client) func(t *testing.T) {
+	return func(t *testing.T) {
+		err := c.CreateTopic(context.Background(), []byte("test-topic"))
 		if err != nil && err != ErrTopicExists {
-			t.Fatal(err)
-		}
-	})
-	t.Run("CreateTopic again", func(t *testing.T) {
-		c, err := NewClient(WithTimeout(time.Second * 1))
-		if err != nil {
 			t.Fatal(err)
 		}
 
@@ -140,40 +131,37 @@ func testCreateTopic(t *testing.T) {
 		if err != ErrTopicExists {
 			t.Fatal(err)
 		}
-	})
-	t.Run("CreateTopic client error", func(t *testing.T) {
-		mockClient := mocks.NewMockHaraqaClient(gomock.NewController(t))
-		mockClient.EXPECT().CreateTopic(gomock.Any(), &protocol.CreateTopicRequest{
-			Topic: []byte("test-topic"),
-		}).Return(nil, errMock)
-		c := &Client{
-			grpcClient: mockClient,
-		}
-		err := c.CreateTopic(context.Background(), []byte("test-topic"))
-		if errors.Cause(err) != errMock {
-			t.Fatal(err)
-		}
-	})
-	t.Run("CreateTopic error response", func(t *testing.T) {
-		mockClient := mocks.NewMockHaraqaClient(gomock.NewController(t))
-		mockClient.EXPECT().CreateTopic(gomock.Any(), &protocol.CreateTopicRequest{Topic: []byte("test-topic")}).
-			Return(&protocol.CreateTopicResponse{Meta: &protocol.Meta{ErrorMsg: errMock.Error()}}, nil)
-		c := &Client{
-			grpcClient: mockClient,
-		}
-		err := c.CreateTopic(context.Background(), []byte("test-topic"))
-		if errors.Cause(err).Error() != errMock.Error() {
-			t.Fatal(err)
-		}
-	})
+
+		t.Run("CreateTopic client error", func(t *testing.T) {
+			mockClient := mocks.NewMockHaraqaClient(gomock.NewController(t))
+			mockClient.EXPECT().CreateTopic(gomock.Any(), &protocol.CreateTopicRequest{
+				Topic: []byte("test-topic"),
+			}).Return(nil, errMock)
+			c := &Client{
+				grpcClient: mockClient,
+			}
+			err := c.CreateTopic(context.Background(), []byte("test-topic"))
+			if errors.Cause(err) != errMock {
+				t.Fatal(err)
+			}
+		})
+		t.Run("CreateTopic error response", func(t *testing.T) {
+			mockClient := mocks.NewMockHaraqaClient(gomock.NewController(t))
+			mockClient.EXPECT().CreateTopic(gomock.Any(), &protocol.CreateTopicRequest{Topic: []byte("test-topic")}).
+				Return(&protocol.CreateTopicResponse{Meta: &protocol.Meta{ErrorMsg: errMock.Error()}}, nil)
+			c := &Client{
+				grpcClient: mockClient,
+			}
+			err := c.CreateTopic(context.Background(), []byte("test-topic"))
+			if errors.Cause(err).Error() != errMock.Error() {
+				t.Fatal(err)
+			}
+		})
+	}
 }
 
-func testListTopics(t *testing.T) {
-	t.Run("ListTopics", func(t *testing.T) {
-		c, err := NewClient(WithTimeout(time.Second * 1))
-		if err != nil {
-			t.Fatal(err)
-		}
+func testListTopics(c *Client) func(t *testing.T) {
+	return func(t *testing.T) {
 		ctx := context.Background()
 		topics, err := c.ListTopics(ctx, "", "", "")
 		if err != nil {
@@ -182,65 +170,52 @@ func testListTopics(t *testing.T) {
 		if len(topics) == 0 {
 			t.Fatal("missing topics")
 		}
-	})
-	t.Run("ListTopics w/regex", func(t *testing.T) {
-		c, err := NewClient(WithTimeout(time.Second * 1))
-		if err != nil {
-			t.Fatal(err)
-		}
-		ctx := context.Background()
-		topics, err := c.ListTopics(ctx, "", "", ".*")
+
+		// w/regex
+		topics, err = c.ListTopics(ctx, "", "", ".*")
 		if err != nil {
 			t.Fatal(err)
 		}
 		if len(topics) == 0 {
 			t.Fatal("missing topics")
 		}
-	})
-	t.Run("ListTopics w/invalid regex", func(t *testing.T) {
-		c, err := NewClient(WithTimeout(time.Second * 1))
-		if err != nil {
-			t.Fatal(err)
-		}
-		ctx := context.Background()
+
+		// w/invalid regex
 		_, err = c.ListTopics(ctx, "", "", `\`)
 		if err == nil {
 			t.Fatal("expected invalid regex err")
 		}
-	})
-	t.Run("List Topics client error", func(t *testing.T) {
-		mockClient := mocks.NewMockHaraqaClient(gomock.NewController(t))
-		mockClient.EXPECT().ListTopics(gomock.Any(), &protocol.ListTopicsRequest{}).Return(nil, errMock)
-		c := &Client{
-			grpcClient: mockClient,
-		}
-		ctx := context.Background()
-		_, err := c.ListTopics(ctx, "", "", "")
-		if errors.Cause(err) != errMock {
-			t.Fatal(err)
-		}
-	})
-	t.Run("List Topics error response", func(t *testing.T) {
-		mockClient := mocks.NewMockHaraqaClient(gomock.NewController(t))
-		mockClient.EXPECT().ListTopics(gomock.Any(), &protocol.ListTopicsRequest{}).
-			Return(&protocol.ListTopicsResponse{Meta: &protocol.Meta{ErrorMsg: errMock.Error()}}, nil)
-		c := &Client{
-			grpcClient: mockClient,
-		}
-		ctx := context.Background()
-		_, err := c.ListTopics(ctx, "", "", "")
-		if errors.Cause(err).Error() != errMock.Error() {
-			t.Fatal(err)
-		}
-	})
+
+		t.Run("List Topics client error", func(t *testing.T) {
+			mockClient := mocks.NewMockHaraqaClient(gomock.NewController(t))
+			mockClient.EXPECT().ListTopics(gomock.Any(), &protocol.ListTopicsRequest{}).Return(nil, errMock)
+			c := &Client{
+				grpcClient: mockClient,
+			}
+			ctx := context.Background()
+			_, err := c.ListTopics(ctx, "", "", "")
+			if errors.Cause(err) != errMock {
+				t.Fatal(err)
+			}
+		})
+		t.Run("List Topics error response", func(t *testing.T) {
+			mockClient := mocks.NewMockHaraqaClient(gomock.NewController(t))
+			mockClient.EXPECT().ListTopics(gomock.Any(), &protocol.ListTopicsRequest{}).
+				Return(&protocol.ListTopicsResponse{Meta: &protocol.Meta{ErrorMsg: errMock.Error()}}, nil)
+			c := &Client{
+				grpcClient: mockClient,
+			}
+			ctx := context.Background()
+			_, err := c.ListTopics(ctx, "", "", "")
+			if errors.Cause(err).Error() != errMock.Error() {
+				t.Fatal(err)
+			}
+		})
+	}
 }
 
-func testDeleteTopics(t *testing.T) {
-	t.Run("Delete Listed Topics", func(t *testing.T) {
-		c, err := NewClient(WithTimeout(time.Second * 1))
-		if err != nil {
-			t.Fatal(err)
-		}
+func testDeleteTopics(c *Client) func(t *testing.T) {
+	return func(t *testing.T) {
 		ctx := context.Background()
 		topics, err := c.ListTopics(ctx, "", "", "")
 		if err != nil {
@@ -255,160 +230,138 @@ func testDeleteTopics(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-	})
-	t.Run("Delete Topic client error", func(t *testing.T) {
-		mockClient := mocks.NewMockHaraqaClient(gomock.NewController(t))
-		mockClient.EXPECT().DeleteTopic(gomock.Any(), &protocol.DeleteTopicRequest{Topic: []byte("delete-topic")}).Return(nil, errMock)
-		c := &Client{
-			grpcClient: mockClient,
-		}
-		ctx := context.Background()
-		err := c.DeleteTopic(ctx, []byte("delete-topic"))
-		if errors.Cause(err) != errMock {
-			t.Fatal(err)
-		}
-	})
-	t.Run("Delete Topic error response", func(t *testing.T) {
-		mockClient := mocks.NewMockHaraqaClient(gomock.NewController(t))
-		mockClient.EXPECT().DeleteTopic(gomock.Any(), &protocol.DeleteTopicRequest{Topic: []byte("delete-topic")}).
-			Return(&protocol.DeleteTopicResponse{Meta: &protocol.Meta{ErrorMsg: errMock.Error()}}, nil)
-		c := &Client{
-			grpcClient: mockClient,
-		}
-		ctx := context.Background()
-		err := c.DeleteTopic(ctx, []byte("delete-topic"))
-		if errors.Cause(err).Error() != errMock.Error() {
-			t.Fatal(err)
-		}
-	})
-}
 
-func testProduce(t *testing.T) {
-	t.Run("Invalid Produce Loop", func(t *testing.T) {
-		c, err := NewClient(WithTimeout(time.Second * 1))
-		if err != nil {
-			t.Fatal(err)
-		}
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		var ch chan ProduceMsg
-		err = c.ProduceLoop(ctx, []byte("test-topic"), ch)
-		if err.Error() != "invalid channel capacity, channels must have a capacity of at least 1" {
-			t.Fatal(err)
-		}
-		ch = make(chan ProduceMsg)
-		err = c.ProduceLoop(ctx, []byte("test-topic"), ch)
-		if err.Error() != "invalid channel capacity, channels must have a capacity of at least 1" {
-			t.Fatal(err)
-		}
-	})
-	t.Run("Produce Loop", func(t *testing.T) {
-		c, err := NewClient(WithTimeout(time.Second * 1))
-		if err != nil {
-			t.Fatal(err)
-		}
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		ch := make(chan ProduceMsg, 1)
-		go func() {
-			err := c.ProduceLoop(ctx, []byte("test-topic"), ch)
-			if err != nil {
-				t.Log(err)
+		t.Run("Delete Topic client error", func(t *testing.T) {
+			mockClient := mocks.NewMockHaraqaClient(gomock.NewController(t))
+			mockClient.EXPECT().DeleteTopic(gomock.Any(), &protocol.DeleteTopicRequest{Topic: []byte("delete-topic")}).Return(nil, errMock)
+			c := &Client{
+				grpcClient: mockClient,
 			}
-		}()
-
-		msg := NewProduceMsg([]byte("hello world"))
-		ch <- msg
-		err = <-msg.Err
-		if err != nil {
-			t.Fatal(err)
-		}
-	})
-	t.Run("Produce Loop w/ invalid preprocess", func(t *testing.T) {
-		c, err := NewClient(WithTimeout(time.Second * 1))
-		if err != nil {
-			t.Fatal(err)
-		}
-		c.preProcess = []func(msgs [][]byte) error{func(msgs [][]byte) error {
-			return errMock
-		}}
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		ch := make(chan ProduceMsg, 1)
-		go func() {
-			err := c.ProduceLoop(ctx, []byte("test-topic"), ch)
-			if err != nil {
-				t.Log(err)
+			ctx := context.Background()
+			err := c.DeleteTopic(ctx, []byte("delete-topic"))
+			if errors.Cause(err) != errMock {
+				t.Fatal(err)
 			}
-		}()
-
-		msg := NewProduceMsg([]byte("hello world"))
-		ch <- msg
-		err = <-msg.Err
-		if err != errMock {
-			t.Fatal(err)
-		}
-	})
-	t.Run("Produce 0 messages", func(t *testing.T) {
-		c, err := NewClient(WithTimeout(time.Second * 1))
-		if err != nil {
-			t.Fatal(err)
-		}
-		ctx := context.Background()
-		err = c.Produce(ctx, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-	})
-	t.Run("Produce message with invalid preprocess", func(t *testing.T) {
-		c, err := NewClient(WithTimeout(time.Second * 1))
-		if err != nil {
-			t.Fatal(err)
-		}
-		c.preProcess = []func(msgs [][]byte) error{func(msgs [][]byte) error {
-			return errMock
-		}}
-		ctx := context.Background()
-		err = c.Produce(ctx, nil, []byte("message"))
-		if err != errMock {
-			t.Fatal(err)
-		}
-	})
+		})
+		t.Run("Delete Topic error response", func(t *testing.T) {
+			mockClient := mocks.NewMockHaraqaClient(gomock.NewController(t))
+			mockClient.EXPECT().DeleteTopic(gomock.Any(), &protocol.DeleteTopicRequest{Topic: []byte("delete-topic")}).
+				Return(&protocol.DeleteTopicResponse{Meta: &protocol.Meta{ErrorMsg: errMock.Error()}}, nil)
+			c := &Client{
+				grpcClient: mockClient,
+			}
+			ctx := context.Background()
+			err := c.DeleteTopic(ctx, []byte("delete-topic"))
+			if errors.Cause(err).Error() != errMock.Error() {
+				t.Fatal(err)
+			}
+		})
+	}
 }
 
-func testConsume(t *testing.T) {
-	t.Run("Consume", func(t *testing.T) {
-		c, err := NewClient(WithTimeout(time.Second * 1))
-		if err != nil {
-			t.Fatal(err)
-		}
-		ctx := context.Background()
-		topic := []byte("consumeTopic")
-		msg := []byte("consume message")
-		err = c.Produce(ctx, topic, msg)
-		if err != nil {
-			t.Fatal(err)
-		}
+func testProduce(c *Client) func(t *testing.T) {
+	return func(t *testing.T) {
+		t.Run("Invalid Produce Loop", func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			var ch chan ProduceMsg
+			err := c.ProduceLoop(ctx, []byte("test-topic"), ch)
+			if err.Error() != "invalid channel capacity, channels must have a capacity of at least 1" {
+				t.Fatal(err)
+			}
+			ch = make(chan ProduceMsg)
+			err = c.ProduceLoop(ctx, []byte("test-topic"), ch)
+			if err.Error() != "invalid channel capacity, channels must have a capacity of at least 1" {
+				t.Fatal(err)
+			}
+		})
+		t.Run("Produce Loop", func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			ch := make(chan ProduceMsg, 1)
+			go func() {
+				err := c.ProduceLoop(ctx, []byte("test-topic"), ch)
+				if err != nil {
+					t.Log(err)
+				}
+			}()
 
-		msgs, err := c.Consume(ctx, topic, 0, 1, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(msgs) != 1 || !bytes.Equal(msgs[0], msg) {
-			t.Fatal(msgs)
-		}
-	})
+			msg := NewProduceMsg([]byte("hello world"))
+			ch <- msg
+			err := <-msg.Err
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
+		t.Run("Produce Loop w/ invalid preprocess", func(t *testing.T) {
+			c.preProcess = []func(msgs [][]byte) error{func(msgs [][]byte) error {
+				return errMock
+			}}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			ch := make(chan ProduceMsg, 1)
+			go func() {
+				err := c.ProduceLoop(ctx, []byte("test-topic"), ch)
+				if err != nil {
+					t.Log(err)
+				}
+			}()
+
+			msg := NewProduceMsg([]byte("hello world"))
+			ch <- msg
+			err := <-msg.Err
+			if err != errMock {
+				t.Fatal(err)
+			}
+		})
+		t.Run("Produce 0 messages", func(t *testing.T) {
+			ctx := context.Background()
+			err := c.Produce(ctx, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
+		t.Run("Produce message with invalid preprocess", func(t *testing.T) {
+			c.preProcess = []func(msgs [][]byte) error{func(msgs [][]byte) error {
+				return errMock
+			}}
+			ctx := context.Background()
+			err := c.Produce(ctx, nil, []byte("message"))
+			if err != errMock {
+				t.Fatal(err)
+			}
+		})
+		c.preProcess = nil
+	}
 }
 
-func testOffsets(t *testing.T) {
-	t.Run("Check offsets", func(t *testing.T) {
-		c, err := NewClient(WithTimeout(time.Second * 1))
-		if err != nil {
-			t.Fatal(err)
-		}
+func testConsume(c *Client) func(t *testing.T) {
+	return func(t *testing.T) {
+		t.Run("Consume", func(t *testing.T) {
+			ctx := context.Background()
+			topic := []byte("consumeTopic")
+			msg := []byte("consume message")
+			err := c.Produce(ctx, topic, msg)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			msgs, err := c.Consume(ctx, topic, 0, 1, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(msgs) != 1 || !bytes.Equal(msgs[0], msg) {
+				t.Fatal(msgs)
+			}
+		})
+	}
+}
+
+func testOffsets(c *Client) func(t *testing.T) {
+	return func(t *testing.T) {
 		ctx := context.Background()
 		topic := []byte("offsets_topic")
-		err = c.Produce(context.Background(), topic, []byte("single message"))
+		err := c.Produce(ctx, topic, []byte("single message"))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -420,83 +373,61 @@ func testOffsets(t *testing.T) {
 		if min != 0 || max != 1 {
 			t.Fatal(min, max)
 		}
-	})
-	t.Run("Check missing offsets", func(t *testing.T) {
-		c, err := NewClient(WithTimeout(time.Second * 1))
-		if err != nil {
-			t.Fatal(err)
-		}
-		ctx := context.Background()
-		topic := []byte("missing_offsets_topic")
+
+		topic = []byte("missing_offsets_topic")
 		_, _, err = c.Offsets(ctx, topic)
 		if err != ErrTopicDoesNotExist {
 			t.Fatal(err)
 		}
-	})
-	t.Run("Offsets client error", func(t *testing.T) {
-		mockClient := mocks.NewMockHaraqaClient(gomock.NewController(t))
-		mockClient.EXPECT().Offsets(gomock.Any(), &protocol.OffsetRequest{
-			Topic: []byte("test-topic"),
-		}).Return(nil, errMock)
-		c := &Client{
-			grpcClient: mockClient,
-		}
-		_, _, err := c.Offsets(context.Background(), []byte("test-topic"))
-		if errors.Cause(err) != errMock {
-			t.Fatal(err)
-		}
-	})
-	t.Run("Offsets error response", func(t *testing.T) {
-		mockClient := mocks.NewMockHaraqaClient(gomock.NewController(t))
-		mockClient.EXPECT().Offsets(gomock.Any(), &protocol.OffsetRequest{Topic: []byte("test-topic")}).
-			Return(&protocol.OffsetResponse{Meta: &protocol.Meta{ErrorMsg: errMock.Error()}}, nil)
-		c := &Client{
-			grpcClient: mockClient,
-		}
-		_, _, err := c.Offsets(context.Background(), []byte("test-topic"))
-		if errors.Cause(err).Error() != errMock.Error() {
-			t.Fatal(err)
-		}
-	})
+
+		t.Run("Offsets client error", func(t *testing.T) {
+			mockClient := mocks.NewMockHaraqaClient(gomock.NewController(t))
+			mockClient.EXPECT().Offsets(gomock.Any(), &protocol.OffsetRequest{
+				Topic: []byte("test-topic"),
+			}).Return(nil, errMock)
+			c := &Client{
+				grpcClient: mockClient,
+			}
+			_, _, err := c.Offsets(context.Background(), []byte("test-topic"))
+			if errors.Cause(err) != errMock {
+				t.Fatal(err)
+			}
+		})
+		t.Run("Offsets error response", func(t *testing.T) {
+			mockClient := mocks.NewMockHaraqaClient(gomock.NewController(t))
+			mockClient.EXPECT().Offsets(gomock.Any(), &protocol.OffsetRequest{Topic: []byte("test-topic")}).
+				Return(&protocol.OffsetResponse{Meta: &protocol.Meta{ErrorMsg: errMock.Error()}}, nil)
+			c := &Client{
+				grpcClient: mockClient,
+			}
+			_, _, err := c.Offsets(context.Background(), []byte("test-topic"))
+			if errors.Cause(err).Error() != errMock.Error() {
+				t.Fatal(err)
+			}
+		})
+	}
 }
 
-func testWatchTopics(t *testing.T) {
-	t.Run("invalid topics", func(t *testing.T) {
-		c, err := NewClient(WithTimeout(time.Second * 1))
-		if err != nil {
-			t.Fatal(err)
-		}
+func testWatchTopics(c *Client) func(t *testing.T) {
+	return func(t *testing.T) {
 		ctx := context.Background()
 		ch := make(chan WatchEvent, 1)
-		err = c.WatchTopics(ctx, ch)
+		err := c.WatchTopics(ctx, ch)
 		if err.Error() != "invalid number of topics sent" {
 			t.Fatal(err)
 		}
-	})
-	t.Run("missing topic", func(t *testing.T) {
-		c, err := NewClient(WithTimeout(time.Second * 1))
-		if err != nil {
-			t.Fatal(err)
-		}
-		ctx := context.Background()
-		ch := make(chan WatchEvent, 1)
+
 		err = c.WatchTopics(ctx, ch, []byte("missingWatchTopic"))
 		if err == nil {
 			t.Fatal("expected to pass")
 		}
-	})
-	t.Run("valid topic", func(t *testing.T) {
-		c, err := NewClient(WithTimeout(time.Second * 1))
-		if err != nil {
-			t.Fatal(err)
-		}
+
 		ctx, cancel := context.WithCancel(context.Background())
 		topic := []byte("watchTopic")
 		err = c.CreateTopic(ctx, topic)
 		if err != nil && err != ErrTopicExists {
 			t.Fatal(err)
 		}
-		ch := make(chan WatchEvent, 1)
 
 		// start watcher
 		errs := make(chan error, 1)
@@ -528,103 +459,100 @@ func testWatchTopics(t *testing.T) {
 		if err != nil && err != context.Canceled {
 			t.Fatal(err)
 		}
-	})
-	t.Run("Watch topics client error", func(t *testing.T) {
-		mockClient := mocks.NewMockHaraqaClient(gomock.NewController(t))
-		mockClient.EXPECT().WatchTopics(gomock.Any()).
-			Return(nil, errMock)
-		c := &Client{
-			grpcClient: mockClient,
-		}
-		ch := make(chan WatchEvent, 1)
-		err := c.WatchTopics(context.Background(), ch, []byte("test-topic"))
-		if errors.Cause(err) != errMock {
-			t.Fatal(err)
-		}
-	})
-	t.Run("Watch topics send error", func(t *testing.T) {
-		mockStream := mocks.NewMockHaraqa_WatchTopicsClient(gomock.NewController(t))
-		mockStream.EXPECT().Send(gomock.Any()).Return(errMock)
-		mockClient := mocks.NewMockHaraqaClient(gomock.NewController(t))
-		mockClient.EXPECT().WatchTopics(gomock.Any()).
-			Return(mockStream, nil)
-		c := &Client{
-			grpcClient: mockClient,
-		}
 
-		ch := make(chan WatchEvent, 1)
-		err := c.WatchTopics(context.Background(), ch, []byte("test-topic"))
-		if errors.Cause(err) != errMock {
-			t.Fatal(err)
-		}
-	})
-	t.Run("Watch topics recv error", func(t *testing.T) {
-		mockStream := mocks.NewMockHaraqa_WatchTopicsClient(gomock.NewController(t))
-		mockStream.EXPECT().Send(gomock.Any()).Return(nil)
-		mockStream.EXPECT().Recv().Return(nil, errMock)
-		mockClient := mocks.NewMockHaraqaClient(gomock.NewController(t))
-		mockClient.EXPECT().WatchTopics(gomock.Any()).
-			Return(mockStream, nil)
-		c := &Client{
-			grpcClient: mockClient,
-		}
-
-		ch := make(chan WatchEvent, 1)
-		err := c.WatchTopics(context.Background(), ch, []byte("test-topic"))
-		if errors.Cause(err) != errMock {
-			t.Fatal(err)
-		}
-	})
-	t.Run("Watch topics recv error response", func(t *testing.T) {
-		mockStream := mocks.NewMockHaraqa_WatchTopicsClient(gomock.NewController(t))
-		mockStream.EXPECT().Send(gomock.Any()).Return(nil)
-		mockStream.EXPECT().Recv().Return(&protocol.WatchResponse{Meta: &protocol.Meta{ErrorMsg: errMock.Error()}}, nil)
-		mockClient := mocks.NewMockHaraqaClient(gomock.NewController(t))
-		mockClient.EXPECT().WatchTopics(gomock.Any()).
-			Return(mockStream, nil)
-		c := &Client{
-			grpcClient: mockClient,
-		}
-
-		ch := make(chan WatchEvent, 1)
-		err := c.WatchTopics(context.Background(), ch, []byte("test-topic"))
-		if errors.Cause(err).Error() != errMock.Error() {
-			t.Fatal(err)
-		}
-	})
-	t.Run("Watch topics recv second error response", func(t *testing.T) {
-		mockStream := mocks.NewMockHaraqa_WatchTopicsClient(gomock.NewController(t))
-		mockStream.EXPECT().CloseSend().Return(nil)
-		mockStream.EXPECT().Send(gomock.Any()).AnyTimes().Return(nil)
-		first := true
-		mockStream.EXPECT().Recv().AnyTimes().DoAndReturn(func() (*protocol.WatchResponse, error) {
-			if first {
-				first = false
-				return &protocol.WatchResponse{Meta: &protocol.Meta{OK: true}}, nil
+		t.Run("Watch topics client error", func(t *testing.T) {
+			mockClient := mocks.NewMockHaraqaClient(gomock.NewController(t))
+			mockClient.EXPECT().WatchTopics(gomock.Any()).
+				Return(nil, errMock)
+			c := &Client{
+				grpcClient: mockClient,
 			}
-			return &protocol.WatchResponse{Meta: &protocol.Meta{ErrorMsg: errMock.Error()}}, nil
+			ch := make(chan WatchEvent, 1)
+			err := c.WatchTopics(context.Background(), ch, []byte("test-topic"))
+			if errors.Cause(err) != errMock {
+				t.Fatal(err)
+			}
 		})
-		mockClient := mocks.NewMockHaraqaClient(gomock.NewController(t))
-		mockClient.EXPECT().WatchTopics(gomock.Any()).
-			Return(mockStream, nil)
-		c := &Client{
-			grpcClient: mockClient,
-		}
+		t.Run("Watch topics send error", func(t *testing.T) {
+			mockStream := mocks.NewMockHaraqa_WatchTopicsClient(gomock.NewController(t))
+			mockStream.EXPECT().Send(gomock.Any()).Return(errMock)
+			mockClient := mocks.NewMockHaraqaClient(gomock.NewController(t))
+			mockClient.EXPECT().WatchTopics(gomock.Any()).
+				Return(mockStream, nil)
+			c := &Client{
+				grpcClient: mockClient,
+			}
 
-		ch := make(chan WatchEvent, 1)
-		err := c.WatchTopics(context.Background(), ch, []byte("test-topic"))
-		if errors.Cause(err).Error() != errMock.Error() {
-			t.Fatal(err)
-		}
-	})
+			ch := make(chan WatchEvent, 1)
+			err := c.WatchTopics(context.Background(), ch, []byte("test-topic"))
+			if errors.Cause(err) != errMock {
+				t.Fatal(err)
+			}
+		})
+		t.Run("Watch topics recv error", func(t *testing.T) {
+			mockStream := mocks.NewMockHaraqa_WatchTopicsClient(gomock.NewController(t))
+			mockStream.EXPECT().Send(gomock.Any()).Return(nil)
+			mockStream.EXPECT().Recv().Return(nil, errMock)
+			mockClient := mocks.NewMockHaraqaClient(gomock.NewController(t))
+			mockClient.EXPECT().WatchTopics(gomock.Any()).
+				Return(mockStream, nil)
+			c := &Client{
+				grpcClient: mockClient,
+			}
+
+			ch := make(chan WatchEvent, 1)
+			err := c.WatchTopics(context.Background(), ch, []byte("test-topic"))
+			if errors.Cause(err) != errMock {
+				t.Fatal(err)
+			}
+		})
+		t.Run("Watch topics recv error response", func(t *testing.T) {
+			mockStream := mocks.NewMockHaraqa_WatchTopicsClient(gomock.NewController(t))
+			mockStream.EXPECT().Send(gomock.Any()).Return(nil)
+			mockStream.EXPECT().Recv().Return(&protocol.WatchResponse{Meta: &protocol.Meta{ErrorMsg: errMock.Error()}}, nil)
+			mockClient := mocks.NewMockHaraqaClient(gomock.NewController(t))
+			mockClient.EXPECT().WatchTopics(gomock.Any()).
+				Return(mockStream, nil)
+			c := &Client{
+				grpcClient: mockClient,
+			}
+
+			ch := make(chan WatchEvent, 1)
+			err := c.WatchTopics(context.Background(), ch, []byte("test-topic"))
+			if errors.Cause(err).Error() != errMock.Error() {
+				t.Fatal(err)
+			}
+		})
+		t.Run("Watch topics recv second error response", func(t *testing.T) {
+			mockStream := mocks.NewMockHaraqa_WatchTopicsClient(gomock.NewController(t))
+			mockStream.EXPECT().CloseSend().Return(nil)
+			mockStream.EXPECT().Send(gomock.Any()).AnyTimes().Return(nil)
+			first := true
+			mockStream.EXPECT().Recv().AnyTimes().DoAndReturn(func() (*protocol.WatchResponse, error) {
+				if first {
+					first = false
+					return &protocol.WatchResponse{Meta: &protocol.Meta{OK: true}}, nil
+				}
+				return &protocol.WatchResponse{Meta: &protocol.Meta{ErrorMsg: errMock.Error()}}, nil
+			})
+			mockClient := mocks.NewMockHaraqaClient(gomock.NewController(t))
+			mockClient.EXPECT().WatchTopics(gomock.Any()).
+				Return(mockStream, nil)
+			c := &Client{
+				grpcClient: mockClient,
+			}
+
+			ch := make(chan WatchEvent, 1)
+			err := c.WatchTopics(context.Background(), ch, []byte("test-topic"))
+			if errors.Cause(err).Error() != errMock.Error() {
+				t.Fatal(err)
+			}
+		})
+	}
 }
 
-func testLock(t *testing.T) {
-	t.Run("valid lock", func(t *testing.T) {
-		c, err := NewClient(WithTimeout(time.Second * 1))
-		if err != nil {
-			t.Fatal(err)
-		}
+func testLock(c *Client) func(t *testing.T) {
+	return func(t *testing.T) {
 		ctx := context.Background()
 		groupName := []byte("lock group")
 		closer, locked, err := c.Lock(ctx, groupName, true)
@@ -647,45 +575,45 @@ func testLock(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-	})
-	t.Run("Lock client error", func(t *testing.T) {
-		mockClient := mocks.NewMockHaraqaClient(gomock.NewController(t))
-		mockClient.EXPECT().Lock(gomock.Any()).Return(nil, errMock)
-		c := &Client{
-			grpcClient: mockClient,
-		}
-		_, _, err := c.Lock(context.Background(), []byte("group"), true)
-		if errors.Cause(err) != errMock {
-			t.Fatal(err)
-		}
-	})
-	t.Run("Lock client send error", func(t *testing.T) {
-		mockStream := mocks.NewMockHaraqa_LockClient(gomock.NewController(t))
-		mockStream.EXPECT().Send(gomock.Any()).Return(errMock)
-		mockClient := mocks.NewMockHaraqaClient(gomock.NewController(t))
-		mockClient.EXPECT().Lock(gomock.Any()).Return(mockStream, nil)
-		c := &Client{
-			grpcClient: mockClient,
-		}
-		_, _, err := c.Lock(context.Background(), []byte("group"), true)
-		if errors.Cause(err) != errMock {
-			t.Fatal(err)
-		}
-	})
-	t.Run("Lock client send error", func(t *testing.T) {
-		mockStream := mocks.NewMockHaraqa_LockClient(gomock.NewController(t))
-		mockStream.EXPECT().Send(gomock.Any()).Return(nil)
-		mockStream.EXPECT().Recv().Return(nil, errMock)
-		mockClient := mocks.NewMockHaraqaClient(gomock.NewController(t))
-		mockClient.EXPECT().Lock(gomock.Any()).Return(mockStream, nil)
-		c := &Client{
-			grpcClient: mockClient,
-		}
-		_, _, err := c.Lock(context.Background(), []byte("group"), true)
-		if errors.Cause(err) != errMock {
-			t.Fatal(err)
-		}
-	})
+		t.Run("Lock client error", func(t *testing.T) {
+			mockClient := mocks.NewMockHaraqaClient(gomock.NewController(t))
+			mockClient.EXPECT().Lock(gomock.Any()).Return(nil, errMock)
+			c := &Client{
+				grpcClient: mockClient,
+			}
+			_, _, err := c.Lock(context.Background(), []byte("group"), true)
+			if errors.Cause(err) != errMock {
+				t.Fatal(err)
+			}
+		})
+		t.Run("Lock client send error", func(t *testing.T) {
+			mockStream := mocks.NewMockHaraqa_LockClient(gomock.NewController(t))
+			mockStream.EXPECT().Send(gomock.Any()).Return(errMock)
+			mockClient := mocks.NewMockHaraqaClient(gomock.NewController(t))
+			mockClient.EXPECT().Lock(gomock.Any()).Return(mockStream, nil)
+			c := &Client{
+				grpcClient: mockClient,
+			}
+			_, _, err := c.Lock(context.Background(), []byte("group"), true)
+			if errors.Cause(err) != errMock {
+				t.Fatal(err)
+			}
+		})
+		t.Run("Lock client send error", func(t *testing.T) {
+			mockStream := mocks.NewMockHaraqa_LockClient(gomock.NewController(t))
+			mockStream.EXPECT().Send(gomock.Any()).Return(nil)
+			mockStream.EXPECT().Recv().Return(nil, errMock)
+			mockClient := mocks.NewMockHaraqaClient(gomock.NewController(t))
+			mockClient.EXPECT().Lock(gomock.Any()).Return(mockStream, nil)
+			c := &Client{
+				grpcClient: mockClient,
+			}
+			_, _, err := c.Lock(context.Background(), []byte("group"), true)
+			if errors.Cause(err) != errMock {
+				t.Fatal(err)
+			}
+		})
+	}
 }
 
 func testOptions(t *testing.T) {
