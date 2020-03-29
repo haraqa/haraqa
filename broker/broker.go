@@ -93,11 +93,8 @@ func (b *Broker) getGroupLock(group []byte, t *time.Timer) bool {
 
 func (b *Broker) releaseGroupLock(group []byte) {
 	b.groupMux.Lock()
-	ch, ok := b.groupLocks[string(group)]
+	ch := b.groupLocks[string(group)]
 	b.groupMux.Unlock()
-	if !ok {
-		return
-	}
 
 	// unlock if locked
 	select {

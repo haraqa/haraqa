@@ -43,6 +43,7 @@ func (b *Broker) handleDataConn(c netConn) {
 
 		switch t {
 		case protocol.TypeClose:
+			log.Println("Closing client connection")
 			return
 
 		case protocol.TypePing:

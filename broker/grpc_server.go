@@ -2,7 +2,6 @@ package broker
 
 import (
 	"context"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -41,12 +40,6 @@ func (b *Broker) ListTopics(ctx context.Context, in *protocol.ListTopicsRequest)
 	}
 
 	return &protocol.ListTopicsResponse{Meta: &protocol.Meta{OK: true}, Topics: topics}, nil
-}
-
-// TruncateTopic implements protocol.HaraqaServer TruncateTopic
-func (b *Broker) TruncateTopic(ctx context.Context, in *protocol.TruncateTopicRequest) (*protocol.TruncateTopicResponse, error) {
-	log.Printf("Received: %v", in.GetTopic())
-	return &protocol.TruncateTopicResponse{Meta: &protocol.Meta{OK: true}}, nil
 }
 
 // Offsets implements protocol.HaraqaServer Offset
@@ -145,9 +138,8 @@ func (b *Broker) WatchTopics(srv protocol.Haraqa_WatchTopicsServer) error {
 	if err != nil {
 		// best effort send error response
 		_ = srv.Send(&protocol.WatchResponse{Meta: &protocol.Meta{OK: false, ErrorMsg: err.Error()}})
-		return err
 	}
-	return nil
+	return err
 }
 
 func (b *Broker) watchTerm(srv protocol.Haraqa_WatchTopicsServer, errs chan error) {

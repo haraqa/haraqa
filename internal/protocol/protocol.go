@@ -9,6 +9,7 @@ import (
 
 //go:generate protoc --gogofaster_out=plugins=grpc:. grpc.proto
 //go:generate mockgen -package mocks -destination ../mocks/grpc_client.go github.com/haraqa/haraqa/internal/protocol HaraqaClient,Haraqa_WatchTopicsClient,Haraqa_LockClient
+//go:generate mockgen -package mocks -destination ../mocks/grpc_server.go github.com/haraqa/haraqa/internal/protocol Haraqa_LockServer,Haraqa_WatchTopicsServer
 
 var (
 	//ErrTopicExists is returned if a CreateTopic request is made to an existing topic

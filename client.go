@@ -10,7 +10,6 @@ import (
 	"net"
 	"regexp"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -157,9 +156,8 @@ func (c *Client) CreateTopic(ctx context.Context, topic []byte) error {
 		case protocol.ErrTopicExists.Error():
 			return ErrTopicExists
 		default:
-			err = errors.New(meta.GetErrorMsg())
 		}
-		return errors.Wrapf(err, "broker error creating topic %q", string(topic))
+		return errors.Wrapf(errors.New(meta.GetErrorMsg()), "broker error creating topic %q", string(topic))
 	}
 	return nil
 }
@@ -266,11 +264,9 @@ func (c *Client) produce(ctx context.Context, topic []byte, msgs ...[]byte) erro
 	err = req.Write(c.dataConn)
 	if err != nil {
 		// check for broken pipe, try to reconnect and retry
-		if strings.HasPrefix(err.Error(), "write tcp") {
-			c.dataConn = nil
-			if c.dataConnect() == nil {
-				err = req.Write(c.dataConn)
-			}
+		c.dataConn = nil
+		if c.dataConnect() == nil {
+			err = req.Write(c.dataConn)
 		}
 		if err != nil {
 			return errors.Wrap(err, "could not write produce header")
@@ -301,8 +297,7 @@ func (c *Client) produce(ctx context.Context, topic []byte, msgs ...[]byte) erro
 		return errors.Wrap(err, "could not read from data connection")
 	}
 	if p != protocol.TypeProduce {
-		err = errors.New("invalid response read from data connection")
-		return err
+		return errors.New("invalid response read from data connection")
 	}
 
 	return nil
@@ -488,11 +483,9 @@ func (c *Client) Consume(ctx context.Context, topic []byte, offset int64, limit 
 	err = req.Write(c.dataConn)
 	if err != nil {
 		// check for broken pipe, try to reconnect and retry
-		if strings.HasPrefix(err.Error(), "write tcp") {
-			c.dataConn = nil
-			if c.dataConnect() == nil {
-				err = req.Write(c.dataConn)
-			}
+		c.dataConn = nil
+		if c.dataConnect() == nil {
+			err = req.Write(c.dataConn)
 		}
 		if err != nil {
 			return nil, errors.Wrap(err, "could not write to data connection")
@@ -512,8 +505,7 @@ func (c *Client) Consume(ctx context.Context, topic []byte, offset int64, limit 
 		return nil, errors.Wrapf(err, "could not read from data connection")
 	}
 	if p != protocol.TypeConsume {
-		err = errors.New("invalid response type read from data connection")
-		return nil, err
+		return nil, errors.New("invalid response type read from data connection")
 	}
 
 	protocol.ExtendBuffer(&buf.headerBuf, int(hLen))
@@ -635,8 +627,7 @@ func (c *Client) WatchTopics(ctx context.Context, ch chan WatchEvent, topics ...
 			return contextErrorOverride(ctx, err)
 		}
 		if !resp.GetMeta().GetOK() {
-			err = errors.New(resp.GetMeta().GetErrorMsg())
-			return err
+			return errors.New(resp.GetMeta().GetErrorMsg())
 		}
 
 		select {

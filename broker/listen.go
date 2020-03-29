@@ -2,10 +2,8 @@ package broker
 
 import (
 	"context"
-	"log"
 	"net"
 	"os"
-	"runtime"
 	"strconv"
 
 	"github.com/pkg/errors"
@@ -13,7 +11,6 @@ import (
 
 // Listen starts a new grpc server & listener on the given ports
 func (b *Broker) Listen(ctx context.Context) error {
-	log.Println(runtime.Caller(1))
 	errs := make(chan error, 3)
 
 	// open tcp file data port
@@ -33,11 +30,7 @@ func (b *Broker) Listen(ctx context.Context) error {
 	// open unix file data listener
 	unixListener, err := net.Listen("unix", b.config.UnixSocket)
 	if err != nil {
-		os.RemoveAll(b.config.UnixSocket)
-		unixListener, err = net.Listen("unix", b.config.UnixSocket)
-		if err != nil {
-			return errors.Wrapf(err, "failed to listen on unix socket %s", b.config.UnixSocket)
-		}
+		return errors.Wrapf(err, "failed to listen on unix socket %s", b.config.UnixSocket)
 	}
 	defer unixListener.Close()
 	if err = os.Chmod(b.config.UnixSocket, b.config.UnixMode); err != nil {

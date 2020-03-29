@@ -330,9 +330,12 @@ func testProduce(c *Client) func(t *testing.T) {
 		c.preProcess = nil
 
 		// produce w/ invalid dataconn
+		c.dataConnLock.Lock()
 		c.dataConn = nil
 		dataport := c.dataPort
 		c.dataPort = -1
+		c.dataConnLock.Unlock()
+
 		err = c.Produce(ctx, nil, []byte("message"))
 		if _, ok := errors.Cause(err).(*net.OpError); !ok {
 			t.Fatal(err)
@@ -344,7 +347,9 @@ func testProduce(c *Client) func(t *testing.T) {
 			t.Fatal(err)
 		}
 
+		c.dataConnLock.Lock()
 		c.dataPort = dataport
+		c.dataConnLock.Unlock()
 	}
 }
 
@@ -360,7 +365,9 @@ func testConsume(c *Client) func(t *testing.T) {
 
 		// consume w/invalid dataconn
 		dataPort := c.dataPort
+		c.dataConnLock.Lock()
 		c.dataConn = nil
+		c.dataConnLock.Unlock()
 		c.dataPort = -1
 		_, err = c.Consume(ctx, topic, 0, 1, nil)
 		if _, ok := errors.Cause(err).(*net.OpError); !ok {
