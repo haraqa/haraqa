@@ -11,3 +11,5 @@ Dockerfile
 LICENSE
 README.md
 **.haraqa*
+**.test
+**.out

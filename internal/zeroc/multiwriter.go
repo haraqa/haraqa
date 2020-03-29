@@ -7,6 +7,10 @@ import (
 	"github.com/pkg/errors"
 )
 
+type fd interface {
+	Fd() uintptr
+}
+
 // MultiWriter uses splice and tee to perform a zero copy between a connection and
 // one or more files
 type MultiWriter struct {
