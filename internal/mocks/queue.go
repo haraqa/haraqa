@@ -6,7 +6,7 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	os "os"
+	io "io"
 	reflect "reflect"
 )
 
@@ -77,7 +77,7 @@ func (mr *MockQueueMockRecorder) ListTopics(prefix, suffix, regex interface{}) *
 }
 
 // Produce mocks base method
-func (m *MockQueue) Produce(tcpConn *os.File, topic []byte, msgSizes []int64) error {
+func (m *MockQueue) Produce(tcpConn io.Reader, topic []byte, msgSizes []int64) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Produce", tcpConn, topic, msgSizes)
 	ret0, _ := ret[0].(error)
@@ -108,7 +108,7 @@ func (mr *MockQueueMockRecorder) ConsumeInfo(topic, offset, limit interface{}) *
 }
 
 // Consume mocks base method
-func (m *MockQueue) Consume(tcpConn *os.File, topic, filename []byte, startAt, totalSize int64) error {
+func (m *MockQueue) Consume(tcpConn io.Writer, topic, filename []byte, startAt, totalSize int64) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Consume", tcpConn, topic, filename, startAt, totalSize)
 	ret0, _ := ret[0].(error)

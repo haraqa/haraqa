@@ -26,9 +26,9 @@ type Queue interface {
 	CreateTopic(topic []byte) error
 	DeleteTopic(topic []byte) error
 	ListTopics(prefix, suffix, regex string) ([][]byte, error)
-	Produce(tcpConn *os.File, topic []byte, msgSizes []int64) error
+	Produce(tcpConn io.Reader, topic []byte, msgSizes []int64) error
 	ConsumeInfo(topic []byte, offset int64, limit int64) (filename []byte, startAt int64, msgSizes []int64, err error)
-	Consume(tcpConn *os.File, topic []byte, filename []byte, startAt int64, totalSize int64) error
+	Consume(tcpConn io.Writer, topic []byte, filename []byte, startAt int64, totalSize int64) error
 	Offsets(topic []byte) (int64, int64, error)
 }
 
@@ -318,7 +318,7 @@ func (q *queue) ListTopics(prefix, suffix, regex string) ([][]byte, error) {
 	return output, nil
 }
 
-func (q *queue) Produce(tcpConn *os.File, topic []byte, msgSizes []int64) error {
+func (q *queue) Produce(tcpConn io.Reader, topic []byte, msgSizes []int64) error {
 	q.Lock()
 	mw, ok := q.produceTopics[string(topic)]
 	if !ok {
@@ -489,7 +489,7 @@ func (q *queue) readDat(filename string, offset, limit int64) ([]byte, error) {
 	return buf, nil
 }
 
-func (q *queue) Consume(tcpConn *os.File, topic []byte, filename []byte, startAt int64, totalSize int64) error {
+func (q *queue) Consume(tcpConn io.Writer, topic []byte, filename []byte, startAt int64, totalSize int64) error {
 	if totalSize == 0 {
 		return nil
 	}

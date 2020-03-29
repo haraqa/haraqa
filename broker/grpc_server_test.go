@@ -14,9 +14,9 @@ import (
 	"google.golang.org/grpc"
 )
 
-var errMock = errors.New("mock error")
-
 func TestGRPCServer(t *testing.T) {
+	var errMock = errors.New("mock error")
+
 	ctx := context.Background()
 	mockQ := mocks.NewMockQueue(gomock.NewController(t))
 	b := &Broker{

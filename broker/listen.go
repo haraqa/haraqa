@@ -2,6 +2,7 @@ package broker
 
 import (
 	"context"
+	"log"
 	"net"
 	"os"
 	"strconv"
@@ -45,7 +46,13 @@ func (b *Broker) Listen(ctx context.Context) error {
 				errs <- errors.Wrap(err, "failed to serve tcp data connection")
 				return
 			}
-			go b.handleDataConn(conn.(*net.TCPConn))
+			f, err := conn.(*net.TCPConn).File()
+			conn.Close()
+			if err != nil {
+				log.Println(errors.Wrap(err, "unable to get tcp connection file"))
+				continue
+			}
+			go b.handleDataConn(f)
 		}
 	}()
 	go func() {

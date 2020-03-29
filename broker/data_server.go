@@ -3,32 +3,20 @@ package broker
 import (
 	"io"
 	"log"
-	"net"
-	"os"
 
 	"github.com/haraqa/haraqa/internal/protocol"
 	"github.com/pkg/errors"
 )
 
-type netConn interface {
-	net.Conn
-	File() (*os.File, error)
-}
-
-func (b *Broker) handleDataConn(c netConn) {
-	conn, err := c.File()
-	c.Close()
-	if err != nil {
-		log.Println(errors.Wrap(err, "unable to get tcp connection file"))
-		return
-	}
+func (b *Broker) handleDataConn(conn io.ReadWriteCloser) {
 	defer conn.Close()
-
-	var prefix [6]byte
-	var produceReq protocol.ProduceRequest
-	var consumeReq protocol.ConsumeRequest
-	var consumeResp protocol.ConsumeResponse
-	var buf []byte
+	var (
+		prefix      [6]byte
+		produceReq  protocol.ProduceRequest
+		consumeReq  protocol.ConsumeRequest
+		consumeResp protocol.ConsumeResponse
+		buf         []byte
+	)
 	for {
 		// read prefix
 		t, hLen, err := protocol.ReadPrefix(conn, prefix[:])
@@ -71,7 +59,12 @@ func (b *Broker) handleDataConn(c netConn) {
 	}
 }
 
-func (b *Broker) handleProduce(conn *os.File, produceReq *protocol.ProduceRequest, buf *[]byte, hLen uint32, prefix []byte) error {
+func (b *Broker) handleProduce(conn io.ReadWriter, produceReq *protocol.ProduceRequest, buf *[]byte, hLen uint32, prefix []byte) error {
+	if hLen == 0 {
+		err := errors.New("invalid message: empty message length")
+		protocol.ErrorToResponse(conn, err)
+		return err
+	}
 	// read header
 	protocol.ExtendBuffer(buf, int(hLen))
 	_, err := io.ReadFull(conn, *buf)
@@ -115,7 +108,12 @@ func (b *Broker) handleProduce(conn *os.File, produceReq *protocol.ProduceReques
 	return nil
 }
 
-func (b *Broker) handleConsume(conn *os.File, consumeReq *protocol.ConsumeRequest, consumeResp *protocol.ConsumeResponse, buf *[]byte, hLen uint32, prefix []byte) error {
+func (b *Broker) handleConsume(conn io.ReadWriter, consumeReq *protocol.ConsumeRequest, consumeResp *protocol.ConsumeResponse, buf *[]byte, hLen uint32, prefix []byte) error {
+	if hLen == 0 {
+		err := errors.New("invalid message: empty message length")
+		protocol.ErrorToResponse(conn, err)
+		return err
+	}
 	// read header
 	protocol.ExtendBuffer(buf, int(hLen))
 	_, err := io.ReadFull(conn, *buf)
