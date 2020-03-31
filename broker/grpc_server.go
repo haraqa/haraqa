@@ -57,10 +57,15 @@ func (b *Broker) Offsets(ctx context.Context, in *protocol.OffsetRequest) (*prot
 
 // WatchTopics implements protocol.HaraqaServer WatchTopics
 func (b *Broker) WatchTopics(srv protocol.Haraqa_WatchTopicsServer) error {
+	skipDefer := false
 	req, err := srv.Recv()
+	defer func() {
+		if err != nil && !skipDefer {
+			// best effort send error response
+			_ = srv.Send(&protocol.WatchResponse{Meta: &protocol.Meta{OK: false, ErrorMsg: err.Error()}})
+		}
+	}()
 	if err != nil {
-		// best effort send error response
-		_ = srv.Send(&protocol.WatchResponse{Meta: &protocol.Meta{OK: false, ErrorMsg: err.Error()}})
 		return err
 	}
 
@@ -72,8 +77,6 @@ func (b *Broker) WatchTopics(srv protocol.Haraqa_WatchTopicsServer) error {
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		// best effort send error response
-		_ = srv.Send(&protocol.WatchResponse{Meta: &protocol.Meta{OK: false, ErrorMsg: err.Error()}})
 		return err
 	}
 	defer watcher.Close()
@@ -83,13 +86,12 @@ func (b *Broker) WatchTopics(srv protocol.Haraqa_WatchTopicsServer) error {
 		err = watcher.Add(filename)
 		if err != nil {
 			err = errors.Wrapf(err, "unable to watch topic %v", string(topic))
-			// best effort send error response
-			_ = srv.Send(&protocol.WatchResponse{Meta: &protocol.Meta{OK: false, ErrorMsg: err.Error()}})
 			return err
 		}
 
 		// get file offsets
-		min, max, err := b.Q.Offsets(topic)
+		var min, max int64
+		min, max, err = b.Q.Offsets(topic)
 		if os.IsNotExist(errors.Cause(err)) {
 			offsets[string(topic)] = [2]int64{0, -1}
 			// no need to send initial offsets, none exist yet
@@ -97,8 +99,6 @@ func (b *Broker) WatchTopics(srv protocol.Haraqa_WatchTopicsServer) error {
 		}
 		if err != nil {
 			err = errors.Wrapf(err, "unable to get topic offsets for %v", string(topic))
-			// best effort send error response
-			_ = srv.Send(&protocol.WatchResponse{Meta: &protocol.Meta{OK: false, ErrorMsg: err.Error()}})
 			return err
 		}
 		offsets[string(topic)] = [2]int64{min, max}
@@ -107,6 +107,7 @@ func (b *Broker) WatchTopics(srv protocol.Haraqa_WatchTopicsServer) error {
 	// send an ack
 	err = srv.Send(&protocol.WatchResponse{Meta: &protocol.Meta{OK: true}})
 	if err != nil {
+		skipDefer = true
 		return err
 	}
 
@@ -122,6 +123,7 @@ func (b *Broker) WatchTopics(srv protocol.Haraqa_WatchTopicsServer) error {
 			MaxOffset: offsets[1],
 		})
 		if err != nil {
+			skipDefer = true
 			return err
 		}
 	}
@@ -129,16 +131,12 @@ func (b *Broker) WatchTopics(srv protocol.Haraqa_WatchTopicsServer) error {
 	errs := make(chan error, 2)
 
 	// send new file offsets to the connection
-	go b.watch(srv, watcher, errs, offsets)
+	go b.watch(srv, watcher.Events, watcher.Errors, errs, offsets)
 
 	// read from the connetion, wait for a term signal
 	go b.watchTerm(srv, errs)
 
 	err = <-errs
-	if err != nil {
-		// best effort send error response
-		_ = srv.Send(&protocol.WatchResponse{Meta: &protocol.Meta{OK: false, ErrorMsg: err.Error()}})
-	}
 	return err
 }
 
@@ -156,17 +154,21 @@ func (b *Broker) watchTerm(srv protocol.Haraqa_WatchTopicsServer, errs chan erro
 	}
 }
 
-func (b *Broker) watch(srv protocol.Haraqa_WatchTopicsServer, watcher *fsnotify.Watcher, errs chan error, offsets map[string][2]int64) {
+func (b *Broker) watch(srv protocol.Haraqa_WatchTopicsServer, watchEvents chan fsnotify.Event, watchErrs chan error, errs chan error, offsets map[string][2]int64) {
 loop:
 	for {
 		select {
 		// watch for events
-		case event := <-watcher.Events:
+		case event := <-watchEvents:
 			if event.Op != fsnotify.Write || !strings.HasSuffix(event.Name, ".dat") {
 				continue loop
 			}
 
 			topic := filepath.Base(filepath.Dir(event.Name))
+			o, ok := offsets[topic]
+			if !ok {
+				continue
+			}
 
 			dat, err := os.Open(event.Name)
 			if err != nil {
@@ -179,10 +181,7 @@ loop:
 				errs <- errors.Wrapf(err, "trouble getting topic data for %s", topic)
 				return
 			}
-			o, ok := offsets[topic]
-			if !ok {
-				continue
-			}
+
 			o[1] = info.Size() / 24
 			offsets[topic] = o
 
@@ -199,7 +198,7 @@ loop:
 			}
 
 			// watch for errors
-		case err := <-watcher.Errors:
+		case err := <-watchErrs:
 			errs <- errors.Wrap(err, "watcher failed")
 			return
 		}

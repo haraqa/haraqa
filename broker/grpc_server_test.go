@@ -2,9 +2,8 @@ package broker
 
 import (
 	"context"
-	"log"
 	"os"
-	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -12,26 +11,35 @@ import (
 	"github.com/haraqa/haraqa/internal/protocol"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
+	"gopkg.in/fsnotify.v1"
 )
 
 func TestGRPCServer(t *testing.T) {
-	var errMock = errors.New("mock error")
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-	ctx := context.Background()
-	mockQ := mocks.NewMockQueue(gomock.NewController(t))
-	b := &Broker{
-		Q:          mockQ,
-		groupLocks: make(map[string]chan struct{}),
-		config: Config{
-			Volumes: []string{".haraqa-watch"},
-		},
-	}
+	var (
+		errMock = errors.New("mock error")
+
+		ctx = context.Background()
+		b   = &Broker{
+			/*groupLocks: make(map[string]chan struct{}),
+			config: Config{
+				Volumes: []string{".haraqa-watch"},
+			},*/
+		}
+	)
 
 	t.Run("CreateTopic", func(t *testing.T) {
-		topic := []byte("create-topic")
-		mockQ.EXPECT().CreateTopic(topic).Return(nil)
+		mockQ := mocks.NewMockQueue(ctrl)
+		gomock.InOrder(
+			mockQ.EXPECT().CreateTopic(gomock.Any()).Return(nil),
+			mockQ.EXPECT().CreateTopic(gomock.Any()).Return(errMock),
+		)
+		b.Q = mockQ
+
 		in := &protocol.CreateTopicRequest{
-			Topic: topic,
+			Topic: []byte("create-topic"),
 		}
 		resp, err := b.CreateTopic(ctx, in)
 		if err != nil {
@@ -41,11 +49,6 @@ func TestGRPCServer(t *testing.T) {
 			t.Fatal(resp.GetMeta())
 		}
 
-		topic2 := []byte("create-topic-2")
-		mockQ.EXPECT().CreateTopic(topic2).Return(errMock)
-		in = &protocol.CreateTopicRequest{
-			Topic: topic2,
-		}
 		resp, err = b.CreateTopic(ctx, in)
 		if err != nil {
 			t.Fatal(err)
@@ -57,11 +60,18 @@ func TestGRPCServer(t *testing.T) {
 			t.Fatal(resp.GetMeta().GetErrorMsg())
 		}
 	})
+
 	t.Run("DeleteTopic", func(t *testing.T) {
-		topic := []byte("delete-topic")
-		mockQ.EXPECT().DeleteTopic(topic).Return(nil)
+		mockQ := mocks.NewMockQueue(ctrl)
+		b.Q = mockQ
+
+		gomock.InOrder(
+			mockQ.EXPECT().DeleteTopic(gomock.Any()).Return(nil),
+			mockQ.EXPECT().DeleteTopic(gomock.Any()).Return(errMock),
+		)
+
 		in := &protocol.DeleteTopicRequest{
-			Topic: topic,
+			Topic: []byte("delete-topic"),
 		}
 		resp, err := b.DeleteTopic(ctx, in)
 		if err != nil {
@@ -71,11 +81,6 @@ func TestGRPCServer(t *testing.T) {
 			t.Fatal(resp.GetMeta())
 		}
 
-		topic2 := []byte("delete-topic-2")
-		mockQ.EXPECT().DeleteTopic(topic2).Return(errMock)
-		in = &protocol.DeleteTopicRequest{
-			Topic: topic2,
-		}
 		resp, err = b.DeleteTopic(ctx, in)
 		if err != nil {
 			t.Fatal(err)
@@ -88,15 +93,13 @@ func TestGRPCServer(t *testing.T) {
 		}
 	})
 	t.Run("ListTopics", func(t *testing.T) {
-		first := true
-		mockQ.EXPECT().ListTopics("", "", "").Times(2).
-			DoAndReturn(func(prefix, suffix, regex string) (*protocol.ListTopicsResponse, error) {
-				if first {
-					first = false
-					return nil, nil
-				}
-				return nil, errMock
-			})
+		mockQ := mocks.NewMockQueue(ctrl)
+		b.Q = mockQ
+		gomock.InOrder(
+			mockQ.EXPECT().ListTopics("", "", "").Return(nil, nil),
+			mockQ.EXPECT().ListTopics("", "", "").Return(nil, errMock),
+		)
+
 		in := &protocol.ListTopicsRequest{}
 		resp, err := b.ListTopics(ctx, in)
 		if err != nil {
@@ -118,10 +121,16 @@ func TestGRPCServer(t *testing.T) {
 		}
 	})
 	t.Run("Offsets", func(t *testing.T) {
-		topic := []byte("offsets-topic")
-		mockQ.EXPECT().Offsets(topic).Return(int64(0), int64(1), nil)
+		mockQ := mocks.NewMockQueue(ctrl)
+		b.Q = mockQ
+		gomock.InOrder(
+			mockQ.EXPECT().Offsets(gomock.Any()).Return(int64(0), int64(1), nil),
+			mockQ.EXPECT().Offsets(gomock.Any()).Return(int64(0), int64(0), errMock),
+			mockQ.EXPECT().Offsets(gomock.Any()).Return(int64(0), int64(0), os.ErrNotExist),
+		)
+
 		in := &protocol.OffsetRequest{
-			Topic: topic,
+			Topic: []byte("offsets-topic"),
 		}
 		resp, err := b.Offsets(ctx, in)
 		if err != nil {
@@ -131,11 +140,6 @@ func TestGRPCServer(t *testing.T) {
 			t.Fatal(resp.GetMeta())
 		}
 
-		topic2 := []byte("offsets-topic-2")
-		mockQ.EXPECT().Offsets(topic2).Return(int64(0), int64(0), errMock)
-		in = &protocol.OffsetRequest{
-			Topic: topic2,
-		}
 		resp, err = b.Offsets(ctx, in)
 		if err != nil {
 			t.Fatal(err)
@@ -147,11 +151,6 @@ func TestGRPCServer(t *testing.T) {
 			t.Fatal(resp.GetMeta().GetErrorMsg())
 		}
 
-		topic3 := []byte("offsets-topic-3")
-		mockQ.EXPECT().Offsets(topic3).Return(int64(0), int64(0), os.ErrNotExist)
-		in = &protocol.OffsetRequest{
-			Topic: topic3,
-		}
 		resp, err = b.Offsets(ctx, in)
 		if err != nil {
 			t.Fatal(err)
@@ -164,43 +163,31 @@ func TestGRPCServer(t *testing.T) {
 		}
 	})
 	t.Run("Lock", func(t *testing.T) {
-		mockLock := mocks.NewMockHaraqa_LockServer(gomock.NewController(t))
-		recvCount := 0
-		mockLock.EXPECT().Recv().AnyTimes().
-			DoAndReturn(func() (*protocol.LockRequest, error) {
-				defer func() { recvCount++; log.Println("recv", recvCount) }()
-				switch recvCount {
-				case 0:
-					return nil, errMock
-				case 1, 2, 3:
-					return &protocol.LockRequest{
-						Group: []byte("lock-group"),
-						Lock:  true,
-						Time:  5000,
-					}, nil
-				case 4:
-					return &protocol.LockRequest{
-						Group: []byte("lock-group"),
-						Lock:  false,
-						Time:  5000,
-					}, nil
-				case 5:
-					return nil, grpc.ErrServerStopped
-				}
-				panic("unexpected recv")
-			})
-		sendCount := 0
-		mockLock.EXPECT().Send(gomock.Any()).AnyTimes().
-			DoAndReturn(func(*protocol.LockResponse) error {
-				defer func() { sendCount++; log.Println("send", sendCount) }()
-				switch sendCount {
-				case 0:
-					return errMock
-				case 1, 2, 3:
-					return nil
-				}
-				panic("unexpected send")
-			})
+		b.groupLocks = make(map[string]chan struct{})
+		lockTrue := &protocol.LockRequest{
+			Group: []byte("lock-group"),
+			Lock:  true,
+			Time:  5000,
+		}
+		lockFalse := &protocol.LockRequest{
+			Group: []byte("lock-group"),
+			Lock:  false,
+			Time:  5000,
+		}
+
+		mockLock := mocks.NewMockHaraqa_LockServer(ctrl)
+		gomock.InOrder(
+			mockLock.EXPECT().Recv().Return(nil, errMock),
+
+			mockLock.EXPECT().Recv().Return(lockTrue, nil),
+			mockLock.EXPECT().Send(gomock.Any()).Return(errMock),
+
+			mockLock.EXPECT().Recv().Return(lockTrue, nil),
+			mockLock.EXPECT().Send(gomock.Any()).Return(nil),
+			mockLock.EXPECT().Recv().Return(lockFalse, nil),
+			mockLock.EXPECT().Send(gomock.Any()).Return(nil),
+			mockLock.EXPECT().Recv().Return(nil, grpc.ErrServerStopped),
+		)
 
 		err := b.Lock(mockLock)
 		if err != errMock {
@@ -215,99 +202,131 @@ func TestGRPCServer(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
-	t.Run("Watch", func(t *testing.T) {
-		topic := []byte("watch-topic")
-		block := make(chan struct{})
-		mockWatch := mocks.NewMockHaraqa_WatchTopicsServer(gomock.NewController(t))
-		recvCount := 0
-		mockWatch.EXPECT().Recv().AnyTimes().
-			DoAndReturn(func() (*protocol.WatchRequest, error) {
-				defer func() { recvCount++; log.Println("recv", recvCount) }()
-				switch recvCount {
-				case 0:
-					return nil, errMock
-				case 1:
-					return &protocol.WatchRequest{}, nil
-				case 2, 3, 4:
-					return &protocol.WatchRequest{
-						Topics: [][]byte{topic},
-					}, nil
-				case 5:
-					// write to file
-					dat, err := os.Create(filepath.Join(b.config.Volumes[0], string(topic), "0000000000000000.dat"))
-					if err != nil {
-						t.Fatal(err)
-					}
-					data := [24]byte{}
-					_, err = dat.Write(data[:])
-					if err != nil {
-						t.Fatal(err)
-					}
-					<-block
-					// end connection
-					return &protocol.WatchRequest{
-						Topics: [][]byte{topic},
-						Term:   true,
-					}, nil
-				}
-				panic("unexpected recv")
-			})
-		sendCount := 0
-		mockWatch.EXPECT().Send(gomock.Any()).AnyTimes().
-			DoAndReturn(func(resp *protocol.WatchResponse) error {
-				defer func() { sendCount++; log.Println("send", sendCount) }()
-				switch sendCount {
-				case 0:
-					return nil
-				case 1, 2:
-					if resp.GetMeta().GetOK() {
-						t.Fatal("expected error")
-					}
-					return nil
-				case 3, 4:
-					return nil
-				case 5:
-					defer close(block)
-					return errMock
-				case 6:
-					return nil
-				}
-				panic("unexpected send")
-			})
-		err := b.WatchTopics(mockWatch)
-		if err != errMock {
-			t.Fatal(err)
-		}
-		err = b.WatchTopics(mockWatch)
-		if err != nil {
-			t.Fatal(err)
-		}
-		err = b.WatchTopics(mockWatch)
-		if err == nil {
-			t.Fatal("expected error")
-		}
-		err = os.MkdirAll(filepath.Join(b.config.Volumes[0], string(topic)), 0777)
-		if err != nil {
-			t.Fatal(err)
-		}
-		offsetCount := 0
-		mockQ.EXPECT().Offsets(topic).AnyTimes().DoAndReturn(func([]byte) (int64, int64, error) {
-			defer func() { offsetCount++; log.Println("send", sendCount) }()
-			switch offsetCount {
-			case 0:
-				return 0, 0, errMock
-			case 1:
-				return 0, 1, nil
+	t.Run("WatchTopic", func(t *testing.T) {
+		t.Run("Pre-queue", func(t *testing.T) {
+			mockWatch := mocks.NewMockHaraqa_WatchTopicsServer(ctrl)
+			gomock.InOrder(
+				mockWatch.EXPECT().Recv().Return(nil, errMock),
+				mockWatch.EXPECT().Send(gomock.Any()).Return(nil),
+
+				mockWatch.EXPECT().Recv().Return(&protocol.WatchRequest{}, nil),
+
+				mockWatch.EXPECT().Recv().Return(&protocol.WatchRequest{Topics: [][]byte{[]byte("*")}}, nil),
+				mockWatch.EXPECT().Send(gomock.Any()).Return(nil),
+			)
+			err := b.WatchTopics(mockWatch)
+			if err != errMock {
+				t.Fatal(err)
 			}
-			panic("unexpected offsets")
+			err = b.WatchTopics(mockWatch)
+			if err != nil {
+				t.Fatal(err)
+			}
+			b.config.Volumes = []string{""}
+			err = b.WatchTopics(mockWatch)
+			if errors.Cause(err).Error() != "no such file or directory" {
+				t.Fatal(err)
+			}
 		})
-		err = b.WatchTopics(mockWatch)
-		if errors.Cause(err) != errMock {
+
+		watchFileName := ".haraqa.watch"
+		_, err := os.Create(watchFileName)
+		if err != nil {
 			t.Fatal(err)
 		}
-		err = b.WatchTopics(mockWatch)
-		if errors.Cause(err) != errMock {
-			t.Fatal(err)
-		}
+		t.Run("Queue", func(t *testing.T) {
+			mockQ := mocks.NewMockQueue(ctrl)
+			b.Q = mockQ
+			mockWatch := mocks.NewMockHaraqa_WatchTopicsServer(ctrl)
+			gomock.InOrder(
+				mockWatch.EXPECT().Recv().Return(&protocol.WatchRequest{Topics: [][]byte{[]byte(watchFileName)}}, nil),
+				mockQ.EXPECT().Offsets(gomock.Any()).Return(int64(0), int64(0), errMock),
+				mockWatch.EXPECT().Send(gomock.Any()).Return(nil),
+
+				mockWatch.EXPECT().Recv().Return(&protocol.WatchRequest{Topics: [][]byte{[]byte(watchFileName)}}, nil),
+				mockQ.EXPECT().Offsets(gomock.Any()).Return(int64(0), int64(0), os.ErrNotExist),
+				mockWatch.EXPECT().Send(gomock.Any()).Return(errMock),
+
+				mockWatch.EXPECT().Recv().Return(&protocol.WatchRequest{Topics: [][]byte{[]byte(watchFileName)}}, nil),
+				mockQ.EXPECT().Offsets(gomock.Any()).Return(int64(0), int64(1), nil),
+				mockWatch.EXPECT().Send(gomock.Any()).Return(nil),
+				mockWatch.EXPECT().Send(gomock.Any()).Return(errMock),
+
+				mockWatch.EXPECT().Recv().Return(&protocol.WatchRequest{Topics: [][]byte{[]byte(watchFileName)}}, nil),
+				mockQ.EXPECT().Offsets(gomock.Any()).Return(int64(0), int64(-1), nil),
+				mockWatch.EXPECT().Send(gomock.Any()).Return(nil),
+				mockWatch.EXPECT().Recv().Return(nil, errMock),
+				mockWatch.EXPECT().Send(gomock.Any()).Return(nil),
+
+				mockWatch.EXPECT().Recv().Return(&protocol.WatchRequest{Topics: [][]byte{[]byte(watchFileName)}}, nil),
+				mockQ.EXPECT().Offsets(gomock.Any()).Return(int64(0), int64(-1), nil),
+				mockWatch.EXPECT().Send(gomock.Any()).Return(nil),
+				mockWatch.EXPECT().Recv().Return(&protocol.WatchRequest{Term: true}, nil),
+			)
+			err := b.WatchTopics(mockWatch)
+			if errors.Cause(err) != errMock {
+				t.Fatal(err)
+			}
+			err = b.WatchTopics(mockWatch)
+			if errors.Cause(err) != errMock {
+				t.Fatal(err)
+			}
+			err = b.WatchTopics(mockWatch)
+			if errors.Cause(err) != errMock {
+				t.Fatal(err)
+			}
+			err = b.WatchTopics(mockWatch)
+			if errors.Cause(err) != errMock {
+				t.Fatal(err)
+			}
+			err = b.WatchTopics(mockWatch)
+			if errors.Cause(err) != nil {
+				t.Fatal(err)
+			}
+		})
+		t.Run("watch", func(t *testing.T) {
+			mockWatch := mocks.NewMockHaraqa_WatchTopicsServer(ctrl)
+			errs := make(chan error)
+			offsets := map[string][2]int64{
+				".haraqa.valid": [2]int64{0, 0},
+			}
+			watchEvents := make(chan fsnotify.Event)
+			go b.watch(mockWatch, watchEvents, nil, errs, offsets)
+			watchEvents <- fsnotify.Event{
+				Op:   fsnotify.Create,
+				Name: "invalid/invalid.dat",
+			}
+			watchEvents <- fsnotify.Event{
+				Op:   fsnotify.Write,
+				Name: "invalid/invalid.dat",
+			}
+			watchEvents <- fsnotify.Event{
+				Op:   fsnotify.Write,
+				Name: ".haraqa.valid/invalid.dat",
+			}
+			err := <-errs
+			if !strings.HasSuffix(errors.Cause(err).Error(), "no such file or directory") {
+				t.Fatal(err)
+			}
+
+			err = os.Mkdir(".haraqa.valid", 0777)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = os.Create(".haraqa.valid/valid.dat")
+			if err != nil {
+				t.Fatal(err)
+			}
+			mockWatch.EXPECT().Send(gomock.Any()).Return(errMock)
+			go b.watch(mockWatch, watchEvents, nil, errs, offsets)
+			watchEvents <- fsnotify.Event{
+				Op:   fsnotify.Write,
+				Name: ".haraqa.valid/valid.dat",
+			}
+			err = <-errs
+			if errors.Cause(err) != errMock {
+				t.Fatal(err)
+			}
+		})
 	})
 }
