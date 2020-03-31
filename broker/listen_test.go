@@ -38,7 +38,7 @@ func TestListen(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		b.config.UnixSocket = ".haraqa/tmp/haraqa.sock"
+		b.config.UnixSocket = ".haraqa.tmp.haraqa.sock"
 		err = b.Listen(ctx)
 		if errors.Cause(err) != grpc.ErrServerStopped {
 			t.Fatal(err)
