@@ -26,6 +26,13 @@ func TestQueue(t *testing.T) {
 	// new queue
 	maxEntries := 10
 	consumePoolSize := uint64(1)
+	// invalid
+	_, err := NewQueue([]string{""}, maxEntries, consumePoolSize)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+
+	// valid
 	q, err := NewQueue(volumes, maxEntries, consumePoolSize)
 	if err != nil {
 		t.Fatal(err)
