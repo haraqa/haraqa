@@ -69,7 +69,7 @@ func TestMultiWriterRead(t *testing.T) {
 		t.Fatal(n)
 	}
 
-	err = w.Close()
+	err = r1.Close()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,6 +77,21 @@ func TestMultiWriterRead(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
+
+	err = f1.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = w.SetLimit(5).ReadFrom(f1)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+
+	err = w.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	_, err = w.SetLimit(5).ReadFrom(nil)
 	if err == nil {
 		t.Fatal("expected error")
