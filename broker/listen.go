@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/pkg/errors"
 )
@@ -31,7 +32,19 @@ func (b *Broker) Listen(ctx context.Context) error {
 	// open unix file data listener
 	unixListener, err := net.Listen("unix", b.config.UnixSocket)
 	if err != nil {
-		return errors.Wrapf(err, "failed to listen on unix socket %s", b.config.UnixSocket)
+		if strings.HasSuffix(err.Error(), "bind: address already in use") {
+			// common issue is reopening a socket if broker didn't close properly, remove and retry
+			if info, e := os.Stat(b.config.UnixSocket); e == nil {
+				if !info.IsDir() {
+					_ = os.RemoveAll(b.config.UnixSocket)
+					unixListener, err = net.Listen("unix", b.config.UnixSocket)
+				}
+			}
+		}
+
+		if err != nil {
+			return errors.Wrapf(err, "failed to listen on unix socket %s", b.config.UnixSocket)
+		}
 	}
 	defer unixListener.Close()
 	if err = os.Chmod(b.config.UnixSocket, b.config.UnixMode); err != nil {
