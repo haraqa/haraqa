@@ -5,13 +5,51 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/haraqa/haraqa/internal/protocol"
 	"github.com/pkg/errors"
 )
 
-func TestQueue(t *testing.T) {
+func TestNewQueue(t *testing.T) {
+	_, err := NewQueue(nil, 0, 0)
+	if err.Error() != "missing volumes from NewQueue call" {
+		t.Fatal(err)
+	}
+	_, err = NewQueue([]string{".haraqa", ".haraqa"}, 0, 0)
+	if err.Error() != "cannot create new queue found duplicate file .haraqa" {
+		t.Fatal(err)
+	}
+	_, err = NewQueue([]string{string([]byte{0, 0, 0})}, 0, 0)
+	if !strings.HasSuffix(err.Error(), "invalid argument") {
+		t.Fatal(err)
+	}
+	_, err = NewQueue([]string{".haraqa-a", ".haraqa-b"}, 0, 0)
+	defer func() {
+		_ = os.RemoveAll(".haraqa-a")
+		_ = os.RemoveAll(".haraqa-b")
+	}()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = os.Mkdir(".haraqa-b/topic", os.ModePerm)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.Create(".haraqa-b/topic/0.dat")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	_, err = NewQueue([]string{".haraqa-c", ".haraqa-b"}, 0, 0)
+	defer func() { _ = os.RemoveAll(".haraqa-c") }()
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestQueueFiles(t *testing.T) {
 	volumes := []string{".haraqa-queue1", ".haraqa-queue2"}
 	// clean volumes before/after
 	for i := range volumes {
@@ -26,13 +64,7 @@ func TestQueue(t *testing.T) {
 	// new queue
 	maxEntries := 10
 	consumePoolSize := uint64(1)
-	// invalid
-	_, err := NewQueue([]string{""}, maxEntries, consumePoolSize)
-	if err == nil {
-		t.Fatal("expected error")
-	}
 
-	// valid
 	q, err := NewQueue(volumes, maxEntries, consumePoolSize)
 	if err != nil {
 		t.Fatal(err)

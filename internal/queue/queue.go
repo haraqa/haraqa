@@ -35,10 +35,18 @@ type Queue interface {
 // NewQueue returns a queue struct which implements the Queue interface using
 // zero copy on linux systems
 func NewQueue(volumes []string, maxEntries int, consumePoolSize uint64) (Queue, error) {
+	if len(volumes) == 0 {
+		return nil, errors.New("missing volumes from NewQueue call")
+	}
+	duplicateChecker := make(map[string]struct{}, len(volumes))
 	restorationVolume := ""
 	emptyVolumes := make([]string, 0, len(volumes))
 	existingTopics := make(map[string]*produceTopic)
 	for i := len(volumes) - 1; i >= 0; i-- {
+		if _, ok := duplicateChecker[volumes[i]]; ok {
+			return nil, errors.Errorf("cannot create new queue found duplicate file %s", volumes[i])
+		}
+		duplicateChecker[volumes[i]] = struct{}{}
 		err := os.MkdirAll(volumes[i], os.ModePerm)
 		if err != nil {
 			return nil, err
