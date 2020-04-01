@@ -80,14 +80,13 @@ func NewQueue(volumes []string, maxEntries int, consumePoolSize uint64) (Queue, 
 			topicFiles[topic] = make([]*os.File, 0, len(files))
 
 			for _, file := range files {
-				if file.IsDir() {
-					continue
+				if !file.IsDir() {
+					src, err := os.Open(filepath.Join(restorationVolume, topic, file.Name()))
+					if err != nil {
+						return nil, err
+					}
+					topicFiles[topic] = append(topicFiles[topic], src)
 				}
-				src, err := os.Open(filepath.Join(restorationVolume, topic, file.Name()))
-				if err != nil {
-					return nil, err
-				}
-				topicFiles[topic] = append(topicFiles[topic], src)
 			}
 		}
 
