@@ -20,7 +20,7 @@ func NewMap(channelSize uint64) *Map {
 // Map allows any interface which conforms to the io.Closer type to be cached.
 //  As the cache size grows, entries are removed
 type Map struct {
-	mux sync.Mutex
+	mux sync.RWMutex
 	m   map[string]chan io.Closer
 	d   map[string]struct{}
 	s   uint64
@@ -30,7 +30,9 @@ type Map struct {
 // Get returns an io.Closer, if any is cached, based on the key
 //  if none are cached it returns nil
 func (m *Map) Get(key []byte) io.Closer {
+	m.mux.RLock()
 	ch, ok := m.m[string(key)]
+	m.mux.RUnlock()
 	if !ok {
 		return nil
 	}
