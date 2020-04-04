@@ -10,6 +10,7 @@ import (
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/haraqa/haraqa/broker"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 )
@@ -49,6 +50,8 @@ func main() {
 		log.Fatal(err)
 	}
 
+	b.M = newMetrics()
+
 	// start http server
 	grpc_prometheus.Register(b.GRPCServer)
 	go func() {
@@ -63,4 +66,39 @@ func main() {
 	if err := b.Listen(context.Background()); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
+}
+
+func newMetrics() *prometheusMetrics {
+	producerCounter := prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: "haraqa",
+			Name:      "produce_msg_counter",
+			Help:      "Tracks number of messages received from producers.",
+		})
+	consumerCounter := prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: "haraqa",
+			Name:      "consume_msg_counter",
+			Help:      "Tracks number of messages sent to consumers.",
+		})
+	prometheus.MustRegister(producerCounter)
+	prometheus.MustRegister(consumerCounter)
+	return &prometheusMetrics{
+		producerCounter: producerCounter,
+		consumerCounter: consumerCounter,
+	}
+}
+
+type prometheusMetrics struct {
+	producerCounter prometheus.Counter
+	consumerCounter prometheus.Counter
+}
+
+func (p *prometheusMetrics) AddProduceMsgs(n int) {
+	p.producerCounter.Add(float64(n))
+
+}
+
+func (p *prometheusMetrics) AddConsumeMsgs(n int) {
+	p.consumerCounter.Add(float64(n))
 }

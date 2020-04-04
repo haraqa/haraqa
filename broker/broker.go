@@ -44,6 +44,7 @@ type Broker struct {
 	config     Config
 	GRPCServer *grpc.Server
 	Q          queue.Queue
+	M          Metrics
 
 	groupMux   sync.Mutex
 	groupLocks map[string]chan struct{}
@@ -65,6 +66,7 @@ func NewBroker(config Config) (*Broker, error) {
 		config:     config,
 		GRPCServer: grpc.NewServer(config.GRPCOptions...),
 		Q:          q,
+		M:          noopMetrics{},
 		groupLocks: make(map[string]chan struct{}),
 	}
 

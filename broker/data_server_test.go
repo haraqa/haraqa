@@ -91,6 +91,7 @@ func TestProduceHandler(t *testing.T) {
 		errMock = errors.New("mock error")
 		b       = &Broker{
 			config: Config{MaxSize: 200},
+			M:      noopMetrics{},
 		}
 		produceReq = &protocol.ProduceRequest{}
 		buf        []byte
@@ -205,7 +206,7 @@ func TestConsumeHandler(t *testing.T) {
 	defer ctrl.Finish()
 	var (
 		errMock     = errors.New("mock error")
-		b           = &Broker{}
+		b           = &Broker{M: noopMetrics{}}
 		consumeReq  = &protocol.ConsumeRequest{}
 		consumeResp = &protocol.ConsumeResponse{}
 		buf         []byte

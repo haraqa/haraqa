@@ -98,6 +98,8 @@ func (b *Broker) handleProduce(conn io.ReadWriter, produceReq *protocol.ProduceR
 		return errors.Wrap(err, "produce message queue error")
 	}
 
+	b.M.AddProduceMsgs(len(produceReq.MsgSizes))
+
 	// write response
 	prefix[2], prefix[3] = 0, 0
 	_, err = conn.Write(prefix[:])
@@ -154,5 +156,7 @@ func (b *Broker) handleConsume(conn io.ReadWriter, consumeReq *protocol.ConsumeR
 	if err != nil {
 		return errors.Wrap(err, "consume write error")
 	}
+
+	b.M.AddConsumeMsgs(len(msgSizes))
 	return nil
 }
