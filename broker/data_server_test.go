@@ -90,8 +90,8 @@ func TestProduceHandler(t *testing.T) {
 	var (
 		errMock = errors.New("mock error")
 		b       = &Broker{
-			config: Config{MaxSize: 200},
-			M:      noopMetrics{},
+			MaxSize: 200,
+			M:       noopMetrics{},
 		}
 		produceReq = &protocol.ProduceRequest{}
 		buf        []byte
@@ -186,7 +186,7 @@ func TestProduceHandler(t *testing.T) {
 	})
 
 	t.Run("read success, message too largs", func(t *testing.T) {
-		b.config.MaxSize = 3
+		b.MaxSize = 3
 		conn := mocks.NewMockReadWriteCloser(ctrl)
 		gomock.InOrder(
 			conn.EXPECT().Read(gomock.Any()).DoAndReturn(func(b []byte) (int, error) {

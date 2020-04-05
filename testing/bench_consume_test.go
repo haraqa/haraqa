@@ -14,8 +14,7 @@ import (
 
 func BenchmarkConsume(b *testing.B) {
 	defer os.RemoveAll(".haraqa")
-	cfg := broker.DefaultConfig
-	brkr, err := broker.NewBroker(cfg)
+	brkr, err := broker.NewBroker()
 	if err != nil {
 		b.Fatal(err)
 	}

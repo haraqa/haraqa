@@ -222,7 +222,7 @@ func TestGRPCServer(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			b.config.Volumes = []string{""}
+			b.Volumes = []string{""}
 			err = b.WatchTopics(mockWatch)
 			if errors.Cause(err).Error() != "no such file or directory" {
 				t.Fatal(err)

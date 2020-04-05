@@ -14,7 +14,7 @@ import (
 
 func BenchmarkProduce(b *testing.B) {
 	defer os.RemoveAll(".haraqa")
-	brkr, err := broker.NewBroker(broker.DefaultConfig)
+	brkr, err := broker.NewBroker()
 	if err != nil {
 		b.Fatal(err)
 	}

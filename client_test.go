@@ -28,7 +28,7 @@ func (m *MockConn) Close() error {
 }
 
 func TestAll(t *testing.T) {
-	b, err := broker.NewBroker(broker.DefaultConfig)
+	b, err := broker.NewBroker()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +42,7 @@ func TestAll(t *testing.T) {
 	}()
 
 	defer func() {
-		_ = os.RemoveAll(broker.DefaultConfig.Volumes[0])
+		_ = os.RemoveAll(b.Volumes[0])
 	}()
 
 	t.Run("New client", testNewClient)

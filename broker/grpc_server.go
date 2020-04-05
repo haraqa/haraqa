@@ -82,7 +82,7 @@ func (b *Broker) WatchTopics(srv protocol.Haraqa_WatchTopicsServer) error {
 	defer watcher.Close()
 
 	for _, topic := range topics {
-		filename := filepath.Join(b.config.Volumes[len(b.config.Volumes)-1], string(topic))
+		filename := filepath.Join(b.Volumes[len(b.Volumes)-1], string(topic))
 		err = watcher.Add(filename)
 		if err != nil {
 			err = errors.Wrapf(err, "unable to watch topic %v", string(topic))

@@ -81,10 +81,10 @@ func (b *Broker) handleProduce(conn io.ReadWriter, produceReq *protocol.ProduceR
 	}
 
 	// check msg sizes
-	if b.config.MaxSize > 0 {
+	if b.MaxSize > 0 {
 		for i := range produceReq.MsgSizes {
-			if produceReq.MsgSizes[i] > b.config.MaxSize {
-				err = errors.Errorf("invalid message size. exceeds maximum limit of %d bytes", b.config.MaxSize)
+			if produceReq.MsgSizes[i] > b.MaxSize {
+				err = errors.Errorf("invalid message size. exceeds maximum limit of %d bytes", b.MaxSize)
 				protocol.ErrorToResponse(conn, err)
 				return err
 			}
