@@ -80,37 +80,4 @@ func TestOptions(t *testing.T) {
 	if b.M == nil {
 		t.Fatal(b.M)
 	}
-
-	// WithGRPCPort sets the port on which to listen for grpc connections
-	/*  func WithGRPCPort(n uint16) Option {
-	    	return func(b *Broker) error {
-	    		b.GRPCPort = uint(n)
-	    		return nil
-	    	}
-	    }
-
-	    // WithDataPort sets the port on which to listen for data connections
-	    func WithDataPort(n uint16) Option {
-	    	return func(b *Broker) error {
-	    		b.DataPort = uint(n)
-	    		return nil
-	    	}
-	    }
-
-	    // WithUnixSocket sets the unixfile on which to listen for a local data connection
-	    func WithUnixSocket(s string, mode os.FileMode) Option {
-	    	return func(b *Broker) error {
-	    		b.UnixSocket = s
-	    		b.UnixMode = mode
-	    		return nil
-	    	}
-	    }
-
-	    // WithGRPCOptions sets the options to start the grpc server with
-	    func WithGRPCOptions(options ...grpc.ServerOption) Option {
-	    	return func(b *Broker) error {
-	    		b.grpcOptions = options
-	    		return nil
-	    	}
-	    }*/
 }

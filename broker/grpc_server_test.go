@@ -20,14 +20,8 @@ func TestGRPCServer(t *testing.T) {
 
 	var (
 		errMock = errors.New("mock error")
-
-		ctx = context.Background()
-		b   = &Broker{
-			/*groupLocks: make(map[string]chan struct{}),
-			config: Config{
-				Volumes: []string{".haraqa-watch"},
-			},*/
-		}
+		ctx     = context.Background()
+		b       = &Broker{}
 	)
 
 	t.Run("CreateTopic", func(t *testing.T) {
@@ -288,7 +282,7 @@ func TestGRPCServer(t *testing.T) {
 			mockWatch := mocks.NewMockHaraqa_WatchTopicsServer(ctrl)
 			errs := make(chan error)
 			offsets := map[string][2]int64{
-				".haraqa.valid": [2]int64{0, 0},
+				".haraqa.valid": {0, 0},
 			}
 			watchEvents := make(chan fsnotify.Event)
 			go b.watch(mockWatch, watchEvents, nil, errs, offsets)
