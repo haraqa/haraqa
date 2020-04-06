@@ -76,36 +76,63 @@ func main() {
 }
 
 func newMetrics() *prometheusMetrics {
-	producerCounter := prometheus.NewCounter(
+	producerCounter := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "haraqa",
 			Name:      "produce_msg_counter",
 			Help:      "Tracks number of messages received from producers.",
-		})
-	consumerCounter := prometheus.NewCounter(
+		}, []string{"topic"})
+	producerHistogram := prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: "haraqa",
+			Name:      "produce_msg_hist",
+			Help:      "Tracks histogram of messages sent from producers.",
+		}, []string{"topic"})
+
+	consumerCounter := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "haraqa",
 			Name:      "consume_msg_counter",
 			Help:      "Tracks number of messages sent to consumers.",
-		})
+		}, []string{"topic"})
+	consumerHistogram := prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: "haraqa",
+			Name:      "consume_msg_hist",
+			Help:      "Tracks histogram of messages sent to consumers.",
+		}, []string{"topic"})
+
+	// register
 	prometheus.MustRegister(producerCounter)
+	prometheus.MustRegister(producerHistogram)
 	prometheus.MustRegister(consumerCounter)
+	prometheus.MustRegister(consumerHistogram)
+
 	return &prometheusMetrics{
-		producerCounter: producerCounter,
-		consumerCounter: consumerCounter,
+		producerCounter:   producerCounter,
+		producerHistogram: producerHistogram,
+		consumerCounter:   consumerCounter,
+		consumerHistogram: consumerHistogram,
 	}
 }
 
 type prometheusMetrics struct {
-	producerCounter prometheus.Counter
-	consumerCounter prometheus.Counter
+	producerCounter   *prometheus.CounterVec
+	producerHistogram *prometheus.HistogramVec
+	consumerCounter   *prometheus.CounterVec
+	consumerHistogram *prometheus.HistogramVec
 }
 
-func (p *prometheusMetrics) AddProduceMsgs(n int) {
-	p.producerCounter.Add(float64(n))
-
+func (p *prometheusMetrics) AddProduceMsgs(topic []byte, msgSizes []int64) {
+	p.producerCounter.WithLabelValues(string(topic)).Add(float64(len(msgSizes)))
+	for i := range msgSizes {
+		p.producerHistogram.WithLabelValues(string(topic)).Observe(float64(msgSizes[i]))
+	}
 }
 
-func (p *prometheusMetrics) AddConsumeMsgs(n int) {
-	p.consumerCounter.Add(float64(n))
+func (p *prometheusMetrics) AddConsumeMsgs(topic []byte, msgSizes []int64) {
+	p.consumerCounter.WithLabelValues(string(topic)).Add(float64(len(msgSizes)))
+	for i := range msgSizes {
+		p.consumerHistogram.WithLabelValues(string(topic)).Observe(float64(msgSizes[i]))
+	}
 }

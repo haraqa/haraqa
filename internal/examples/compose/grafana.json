@@ -165,7 +165,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "irate(process_cpu_seconds_total[1m])*60",
+          "expr": "irate(process_cpu_seconds_total[1m])",
           "refId": "A"
         }
       ],
@@ -1610,7 +1610,15 @@
         {
           "expr": "haraqa_produce_msg_counter",
           "intervalFactor": 2,
+          "legendFormat": "{{topic}}",
           "refId": "A",
+          "step": 60
+        },
+        {
+          "expr": "sum(haraqa_produce_msg_counter)",
+          "intervalFactor": 2,
+          "legendFormat": "total",
+          "refId": "B",
           "step": 60
         }
       ],
@@ -1619,6 +1627,154 @@
       "timeRegions": [],
       "timeShift": null,
       "title": "produce_msg_received_total",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "cacheTimeout": null,
+      "datasource": "Prometheus",
+      "gridPos": {
+        "h": 28,
+        "w": 12,
+        "x": 12,
+        "y": 41
+      },
+      "id": 31,
+      "links": [],
+      "options": {
+        "displayMode": "gradient",
+        "fieldOptions": {
+          "calcs": [
+            "mean"
+          ],
+          "defaults": {
+            "mappings": [],
+            "max": 1024,
+            "min": 0,
+            "thresholds": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ],
+            "title": "",
+            "unit": "bytes"
+          },
+          "override": {},
+          "values": false
+        },
+        "orientation": "horizontal"
+      },
+      "pluginVersion": "6.5.3",
+      "targets": [
+        {
+          "expr": "haraqa_produce_msg_hist_sum/haraqa_produce_msg_hist_count",
+          "instant": false,
+          "intervalFactor": 2,
+          "legendFormat": "{{topic}}",
+          "refId": "A",
+          "step": 60
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Average Message Size",
+      "type": "bargauge"
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 48
+      },
+      "hiddenSeries": false,
+      "id": 30,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "options": {
+        "dataLinks": []
+      },
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "haraqa_consume_msg_counter",
+          "intervalFactor": 2,
+          "legendFormat": "{{topic}}",
+          "refId": "A",
+          "step": 60
+        },
+        {
+          "expr": "sum(haraqa_consume_msg_counter)",
+          "intervalFactor": 2,
+          "legendFormat": "total",
+          "refId": "B",
+          "step": 60
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "consume_msg_received_total",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -1666,8 +1822,8 @@
       "gridPos": {
         "h": 7,
         "w": 12,
-        "x": 12,
-        "y": 41
+        "x": 0,
+        "y": 55
       },
       "hiddenSeries": false,
       "id": 29,
@@ -1699,7 +1855,15 @@
         {
           "expr": "irate(haraqa_produce_msg_counter[1m])",
           "intervalFactor": 2,
+          "legendFormat": "{{topic}}",
           "refId": "A",
+          "step": 60
+        },
+        {
+          "expr": "sum(irate(haraqa_produce_msg_counter[1m]))",
+          "intervalFactor": 2,
+          "legendFormat": "total",
+          "refId": "B",
           "step": 60
         }
       ],
@@ -1756,96 +1920,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 48
-      },
-      "hiddenSeries": false,
-      "id": 30,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "options": {
-        "dataLinks": []
-      },
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "haraqa_consume_msg_counter",
-          "intervalFactor": 2,
-          "refId": "A",
-          "step": 60
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "consume_msg_received_total",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 7,
-        "w": 12,
-        "x": 12,
-        "y": 48
+        "y": 62
       },
       "hiddenSeries": false,
       "id": 28,
@@ -1877,7 +1952,15 @@
         {
           "expr": "irate(haraqa_consume_msg_counter[1m])",
           "intervalFactor": 2,
+          "legendFormat": "{{topic}}",
           "refId": "A",
+          "step": 60
+        },
+        {
+          "expr": "sum(irate(haraqa_consume_msg_counter[1m]))",
+          "intervalFactor": 2,
+          "legendFormat": "total",
+          "refId": "B",
           "step": 60
         }
       ],
@@ -1962,5 +2045,5 @@
   "timezone": "browser",
   "title": "Haraqa",
   "uid": "mRuVYXPZz",
-  "version": 2
+  "version": 5
 }
