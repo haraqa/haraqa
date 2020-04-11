@@ -12,6 +12,8 @@ import (
 	"github.com/haraqa/haraqa/broker"
 )
 
+var errDump error
+
 func BenchmarkProduce(b *testing.B) {
 	defer os.RemoveAll(".haraqa")
 	brkr, err := broker.NewBroker()
@@ -59,10 +61,7 @@ func benchProducer(batchSize int) func(b *testing.B) {
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i += batchSize {
-			err := client.Produce(ctx, topic, msgs...)
-			if err != nil {
-				b.Fatal(err)
-			}
+			errDump = client.Produce(ctx, topic, msgs...)
 		}
 		b.StopTimer()
 	}
@@ -81,35 +80,31 @@ func benchProducerLoop(batchSize int) func(b *testing.B) {
 		msg := make([]byte, 100)
 		_, _ = rand.Read(msg)
 
-		ch := make(chan haraqa.ProduceMsg, batchSize)
-		var wg sync.WaitGroup
-		wg.Add(1)
-		go func() {
-			err := client.ProduceLoop(ctx, topic, ch)
-			if err != nil {
-				b.Log(err)
-				b.Fail()
-			}
-			wg.Done()
-		}()
+		producer, err := client.NewProducer(haraqa.WithTopic(topic), haraqa.WithBatchSize(batchSize))
+		if err != nil {
+			b.Fatal(err)
+		}
+		defer producer.Close()
 
-		errs := make([]chan error, b.N)
-		for i := range errs {
-			errs[i] = make(chan error, 1)
+		// create n workers
+		var wg sync.WaitGroup
+		blocker := make(chan struct{})
+		for i := 0; i < batchSize; i++ {
+			wg.Add(1)
+			go func() {
+				<-blocker
+				for j := 0; j < b.N; j += batchSize {
+					errDump = producer.Send(msg)
+				}
+				wg.Done()
+			}()
 		}
 
 		b.ReportAllocs()
 		b.ResetTimer()
 
-		for i := 0; i < b.N; i++ {
-			ch <- haraqa.ProduceMsg{
-				Msg: msg,
-				Err: errs[i],
-			}
-		}
-		close(ch)
+		close(blocker)
 		wg.Wait()
-
 		b.StopTimer()
 	}
 }

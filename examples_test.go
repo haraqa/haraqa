@@ -3,6 +3,7 @@ package haraqa_test
 import (
 	"context"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/haraqa/haraqa"
@@ -130,49 +131,46 @@ func Example_produce() {
 	}
 }
 
-//Example of the recommended way to produce messages. A ProduceLoop function
+//Example of the recommended way to produce messages. A Produce function
 // runs in the background and new messages are sent via a channel to be produced.
 // Messages are batched to increase efficiency
-func Example_produceLoop() {
+func Example_producer() {
 	client, err := haraqa.NewClient()
 	if err != nil {
 		panic(err)
 	}
+	defer client.Close()
 
 	var (
-		ctx   = context.Background()
-		topic = []byte("myTopic")
-		msg1  = haraqa.NewProduceMsg([]byte("my message"))
-		msg2  = haraqa.NewProduceMsg([]byte("my other message"))
-
-		// the capacity of the channel determines the maximum allowed batch size
-		ch = make(chan haraqa.ProduceMsg, 1000)
+		topic     = []byte("myTopic")
+		msg1      = []byte("my message")
+		msg2      = []byte("my other message")
+		batchSize = 1000
 	)
 
-	// start the loop in the background
+	// start the producer
+	producer, err := client.NewProducer(haraqa.WithTopic(topic), haraqa.WithBatchSize(batchSize))
+	if err != nil {
+		panic(err)
+	}
+	defer producer.Close()
+
+	//sending messages is thread safe and can be done from multiple goroutines
+	var wg sync.WaitGroup
+	wg.Add(2)
 	go func() {
-		err = client.ProduceLoop(ctx, topic, ch)
+		err := producer.Send(msg1)
 		if err != nil {
 			panic(err)
 		}
 	}()
-
-	//closing the channel will gracefully close ProduceLoop
-	defer close(ch)
-
-	//sending messages to the channel is thread safe and can be done from multiple goroutines
-	ch <- msg1
-	ch <- msg2
-
-	//errors are returned to each produce message
-	err = <-msg1.Err
-	if err != nil {
-		panic(err)
-	}
-	err = <-msg2.Err
-	if err != nil {
-		panic(err)
-	}
+	go func() {
+		err := producer.Send(msg2)
+		if err != nil {
+			panic(err)
+		}
+	}()
+	wg.Wait()
 }
 
 // Example for consuming messages all at once
