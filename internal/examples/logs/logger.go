@@ -45,7 +45,7 @@ func NewLogger(l *log.Logger, topic []byte) (*Logger, error) {
 		return nil, err
 	}
 
-	producer, err := client.NewProducer(haraqa.WithTopic(topic), haraqa.WithIgnoreErrors(true))
+	producer, err := client.NewProducer(haraqa.WithTopic(topic), haraqa.WithIgnoreErrors())
 	if err != nil {
 		return nil, err
 	}

@@ -16,7 +16,7 @@ func main() {
 	}
 	defer client.Close()
 
-	producer, err := client.NewProducer(haraqa.WithTopic([]byte("memstats")), haraqa.WithIgnoreErrors(true))
+	producer, err := client.NewProducer(haraqa.WithTopic([]byte("memstats")), haraqa.WithIgnoreErrors())
 	if err != nil {
 		panic(err)
 	}
