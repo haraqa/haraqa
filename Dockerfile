@@ -17,7 +17,7 @@ ARG TEST_ONLY=""
 RUN go test -mod=readonly -race -timeout 30s -coverprofile=cover.out -covermode=atomic ./... && \
       go tool cover -html=cover.out -o /profiles/coverage.html
 # test for speed
-RUN go test -bench=. -benchtime=1000x -run=XXX -cpu=4 \
+RUN go test -bench=. -benchtime=10000x -run=XXX -cpu=4 \
       -cpuprofile   /profiles/cpu.out \
       -memprofile   /profiles/mem.out \
       -coverprofile /profiles/cover.out \

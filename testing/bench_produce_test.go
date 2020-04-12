@@ -35,10 +35,15 @@ func BenchmarkProduce(b *testing.B) {
 	b.Run("produce 100", benchProducer(100))
 	b.Run("produce 1000", benchProducer(1000))
 	fmt.Println("")
-	b.Run("produce loop 1", benchProducerLoop(1))
-	b.Run("produce loop 10", benchProducerLoop(10))
-	b.Run("produce loop 100", benchProducerLoop(100))
-	b.Run("produce loop 1000", benchProducerLoop(1000))
+	b.Run("producer 1", benchProducerSend(1))
+	b.Run("producer 10", benchProducerSend(10))
+	b.Run("producer 100", benchProducerSend(100))
+	b.Run("producer 1000", benchProducerSend(1000))
+	fmt.Println("")
+	b.Run("producer ch 1", benchProducerErrChan(1))
+	b.Run("producer ch 10", benchProducerErrChan(10))
+	b.Run("producer ch 100", benchProducerErrChan(100))
+	b.Run("producer ch 1000", benchProducerErrChan(1000))
 }
 
 func benchProducer(batchSize int) func(b *testing.B) {
@@ -67,7 +72,7 @@ func benchProducer(batchSize int) func(b *testing.B) {
 	}
 }
 
-func benchProducerLoop(batchSize int) func(b *testing.B) {
+func benchProducerSend(batchSize int) func(b *testing.B) {
 	return func(b *testing.B) {
 		client, err := haraqa.NewClient()
 		if err != nil {
@@ -95,6 +100,58 @@ func benchProducerLoop(batchSize int) func(b *testing.B) {
 				<-blocker
 				for j := 0; j < b.N; j += batchSize {
 					errDump = producer.Send(msg)
+				}
+				wg.Done()
+			}()
+		}
+
+		b.ReportAllocs()
+		b.ResetTimer()
+
+		close(blocker)
+		wg.Wait()
+		b.StopTimer()
+	}
+}
+
+func benchProducerErrChan(batchSize int) func(b *testing.B) {
+	return func(b *testing.B) {
+		client, err := haraqa.NewClient()
+		if err != nil {
+			b.Fatal(err)
+		}
+		ctx := context.Background()
+		topic := []byte("something")
+		_ = client.CreateTopic(ctx, topic)
+
+		msg := make([]byte, 100)
+		_, _ = rand.Read(msg)
+
+		errs := make(chan error, b.N+1)
+
+		producer, err := client.NewProducer(
+			haraqa.WithTopic(topic),
+			haraqa.WithBatchSize(batchSize),
+			haraqa.WithIgnoreErrors(),
+			haraqa.WithErrorHandler(func(err error) {
+				errs <- err
+			}),
+		)
+		if err != nil {
+			b.Fatal(err)
+		}
+		defer producer.Close()
+
+		// create n workers
+		var wg sync.WaitGroup
+		blocker := make(chan struct{})
+		for i := 0; i < batchSize; i++ {
+			wg.Add(1)
+			go func() {
+				<-blocker
+				for j := 0; j < b.N; j += batchSize {
+					// ignoring errors, so Send will always be nil
+					_ = producer.Send(msg)
 				}
 				wg.Done()
 			}()

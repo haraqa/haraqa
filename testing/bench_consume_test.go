@@ -28,10 +28,10 @@ func BenchmarkConsume(b *testing.B) {
 		}
 	}()
 	createConsumeTopic()
-	b.Run("consume 1", benchConsumer(1))
+	/*b.Run("consume 1", benchConsumer(1))
 	b.Run("consume 10", benchConsumer(10))
 	b.Run("consume 100", benchConsumer(100))
-	b.Run("consume 1000", benchConsumer(1000))
+	b.Run("consume 1000", benchConsumer(1000))*/
 }
 
 func createConsumeTopic() {

@@ -22,12 +22,13 @@ func WithBatchSize(size int) ProducerOption {
 	}
 }
 
-// WithIgnoreErrors sets whether or not the (*Producer).Send method waits for
-// confirmation if a message is sent successfully. By default, Send will wait until
-// the message is placed in the queue or an error occurs
-func WithIgnoreErrors(ignore bool) ProducerOption {
+// WithIgnoreErrors sets the (*Producer).Send method to not wait for a response
+// from the broker. If given, WithIgnoreErrors will cause (*Producer).Send to always
+// return nil, until the producer is closed.
+// IgnoreErrors does not effect WithErrorHandler.
+func WithIgnoreErrors() ProducerOption {
 	return func(p *Producer) error {
-		p.ignoreErrs = ignore
+		p.ignoreErrs = true
 		return nil
 	}
 }
@@ -54,6 +55,9 @@ func WithContext(ctx context.Context) ProducerOption {
 // during a Send operation. The error is the same error returned by (*Producer).Send
 func WithErrorHandler(handler func(error)) ProducerOption {
 	return func(p *Producer) error {
+		if handler == nil {
+			return errors.New("invalid error handler")
+		}
 		p.errHandler = handler
 		return nil
 	}
@@ -85,10 +89,11 @@ type Producer struct {
 	c          *Client
 	ctx        context.Context
 	errHandler func(error)
-	msgs       chan produceMsg
-	errs       chan chan error
-	closeMux   sync.RWMutex
-	closed     bool
+	msgs       chan produceMsg // used by Send
+	rawMsgs    chan []byte     // used by Send (when ignoreErrs true)
+	errs       chan chan error // used by getErrs/putErrs in Send
+	wg         sync.WaitGroup  // used when closing producer
+	closed     bool            // used when closing producer
 }
 
 type produceMsg struct {
@@ -118,17 +123,38 @@ func (c *Client) NewProducer(opts ...ProducerOption) (*Producer, error) {
 		return nil, errors.Wrap(err, "invalid option")
 	}
 
-	// init incoming channels
-	p.errs = make(chan chan error, 2*p.batchSize)
-	p.msgs = make(chan produceMsg, p.batchSize)
+	// handle simple case, ignoring errors
+	if p.ignoreErrs {
+		p.rawMsgs = make(chan []byte, p.batchSize)
+		go func() {
+			msgs := make([][]byte, 0, p.batchSize)
+			for {
+				msg, ok := <-p.rawMsgs
+				if !ok {
+					return
+				}
+				msgs = append(msgs, msg)
+				if len(msgs) == p.batchSize || (len(p.rawMsgs) == 0 && len(msgs) > 0) {
+					_ = p.process(msgs)
 
+					// truncate msg buffer
+					msgs = msgs[:0]
+				}
+			}
+		}()
+		return p, nil
+	}
+
+	// init channels
+	p.msgs = make(chan produceMsg, p.batchSize)
+	p.errs = make(chan chan error, 2*p.batchSize)
 	// init some error channels in the pool
 	for i := 0; i < p.batchSize*2; i++ {
 		p.putErrs(make(chan error, 1))
 	}
 
+	// handle more complex case, return err to send
 	go func() {
-
 		errs := make([]chan error, 0, p.batchSize)
 		msgs := make([][]byte, 0, p.batchSize)
 		var ok bool
@@ -140,11 +166,12 @@ func (c *Client) NewProducer(opts ...ProducerOption) (*Producer, error) {
 				return
 			}
 			msgs = append(msgs, msg.Msg)
-			if msg.Err != nil {
-				errs = append(errs, msg.Err)
-			}
+			errs = append(errs, msg.Err)
 			if len(msgs) == p.batchSize || (len(p.msgs) == 0 && len(msgs) > 0) {
-				p.process(msgs, errs)
+				err := p.process(msgs)
+				for i := range errs {
+					errs[i] <- err
+				}
 
 				// truncate msg buffer
 				msgs = msgs[:0]
@@ -159,27 +186,27 @@ func (c *Client) NewProducer(opts ...ProducerOption) (*Producer, error) {
 // Close stops the Producer background process. Calling Send after Close will result
 // in Send receiving an error
 func (p *Producer) Close() error {
-	p.closeMux.Lock()
-	defer p.closeMux.Unlock()
 	p.closed = true
-	close(p.msgs)
+	p.wg.Wait()
+	if p.msgs != nil {
+		close(p.msgs)
+	}
+	if p.rawMsgs != nil {
+		close(p.rawMsgs)
+	}
 	return nil
 }
 
-func (p *Producer) process(msgs [][]byte, errs []chan error) {
-
+func (p *Producer) process(msgs [][]byte) error {
 	//send batch
 	p.c.dataConnLock.Lock()
 	err := p.c.produce(p.ctx, p.topic, msgs...)
 	p.c.dataConnLock.Unlock()
 
-	for i := range errs {
-		errs[i] <- err
-	}
 	if err != nil {
 		p.errHandler(err)
 	}
-	return
+	return err
 }
 
 // Send produces a message to the haraqa broker
@@ -190,19 +217,18 @@ func (p *Producer) Send(msg []byte) error {
 			return err
 		}
 	}
-
-	p.closeMux.RLock()
-	defer p.closeMux.RUnlock()
+	p.wg.Add(1)
+	defer p.wg.Done()
 	if p.closed {
 		return errors.New("cannot send on closed producer")
 	}
 	if p.ignoreErrs {
-		p.msgs <- produceMsg{Msg: msg}
+		p.rawMsgs <- msg
 		return nil
 	}
+
 	errs := p.getErrs()
 	defer p.putErrs(errs)
-
 	p.msgs <- produceMsg{
 		Msg: msg,
 		Err: errs,

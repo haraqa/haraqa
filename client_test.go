@@ -294,8 +294,14 @@ func testProduce(c *Client) func(t *testing.T) {
 		}
 
 		// invalid topic
-		_, err = c.NewProducer(WithTopic(nil), WithContext(ctx), WithIgnoreErrors(false))
+		_, err = c.NewProducer(WithTopic(nil), WithContext(ctx))
 		if errors.Cause(err).Error() != "missing topic" {
+			t.Fatal(err)
+		}
+
+		// invalid error handler
+		_, err = c.NewProducer(WithErrorHandler(nil))
+		if errors.Cause(err).Error() != "invalid error handler" {
 			t.Fatal(err)
 		}
 
@@ -308,7 +314,7 @@ func testProduce(c *Client) func(t *testing.T) {
 		// send a message without errors
 		producer, err := c.NewProducer(
 			WithTopic([]byte("producer_send")),
-			WithIgnoreErrors(true),
+			WithIgnoreErrors(),
 		)
 		if err != nil {
 			t.Fatal(err)
