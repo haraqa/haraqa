@@ -1,13 +1,5 @@
 package main
 
-import (
-	"context"
-	"fmt"
-	"sync"
-
-	"github.com/haraqa/haraqa"
-)
-
 func check(err error) {
 	if err != nil {
 		panic(err)
@@ -15,30 +7,34 @@ func check(err error) {
 }
 
 func main() {
-	topicPrefix := "mytopic"
-	numPartitions := 5
-	batchSize := 10
+	/*	topicPrefix := "mytopic"
+		numPartitions := 5
+		batchSize := 10
 
-	client, err := haraqa.NewClient()
-	check(err)
+		client, err := haraqa.NewClient()
+		check(err)
+		defer client.Close()
 
-	ch := make(chan haraqa.ProduceMsg, batchSize)
-	for i := 0; i < numPartitions; i++ {
-		go func(topic []byte) {
-			ctx := context.Background()
-			err = client.ProduceLoop(ctx, topic, ch)
-			check(err)
-		}([]byte(fmt.Sprintf("%s-%d", topicPrefix, i)))
-	}
+		producer, err:=client.NewProducer(haraqa.WithTopic(topic))
 
-	var wg sync.WaitGroup
-	for i := 0; i < 100; i++ {
-		wg.Add(1)
-		go sendFiftyMessages(&wg, ch)
-	}
-	wg.Wait()
+		ch := make(chan haraqa.ProduceMsg, batchSize)
+		for i := 0; i < numPartitions; i++ {
+			go func(topic []byte) {
+				ctx := context.Background()
+				err = client.ProduceLoop(ctx, topic, ch)
+				check(err)
+			}([]byte(fmt.Sprintf("%s-%d", topicPrefix, i)))
+		}
+
+		var wg sync.WaitGroup
+		for i := 0; i < 100; i++ {
+			wg.Add(1)
+			go sendFiftyMessages(&wg, ch)
+		}
+		wg.Wait()*/
 }
 
+/*
 func sendFiftyMessages(wg *sync.WaitGroup, ch chan haraqa.ProduceMsg) {
 	for i := 0; i < 50; i++ {
 		msg := haraqa.NewProduceMsg([]byte(fmt.Sprintf("message number %d", i)))
@@ -48,3 +44,4 @@ func sendFiftyMessages(wg *sync.WaitGroup, ch chan haraqa.ProduceMsg) {
 	}
 	wg.Done()
 }
+*/

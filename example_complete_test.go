@@ -10,10 +10,6 @@ import (
 func Example() {
 	ctx := context.Background()
 	topic := []byte("my_topic")
-	limit := int64(2048)
-
-	// setup a channel to send batches of messages
-	ch := make(chan haraqa.ProduceMsg, limit)
 
 	// make new client & connect to broker
 	client, _ := haraqa.NewClient(haraqa.WithAddr("127.0.0.1"))
@@ -30,13 +26,12 @@ func Example() {
 	}
 
 	// start a producer loop in the background
-	go func() {
-		_ = client.ProduceLoop(ctx, topic, ch)
-	}()
+	producer, _ := client.NewProducer(haraqa.WithTopic(topic), haraqa.WithBatchSize(2048))
+	defer producer.Close()
 
 	// send 10 messages
 	for i := 0; i < 10; i++ {
-		go sendMessage(ch)
+		go producer.Send([]byte("hello world"))
 	}
 
 	// get the minimum and maximum available offsets
@@ -55,6 +50,7 @@ func Example() {
 
 	// start consuming from the oldest message in the queue
 	offset := minOffset
+	limit := int64(2048)
 
 	// for our example, we want to stop after consuming 10 messages
 	for offset < 10 {
@@ -83,16 +79,6 @@ func Example() {
 	msgs, _ := client.Consume(ctx, topic, -1, 2048, nil)
 	log.Println("Re-retrieved message:", string(msgs[len(msgs)-1]))
 
-	// stop the background producer loop
-	close(ch)
-
 	// delete the topic
 	_ = client.DeleteTopic(ctx, topic)
-}
-
-func sendMessage(ch chan haraqa.ProduceMsg) {
-	msg := haraqa.NewProduceMsg([]byte("hello world"))
-	ch <- msg
-	err := <-msg.Err
-	log.Println(err)
 }
