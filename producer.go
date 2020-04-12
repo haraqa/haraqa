@@ -53,7 +53,7 @@ func WithContext(ctx context.Context) ProducerOption {
 
 // WithErrorHandler allows custom logic to be added to a Producer to act if an error occurs
 // during a Send operation. The error is the same error returned by (*Producer).Send
-func WithErrorHandler(handler func(error)) ProducerOption {
+func WithErrorHandler(handler func(msgs [][]byte, err error)) ProducerOption {
 	return func(p *Producer) error {
 		if handler == nil {
 			return errors.New("invalid error handler")
@@ -88,7 +88,7 @@ type Producer struct {
 	topic      []byte
 	c          *Client
 	ctx        context.Context
-	errHandler func(error)
+	errHandler func([][]byte, error)
 	msgs       chan produceMsg // used by Send
 	rawMsgs    chan []byte     // used by Send (when ignoreErrs true)
 	errs       chan chan error // used by getErrs/putErrs in Send
@@ -101,7 +101,7 @@ type produceMsg struct {
 	Err chan error
 }
 
-func noopErrHandler(error) {}
+func noopErrHandler([][]byte, error) {}
 
 // NewProducer instantiates a new Producer type
 func (c *Client) NewProducer(opts ...ProducerOption) (*Producer, error) {
@@ -204,7 +204,7 @@ func (p *Producer) process(msgs [][]byte) error {
 	p.c.dataConnLock.Unlock()
 
 	if err != nil {
-		p.errHandler(err)
+		p.errHandler(msgs, err)
 	}
 	return err
 }

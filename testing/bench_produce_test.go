@@ -133,7 +133,7 @@ func benchProducerErrChan(batchSize int) func(b *testing.B) {
 			haraqa.WithTopic(topic),
 			haraqa.WithBatchSize(batchSize),
 			haraqa.WithIgnoreErrors(),
-			haraqa.WithErrorHandler(func(err error) {
+			haraqa.WithErrorHandler(func(_ [][]byte, err error) {
 				errs <- err
 			}),
 		)
