@@ -29,7 +29,7 @@ func (m *MockConn) Close() error {
 
 func TestAll(t *testing.T) {
 	unixSocket := "tmp.client-sock"
-	b, err := broker.NewBroker(broker.WithUnixSocket(unixSocket, os.ModeSocket|os.ModeTemporary))
+	b, err := broker.NewBroker(broker.WithUnixSocket(unixSocket, os.ModePerm))
 	if err != nil {
 		t.Fatal(err)
 	}
