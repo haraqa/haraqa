@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"runtime"
 	"time"
@@ -15,25 +14,23 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	ch := make(chan haraqa.ProduceMsg, 1024)
+	defer client.Close()
 
-	// start producing metrics in the background
-	go func() {
-		t := time.NewTicker(time.Second)
-		for range t.C {
-			metrics := getMetrics()
-			msg, err := json.Marshal(&metrics)
-			if err != nil {
-				panic(err)
-			}
-			ch <- haraqa.NewProduceMsg(msg)
-		}
-	}()
-
-	// produce messages from ch
-	err = client.ProduceLoop(context.Background(), []byte("memstats"), ch)
+	producer, err := client.NewProducer(haraqa.WithTopic([]byte("memstats")), haraqa.WithIgnoreErrors())
 	if err != nil {
 		panic(err)
+	}
+	defer producer.Close()
+
+	// start producing metrics in the background
+	t := time.NewTicker(time.Second)
+	for range t.C {
+		metrics := getMetrics()
+		msg, err := json.Marshal(&metrics)
+		if err != nil {
+			panic(err)
+		}
+		producer.Send(msg)
 	}
 }
 

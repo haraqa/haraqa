@@ -265,19 +265,27 @@ func testProduce(c *Client) func(t *testing.T) {
 	return func(t *testing.T) {
 		ctx := context.Background()
 
-		// invalid channel
-		var ch chan ProduceMsg
-		err := c.ProduceLoop(ctx, []byte("test-topic"), ch)
-		if err.Error() != "invalid channel capacity, channels must have a capacity of at least 1" {
+		// produce w/ invalid preprocess
+		process := []func(msgs [][]byte) error{func(msgs [][]byte) error {
+			return errMock
+		}}
+
+		p := &Producer{
+			c: &Client{
+				preProcess: process,
+			},
+		}
+		err := p.Send([]byte("message"))
+		if err != errMock {
 			t.Fatal(err)
 		}
 
-		// invalid channel length
-		ch = make(chan ProduceMsg)
-		err = c.ProduceLoop(ctx, []byte("test-topic"), ch)
-		if err.Error() != "invalid channel capacity, channels must have a capacity of at least 1" {
+		c.preProcess = process
+		err = c.Produce(ctx, nil, []byte("message"))
+		if err != errMock {
 			t.Fatal(err)
 		}
+		c.preProcess = nil
 
 		// produce 0 messages
 		err = c.Produce(ctx, nil)
@@ -285,49 +293,58 @@ func testProduce(c *Client) func(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// produce
-		ctx, cancel := context.WithCancel(ctx)
-		ch = make(chan ProduceMsg, 1)
-		go func() {
-			err := c.ProduceLoop(ctx, []byte("test-topic"), ch)
-			if err != nil {
-				t.Log(err)
-			}
-		}()
-		msg := NewProduceMsg([]byte("hello world"))
-		ch <- msg
-		err = <-msg.Err
+		// invalid topic
+		_, err = c.NewProducer(WithTopic(nil), WithContext(ctx))
+		if errors.Cause(err).Error() != "missing topic" {
+			t.Fatal(err)
+		}
+
+		// invalid error handler
+		_, err = c.NewProducer(WithErrorHandler(nil))
+		if errors.Cause(err).Error() != "invalid error handler" {
+			t.Fatal(err)
+		}
+
+		// invalid batch size
+		_, err = c.NewProducer(WithBatchSize(-1))
+		if errors.Cause(err).Error() != "batch size must be greater than 0" {
+			t.Fatal(err)
+		}
+
+		// send a message without errors
+		producer, err := c.NewProducer(
+			WithTopic([]byte("producer_send")),
+			WithIgnoreErrors(),
+		)
 		if err != nil {
 			t.Fatal(err)
 		}
-		cancel()
-
-		// produce loop w/invalid preProcess
-		c.preProcess = []func(msgs [][]byte) error{func(msgs [][]byte) error {
-			return errMock
-		}}
-		ctx, cancel = context.WithCancel(context.Background())
-		go func() {
-			err := c.ProduceLoop(ctx, []byte("test-topic"), ch)
-			if err != nil {
-				t.Log(err)
-			}
-		}()
-		msg = NewProduceMsg([]byte("hello world"))
-		ch <- msg
-		err = <-msg.Err
-		if err != errMock {
+		err = producer.Send([]byte("message"))
+		if err != nil {
 			t.Fatal(err)
 		}
-		cancel()
+		producer.Close()
 
-		// produce w/ invalid preprocess
-		err = c.Produce(ctx, nil, []byte("message"))
-		if err != errMock {
+		// send a message after closing
+		err = producer.Send([]byte("message"))
+		if err.Error() != "cannot send on closed producer" {
 			t.Fatal(err)
 		}
 
-		c.preProcess = nil
+		// send a message w/errors
+		producer, err = c.NewProducer(
+			WithTopic([]byte("producer_send")),
+			WithBatchSize(2),
+			WithErrorHandler(noopErrHandler),
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer producer.Close()
+		err = producer.Send([]byte("message"))
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		// produce w/ invalid dataconn
 		c.dataConnLock.Lock()
@@ -340,9 +357,7 @@ func testProduce(c *Client) func(t *testing.T) {
 		if _, ok := errors.Cause(err).(*net.OpError); !ok {
 			t.Fatal(err)
 		}
-
-		// produce loop w/invalid dataconn
-		err = c.ProduceLoop(ctx, []byte("test-topic"), ch)
+		err = producer.Send([]byte("message"))
 		if _, ok := errors.Cause(err).(*net.OpError); !ok {
 			t.Fatal(err)
 		}
