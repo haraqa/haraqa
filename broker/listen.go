@@ -2,7 +2,6 @@ package broker
 
 import (
 	"context"
-	"log"
 	"net"
 	"os"
 	"strconv"
@@ -62,7 +61,7 @@ func (b *Broker) Listen(ctx context.Context) error {
 			f, err := conn.(*net.TCPConn).File()
 			conn.Close()
 			if err != nil {
-				log.Println(errors.Wrap(err, "unable to get tcp connection file"))
+				b.logger.Println(errors.Wrap(err, "unable to get tcp connection file"))
 				continue
 			}
 			go b.handleDataConn(f)
@@ -78,7 +77,7 @@ func (b *Broker) Listen(ctx context.Context) error {
 			f, err := conn.(*net.UnixConn).File()
 			conn.Close()
 			if err != nil {
-				log.Println(errors.Wrap(err, "unable to get unix connection file"))
+				b.logger.Println(errors.Wrap(err, "unable to get unix connection file"))
 				continue
 			}
 			go b.handleDataConn(f)

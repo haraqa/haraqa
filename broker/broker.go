@@ -1,6 +1,8 @@
 package broker
 
 import (
+	"io/ioutil"
+	"log"
 	"os"
 	"sync"
 	"time"
@@ -21,6 +23,7 @@ var (
 	DefaultDataPort        = uint(14353)
 	DefaultUnixSocket      = "/tmp/haraqa.sock"
 	DefaultUnixMode        = os.FileMode(0600)
+	DefaultLogger          = log.New(ioutil.Discard, "", 0)
 )
 
 // Broker is core structure of a haraqa broker, it listens for new grpc and data
@@ -40,6 +43,7 @@ type Broker struct {
 	UnixSocket      string              // unixfile on which to listen for a local data connection
 	UnixMode        os.FileMode         // file mode of unixfile
 	grpcOptions     []grpc.ServerOption // options to start the grpc server with
+	logger          *log.Logger         // logger to print error messages to
 
 	groupMux   sync.Mutex
 	groupLocks map[string]chan struct{}
@@ -59,6 +63,7 @@ func NewBroker(options ...Option) (*Broker, error) {
 		UnixMode:        DefaultUnixMode,
 		M:               noopMetrics{},
 		groupLocks:      make(map[string]chan struct{}),
+		logger:          DefaultLogger,
 	}
 
 	// apply options
@@ -84,6 +89,17 @@ func NewBroker(options ...Option) (*Broker, error) {
 
 // Option is used with NewBroker to set parameters and override defaults
 type Option func(*Broker) error
+
+// WithLogger sets a logger to print out connection information and errors
+func WithLogger(logger *log.Logger) Option {
+	return func(b *Broker) error {
+		if logger == nil {
+			return errors.New("invalid logger")
+		}
+		b.logger = logger
+		return nil
+	}
+}
 
 // WithVolumes sets the volumes the broker persists messages to in order of which to write
 func WithVolumes(volumes []string) Option {

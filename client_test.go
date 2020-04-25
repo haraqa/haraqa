@@ -5,6 +5,7 @@ package haraqa
 import (
 	"bytes"
 	"context"
+	"log"
 	"net"
 	"os"
 	"testing"
@@ -23,13 +24,19 @@ type MockConn struct {
 
 var errMock = errors.New("mock error")
 
+func (m *MockConn) Write([]byte) (int, error) {
+	return 0, nil
+}
 func (m *MockConn) Close() error {
 	return errMock
 }
 
 func TestAll(t *testing.T) {
 	unixSocket := "tmp.client-sock"
-	b, err := broker.NewBroker(broker.WithUnixSocket(unixSocket, os.ModePerm))
+	b, err := broker.NewBroker(
+		broker.WithUnixSocket(unixSocket, os.ModePerm),
+		broker.WithLogger(log.New(os.Stdout, "BROKER LOG:", log.LstdFlags|log.Lshortfile)),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}

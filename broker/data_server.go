@@ -2,7 +2,6 @@ package broker
 
 import (
 	"io"
-	"log"
 
 	"github.com/haraqa/haraqa/internal/protocol"
 	"github.com/pkg/errors"
@@ -22,22 +21,23 @@ func (b *Broker) handleDataConn(conn io.ReadWriteCloser) {
 		t, hLen, err := protocol.ReadPrefix(conn, prefix[:])
 		if err != nil {
 			if errors.Cause(err) == io.EOF {
+				b.logger.Println("Client connection closed EOF")
 				return
 			}
-			log.Println("read prefix error:", err)
+			b.logger.Println("read prefix error:", err)
 			protocol.ErrorToResponse(conn, err)
 			return
 		}
 
 		switch t {
 		case protocol.TypeClose:
-			log.Println("Closing client connection")
+			b.logger.Println("Closing client connection")
 			return
 
 		case protocol.TypePing:
 			_, err = conn.Write(prefix[:])
 			if err != nil {
-				log.Println("ping message write resp error:", err)
+				b.logger.Println("ping message write resp error:", err)
 				protocol.ErrorToResponse(conn, err)
 				return
 			}
@@ -45,14 +45,14 @@ func (b *Broker) handleDataConn(conn io.ReadWriteCloser) {
 		case protocol.TypeProduce:
 			err = b.handleProduce(conn, &produceReq, &buf, hLen, prefix[:])
 			if err != nil {
-				log.Println(err)
+				b.logger.Println(err)
 				return
 			}
 
 		case protocol.TypeConsume:
 			err = b.handleConsume(conn, &consumeReq, &consumeResp, &buf, hLen, prefix[:])
 			if err != nil {
-				log.Println(err)
+				b.logger.Println(err)
 				return
 			}
 		}
@@ -120,7 +120,6 @@ func (b *Broker) handleConsume(conn io.ReadWriter, consumeReq *protocol.ConsumeR
 	protocol.ExtendBuffer(buf, int(hLen))
 	_, err := io.ReadFull(conn, *buf)
 	if err != nil {
-		log.Println("read header buffer error:", err)
 		protocol.ErrorToResponse(conn, err)
 		return errors.Wrap(err, "read consume header buffer error")
 	}

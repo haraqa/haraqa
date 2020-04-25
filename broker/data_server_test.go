@@ -15,7 +15,9 @@ func TestDataServer(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	var errMock = errors.New("mock error")
-	b := &Broker{}
+	b := &Broker{
+		logger: DefaultLogger,
+	}
 
 	t.Run("read eof error", func(t *testing.T) {
 		conn := mocks.NewMockReadWriteCloser(ctrl)

@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	_ "net/http/pprof"
+	"os"
 	"strconv"
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
@@ -16,6 +17,9 @@ import (
 )
 
 func main() {
+	// set logger
+	logger := log.New(os.Stdout, "", log.LstdFlags|log.Lshortfile)
+
 	var (
 		ballast            int64
 		httpPort           uint
@@ -52,11 +56,12 @@ func main() {
 			grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
 		),
 		broker.WithMetrics(newMetrics()),
+		broker.WithLogger(logger),
 	}
 
 	b, err := broker.NewBroker(options...)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 
 	// start http server
@@ -66,12 +71,12 @@ func main() {
 			http.Handle("/topics/", http.StripPrefix("/topics/", http.FileServer(http.Dir(b.Volumes[len(b.Volumes)-1]))))
 		}
 		http.Handle("/metrics", promhttp.Handler())
-		log.Println(http.ListenAndServe(":"+strconv.FormatUint(uint64(httpPort), 10), nil))
+		logger.Fatal(http.ListenAndServe(":"+strconv.FormatUint(uint64(httpPort), 10), nil))
 	}()
 
-	log.Printf("Listening on ports %d (grpc) and %d (data) and unix socket %s (data)\n", b.GRPCPort, b.DataPort, b.UnixSocket)
+	logger.Printf("Listening on ports %d (grpc) and %d (data) and unix socket %s (data)\n", b.GRPCPort, b.DataPort, b.UnixSocket)
 	if err := b.Listen(context.Background()); err != nil {
-		log.Fatalf("failed to serve: %v", err)
+		logger.Fatalf("failed to serve: %v", err)
 	}
 }
 

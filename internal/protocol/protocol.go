@@ -268,3 +268,14 @@ func (p *ConsumeResponse) Write(conn io.Writer) error {
 	_, err := conn.Write(buf)
 	return err
 }
+
+// Close sends a close message to the connection and closes the writer
+func Close(conn io.WriteCloser) error {
+	var prefix [6]byte
+	prefix[0], prefix[1] = 0, TypeClose
+	_, err := conn.Write(prefix[:])
+	if err != nil {
+		return err
+	}
+	return conn.Close()
+}

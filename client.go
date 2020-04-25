@@ -98,7 +98,7 @@ func (c *Client) Close() error {
 		errs = append(errs, c.grpcConn.Close())
 	}
 	if c.dataConn != nil {
-		errs = append(errs, c.dataConn.Close())
+		errs = append(errs, protocol.Close(c.dataConn))
 	}
 
 	for i := range errs {
@@ -244,7 +244,7 @@ func (c *Client) produce(ctx context.Context, topic []byte, msgs ...[]byte) erro
 	}
 	defer func() {
 		if err != nil {
-			c.dataConn.Close()
+			protocol.Close(c.dataConn)
 			c.dataConn = nil
 		}
 	}()
@@ -370,7 +370,7 @@ func (c *Client) Consume(ctx context.Context, topic []byte, offset int64, limit 
 	}
 	defer func() {
 		if err != nil {
-			c.dataConn.Close()
+			protocol.Close(c.dataConn)
 			c.dataConn = nil
 		}
 	}()

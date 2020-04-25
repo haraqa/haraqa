@@ -7,8 +7,18 @@ import (
 )
 
 func TestOptions(t *testing.T) {
+	var err error
 	b := new(Broker)
-	err := WithVolumes(nil)(b)
+	err = WithLogger(nil)(b)
+	if err.Error() != "invalid logger" {
+		t.Fatal(err)
+	}
+	err = WithLogger(DefaultLogger)(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = WithVolumes(nil)(b)
 	if err.Error() != "missing volumes" {
 		t.Fatal(err)
 	}
