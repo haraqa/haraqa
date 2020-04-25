@@ -28,7 +28,7 @@ func getPipes(n int) ([][2]int, error) {
 func (w *MultiWriter) ReadFrom(r io.Reader) (int64, error) {
 	f, ok := r.(fd)
 	if !ok {
-		return 0, errors.New("missing Fd method on reader input")
+		return 0, errors.Errorf("missing Fd method on reader input %T", r)
 	}
 
 	var n int64

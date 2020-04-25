@@ -28,7 +28,8 @@ func (m *MockConn) Close() error {
 }
 
 func TestAll(t *testing.T) {
-	b, err := broker.NewBroker()
+	unixSocket := "tmp.client-sock"
+	b, err := broker.NewBroker(broker.WithUnixSocket(unixSocket, os.ModeSocket|os.ModeTemporary))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,18 +47,27 @@ func TestAll(t *testing.T) {
 	}()
 
 	t.Run("New client", testNewClient)
-	c, err := NewClient(WithTimeout(time.Second * 1))
-	if err != nil {
-		t.Fatal(err)
+	var c *Client
+	newClient := func() *Client {
+		if c != nil {
+			if err := c.Close(); err != nil {
+				t.Fatal(err)
+			}
+		}
+		c, err = NewClient(WithTimeout(time.Second*1), WithUnixSocket(unixSocket))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return c
 	}
-	t.Run("Create Topic", testCreateTopic(c))
-	t.Run("List Topics", testListTopics(c))
-	t.Run("Delete Topics", testDeleteTopics(c))
-	t.Run("Produce", testProduce(c))
-	t.Run("Consume", testConsume(c))
-	t.Run("Offsets", testOffsets(c))
-	t.Run("WatchTopic", testWatchTopics(c))
-	t.Run("Lock", testLock(c))
+	t.Run("Create Topic", testCreateTopic(newClient()))
+	t.Run("List Topics", testListTopics(newClient()))
+	t.Run("Delete Topics", testDeleteTopics(newClient()))
+	t.Run("Produce", testProduce(newClient()))
+	t.Run("Consume", testConsume(newClient()))
+	t.Run("Offsets", testOffsets(newClient()))
+	t.Run("WatchTopic", testWatchTopics(newClient()))
+	t.Run("Lock", testLock(newClient()))
 	t.Run("Options", testOptions)
 }
 
@@ -349,8 +359,8 @@ func testProduce(c *Client) func(t *testing.T) {
 		// produce w/ invalid dataconn
 		c.dataConnLock.Lock()
 		c.dataConn = nil
-		dataport := c.dataPort
-		c.dataPort = -1
+		dataSocket := c.unixSocket
+		c.unixSocket = "*"
 		c.dataConnLock.Unlock()
 
 		err = c.Produce(ctx, nil, []byte("message"))
@@ -363,7 +373,7 @@ func testProduce(c *Client) func(t *testing.T) {
 		}
 
 		c.dataConnLock.Lock()
-		c.dataPort = dataport
+		c.unixSocket = dataSocket
 		c.dataConnLock.Unlock()
 	}
 }
@@ -379,16 +389,16 @@ func testConsume(c *Client) func(t *testing.T) {
 		}
 
 		// consume w/invalid dataconn
-		dataPort := c.dataPort
 		c.dataConnLock.Lock()
 		c.dataConn = nil
 		c.dataConnLock.Unlock()
-		c.dataPort = -1
+		dataSocket := c.unixSocket
+		c.unixSocket = "*"
 		_, err = c.Consume(ctx, topic, 0, 1, nil)
 		if _, ok := errors.Cause(err).(*net.OpError); !ok {
 			t.Fatal(err)
 		}
-		c.dataPort = dataPort
+		c.unixSocket = dataSocket
 
 		// consume
 		msgs, err := c.Consume(ctx, topic, 0, 1, nil)

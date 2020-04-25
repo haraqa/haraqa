@@ -75,7 +75,13 @@ func (b *Broker) Listen(ctx context.Context) error {
 				errs <- errors.Wrap(err, "failed to serve unix file data connection")
 				return
 			}
-			go b.handleDataConn(conn.(*net.UnixConn))
+			f, err := conn.(*net.UnixConn).File()
+			conn.Close()
+			if err != nil {
+				log.Println(errors.Wrap(err, "unable to get unix connection file"))
+				continue
+			}
+			go b.handleDataConn(f)
 		}
 	}()
 
