@@ -457,15 +457,14 @@ func testOffsets(c *Client) func(t *testing.T) {
 func testWatchTopics(c *Client) func(t *testing.T) {
 	return func(t *testing.T) {
 		ctx := context.Background()
-		ch := make(chan WatchEvent, 1)
-		err := c.WatchTopics(ctx, ch)
-		if err.Error() != "invalid number of topics sent" {
+		_, err := c.NewWatcher(ctx)
+		if err.Error() != "missing topics from NewWatcher request" {
 			t.Fatal(err)
 		}
 
-		err = c.WatchTopics(ctx, ch, []byte("missingWatchTopic"))
+		_, err = c.NewWatcher(ctx, []byte("missingWatchTopic"))
 		if err == nil {
-			t.Fatal("expected to pass")
+			t.Fatal("expected to fail")
 		}
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -476,10 +475,10 @@ func testWatchTopics(c *Client) func(t *testing.T) {
 		}
 
 		// start watcher
-		errs := make(chan error, 1)
-		go func() {
-			errs <- c.WatchTopics(ctx, ch, topic)
-		}()
+		w, err := c.NewWatcher(ctx, topic)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 	Loop:
 		for {
@@ -491,7 +490,7 @@ func testWatchTopics(c *Client) func(t *testing.T) {
 			}
 
 			select {
-			case event := <-ch:
+			case event := <-w.Events():
 				if !bytes.Equal(event.Topic, topic) {
 					t.Fatal()
 				}
@@ -501,7 +500,7 @@ func testWatchTopics(c *Client) func(t *testing.T) {
 		}
 
 		cancel()
-		err = <-errs
+		err = w.Close()
 		if err != nil && err != context.Canceled {
 			t.Fatal(err)
 		}
@@ -513,8 +512,7 @@ func testWatchTopics(c *Client) func(t *testing.T) {
 			c := &Client{
 				grpcClient: mockClient,
 			}
-			ch := make(chan WatchEvent, 1)
-			err := c.WatchTopics(context.Background(), ch, []byte("test-topic"))
+			_, err := c.NewWatcher(context.Background(), []byte("test-topic"))
 			if errors.Cause(err) != errMock {
 				t.Fatal(err)
 			}
@@ -529,8 +527,7 @@ func testWatchTopics(c *Client) func(t *testing.T) {
 				grpcClient: mockClient,
 			}
 
-			ch := make(chan WatchEvent, 1)
-			err := c.WatchTopics(context.Background(), ch, []byte("test-topic"))
+			_, err := c.NewWatcher(context.Background(), []byte("test-topic"))
 			if errors.Cause(err) != errMock {
 				t.Fatal(err)
 			}
@@ -546,8 +543,7 @@ func testWatchTopics(c *Client) func(t *testing.T) {
 				grpcClient: mockClient,
 			}
 
-			ch := make(chan WatchEvent, 1)
-			err := c.WatchTopics(context.Background(), ch, []byte("test-topic"))
+			_, err := c.NewWatcher(context.Background(), []byte("test-topic"))
 			if errors.Cause(err) != errMock {
 				t.Fatal(err)
 			}
@@ -563,8 +559,7 @@ func testWatchTopics(c *Client) func(t *testing.T) {
 				grpcClient: mockClient,
 			}
 
-			ch := make(chan WatchEvent, 1)
-			err := c.WatchTopics(context.Background(), ch, []byte("test-topic"))
+			_, err := c.NewWatcher(context.Background(), []byte("test-topic"))
 			if errors.Cause(err).Error() != errMock.Error() {
 				t.Fatal(err)
 			}
@@ -588,9 +583,36 @@ func testWatchTopics(c *Client) func(t *testing.T) {
 				grpcClient: mockClient,
 			}
 
-			ch := make(chan WatchEvent, 1)
-			err := c.WatchTopics(context.Background(), ch, []byte("test-topic"))
+			w, err := c.NewWatcher(context.Background(), []byte("test-topic"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			for event := range w.Events() {
+				t.Log(event)
+			}
+			err = w.Close()
 			if errors.Cause(err).Error() != errMock.Error() {
+				t.Fatal(err)
+			}
+		})
+		t.Run("Watch topics close", func(t *testing.T) {
+			mockStream := mocks.NewMockHaraqa_WatchTopicsClient(gomock.NewController(t))
+			mockStream.EXPECT().CloseSend().Return(nil)
+			mockStream.EXPECT().Send(gomock.Any()).AnyTimes().Return(nil)
+			mockStream.EXPECT().Recv().AnyTimes().Return(&protocol.WatchResponse{Meta: &protocol.Meta{OK: true}}, nil)
+			mockClient := mocks.NewMockHaraqaClient(gomock.NewController(t))
+			mockClient.EXPECT().WatchTopics(gomock.Any()).
+				Return(mockStream, nil)
+			c := &Client{
+				grpcClient: mockClient,
+			}
+
+			w, err := c.NewWatcher(context.Background(), []byte("test-topic"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = w.Close()
+			if err != nil {
 				t.Fatal(err)
 			}
 		})

@@ -44,14 +44,12 @@ func Example() {
 	log.Println(minOffset, maxOffset)
 
 	// start a watcher on the topic, this will notify of new topic offsets
-	watchEvents := make(chan haraqa.WatchEvent, 1)
 	ctxCancel, cancel := context.WithCancel(ctx)
-	go func() {
-		_ = client.WatchTopics(ctxCancel, watchEvents, topic)
-	}()
+	defer cancel()
+	w, _ := client.NewWatcher(ctxCancel, topic)
 
 	// close watcher on end
-	defer cancel()
+	defer w.Close()
 
 	// start consuming from the oldest message in the queue
 	offset := minOffset
@@ -66,7 +64,7 @@ func Example() {
 
 		// if no messages are returned listen to the watcher to know when more are available
 		if len(msgs) == 0 {
-			for watchEvent := range watchEvents {
+			for watchEvent := range w.Events() {
 				if watchEvent.MaxOffset > maxOffset {
 					maxOffset = watchEvent.MaxOffset
 					break

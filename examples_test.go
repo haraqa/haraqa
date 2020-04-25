@@ -60,7 +60,7 @@ func Example_listTopics() {
 	}
 }
 
-func Example_watchTopics() {
+func Example_watcher() {
 	ctx := context.Background()
 	client, err := haraqa.NewClient()
 	if err != nil {
@@ -74,22 +74,23 @@ func Example_watchTopics() {
 		panic(err)
 	}
 
-	// make a channel to receive messages on
-	ch := make(chan haraqa.WatchEvent, 1)
-	defer close(ch)
-
-	// start handler go routine
-	go func() {
-		for event := range ch {
-			log.Printf("new messages are ready for topic %q, min offset: %d, max offset: %d\n", string(event.Topic), event.MinOffset, event.MaxOffset)
-		}
-	}()
-
-	// start watching
+	// only watch for 20 seconds (optional)
 	ctx, cancel := context.WithTimeout(ctx, time.Second*20)
 	defer cancel()
 
-	err = client.WatchTopics(ctx, ch, topics...)
+	// start watching
+	w, err := client.NewWatcher(ctx, topics...)
+	if err != nil {
+		panic(err)
+	}
+
+	// Listen for new offsets
+	for event := range w.Events() {
+		log.Printf("new messages are ready for topic %q, min offset: %d, max offset: %d\n", string(event.Topic), event.MinOffset, event.MaxOffset)
+	}
+
+	// Close and check for errors
+	err = w.Close()
 	if err != nil && err != ctx.Err() {
 		panic(err)
 	}
@@ -259,21 +260,5 @@ func Example_lock() {
 
 	// we have the lock, now do something
 
-	// make a channel to receive watch messages on
-	ch := make(chan haraqa.WatchEvent, 1)
-
-	// start handler
-	go func() {
-		for event := range ch {
-			log.Printf("new messages are ready for topic %q, min offset: %d, max offset: %d\n", string(event.Topic), event.MinOffset, event.MaxOffset)
-		}
-	}()
-
-	// start watching with a timeout
-	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
-	defer cancel()
-	err = client.WatchTopics(ctx, ch, []byte(topic))
-	if err != nil && err != ctx.Err() {
-		panic(err)
-	}
+	// ...
 }

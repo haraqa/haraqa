@@ -1,6 +1,6 @@
 //Package haraqa (High Availability Routing And Queueing Application) defines
 // the go client for communicating with the haraqa broker:
-// https://hub.docker.com/repository/docker/haraqa/haraqa .
+// https://hub.docker.com/r/haraqa/haraqa .
 //
 package haraqa
 
@@ -566,80 +566,6 @@ func contextErrorOverride(ctx context.Context, err error) error {
 		return ctx.Err()
 	}
 	return err
-}
-
-// WatchEvent is the structure returned by the WatchTopics channel. It
-// represents the min and max offsets of a topic when that topic receives new messages.
-type WatchEvent struct {
-	Topic     []byte
-	MinOffset int64
-	MaxOffset int64
-}
-
-// WatchTopics sets up a loop to watch for new offsets in a topic, responses are
-//  sent at haraqa.WatchEvent structs. The loop blocks until an error is found
-//  or if there is a context cancel event
-func (c *Client) WatchTopics(ctx context.Context, ch chan WatchEvent, topics ...[]byte) error {
-	if len(topics) == 0 {
-		return errors.New("invalid number of topics sent")
-	}
-	stream, err := c.grpcClient.WatchTopics(ctx)
-	if err != nil {
-		return contextErrorOverride(ctx, err)
-	}
-
-	req := protocol.WatchRequest{
-		Topics: topics,
-	}
-	err = stream.Send(&req)
-	if err != nil {
-		return contextErrorOverride(ctx, err)
-	}
-
-	// receive ack
-	resp, err := stream.Recv()
-	if err != nil {
-		return contextErrorOverride(ctx, err)
-	}
-	if !resp.GetMeta().GetOK() {
-		return errors.New(resp.GetMeta().GetErrorMsg())
-	}
-
-	defer func() {
-		// best effort send close request
-		_ = stream.Send(&protocol.WatchRequest{
-			Term: true,
-		})
-		_ = stream.CloseSend()
-	}()
-
-	for {
-		// check for a cancel event
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-
-		// wait until the stream sends a message
-		resp, err := stream.Recv()
-		if err != nil {
-			return contextErrorOverride(ctx, err)
-		}
-		if !resp.GetMeta().GetOK() {
-			return errors.New(resp.GetMeta().GetErrorMsg())
-		}
-
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case ch <- WatchEvent{
-			Topic:     resp.GetTopic(),
-			MinOffset: resp.GetMinOffset(),
-			MaxOffset: resp.GetMaxOffset(),
-		}:
-		}
-	}
 }
 
 // Lock sends a lock request to the broker to implement a distributed lock.
