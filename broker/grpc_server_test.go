@@ -303,6 +303,7 @@ func TestGRPCServer(t *testing.T) {
 				t.Fatal(err)
 			}
 
+			os.RemoveAll(".haraqa.valid")
 			err = os.Mkdir(".haraqa.valid", 0777)
 			if err != nil {
 				t.Fatal(err)

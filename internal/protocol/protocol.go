@@ -273,9 +273,20 @@ func (p *ConsumeResponse) Write(conn io.Writer) error {
 func Close(conn io.WriteCloser) error {
 	var prefix [6]byte
 	prefix[0], prefix[1] = 0, TypeClose
+
+	// best effort send close prefix
+	_, _ = conn.Write(prefix[:])
+	return conn.Close()
+}
+
+// Ping sends a ping message to the connection
+func Ping(conn io.ReadWriter) error {
+	var prefix [6]byte
+	prefix[0], prefix[1] = 0, TypePing
 	_, err := conn.Write(prefix[:])
 	if err != nil {
 		return err
 	}
-	return conn.Close()
+	_, err = io.ReadFull(conn, prefix[:])
+	return err
 }

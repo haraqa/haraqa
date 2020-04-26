@@ -2,6 +2,7 @@ package haraqa
 
 import (
 	"context"
+	"net"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -199,9 +200,14 @@ func (p *Producer) Close() error {
 
 func (p *Producer) process(msgs [][]byte) error {
 	//send batch
-	p.c.dataConnLock.Lock()
-	err := p.c.produce(p.ctx, p.topic, msgs...)
-	p.c.dataConnLock.Unlock()
+	//p.c.dataConnLock.Lock()
+	p.c.producerIn <- func(conn net.Conn) error {
+		return p.c.produce(p.ctx, conn, p.topic, msgs...)
+	}
+	err := <-p.c.producerOut
+
+	//	err := p.c.produce(p.ctx, p.topic, msgs...)
+	//	p.c.dataConnLock.Unlock()
 
 	if err != nil {
 		p.errHandler(msgs, err)

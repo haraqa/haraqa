@@ -14,7 +14,7 @@ ARG CACHEBUST=1
 ARG TEST_ONLY=""
 
 # test for behavior
-RUN go test -mod=readonly -race -timeout 30s -coverprofile=cover.out -covermode=atomic ./... && \
+RUN go test -mod=readonly -race -timeout 30s -count=1 -failfast -coverprofile=cover.out -covermode=atomic ./... && \
       go tool cover -html=cover.out -o /profiles/coverage.html
 # test for speed
 RUN go test -bench=. -benchtime=1000x -run=XXX -cpu=4 \

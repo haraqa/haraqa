@@ -10,7 +10,6 @@ import (
 	"net"
 	"regexp"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/haraqa/haraqa/internal/protocol"
@@ -39,11 +38,16 @@ type Client struct {
 	preProcess   []func(msgs [][]byte) error
 	postProcess  []func(msgs [][]byte) error
 
-	grpcConn     *grpc.ClientConn
-	grpcClient   protocol.HaraqaClient
-	dataConnLock sync.Mutex
-	dataConn     net.Conn
-	dataBuf      []byte
+	grpcConn   *grpc.ClientConn
+	grpcClient protocol.HaraqaClient
+
+	producerIn  chan func(net.Conn) error
+	producerOut chan error
+	consumerIn  chan func(net.Conn) error
+	consumerOut chan error
+	dataCloser  chan struct{}
+
+	dataBuf []byte
 }
 
 // NewClient creates a new haraqa client based on the given config
@@ -63,6 +67,11 @@ func NewClient(options ...Option) (*Client, error) {
 		timeout:      0,
 		preProcess:   make([]func([][]byte) error, 0),
 		postProcess:  make([]func([][]byte) error, 0),
+		producerIn:   make(chan func(net.Conn) error),
+		producerOut:  make(chan error),
+		consumerIn:   make(chan func(net.Conn) error),
+		consumerOut:  make(chan error),
+		dataCloser:   make(chan struct{}),
 	}
 	for _, opt := range options {
 		if err := opt(c); err != nil {
@@ -85,53 +94,116 @@ func NewClient(options ...Option) (*Client, error) {
 	}
 	c.grpcClient = protocol.NewHaraqaClient(c.grpcConn)
 
+	// setup worker to process data requests
+	data, err := c.dataConnect()
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to connect to data port %q", c.addr+":"+strconv.Itoa(c.dataPort))
+	}
+	go func() {
+		var err, tmpErr error
+		var tries int
+		var f func(net.Conn) error
+		var out chan error
+
+		// best effort close connection
+		defer protocol.Close(data)
+
+		timer := time.NewTimer(time.Second * 120)
+		defer timer.Stop()
+		for {
+			select {
+			case <-c.dataCloser:
+				return
+			case <-timer.C:
+				err = protocol.Ping(data)
+				if err != nil {
+					// best effort close connection
+					_ = data.Close()
+
+					// attempt to reconnect
+					data, _ = c.dataConnect()
+				}
+				timer.Reset(time.Second * 120)
+				continue
+
+			case f = <-c.producerIn:
+				out = c.producerOut
+			case f = <-c.consumerIn:
+				out = c.consumerOut
+			}
+
+			// max try twice
+			for tries = 0; tries < 2; tries++ {
+				err = f(data)
+				// no error, moving on
+				if err == nil {
+					break
+				}
+
+				// attempt to reconnect
+				data, tmpErr = c.dataConnect()
+				if tmpErr != nil {
+					out <- err
+					break
+				}
+
+				// create topic error?
+				if c.createTopics && out == c.producerOut && errors.Cause(err) == protocol.ErrTopicDoesNotExist {
+					// retry
+					continue
+				}
+
+				// network error?
+				if _, ok := errors.Cause(err).(*net.OpError); ok {
+					// retry
+					continue
+				}
+
+				// won't retry
+				break
+			}
+			out <- err
+		}
+	}()
+
 	return c, nil
 }
 
 // Close closes the client connection
 func (c *Client) Close() error {
-	c.dataConnLock.Lock()
-	defer c.dataConnLock.Unlock()
+	if c.dataCloser != nil {
+		close(c.dataCloser)
+	}
 
-	errs := make([]error, 0, 2)
 	if c.grpcConn != nil {
-		errs = append(errs, c.grpcConn.Close())
-	}
-	if c.dataConn != nil {
-		errs = append(errs, protocol.Close(c.dataConn))
-	}
-
-	for i := range errs {
-		if errs[i] != nil {
-			return errors.Wrap(errs[i], "error closing haraqa client")
+		err := c.grpcConn.Close()
+		if err != nil {
+			return errors.Wrap(err, "error closing haraqa client")
 		}
 	}
+
 	return nil
 }
 
 // dataConnect connects a new data client connection to the haraqa broker. it should be called
 // before any consume or produce grpc calls
-func (c *Client) dataConnect() error {
-	if c.dataConn != nil {
-		return nil
-	}
+func (c *Client) dataConnect() (net.Conn, error) {
 	var err error
 	var dataConn net.Conn
 	// connect to data port
 	if c.unixSocket != "" {
 		dataConn, err = net.Dial("unix", c.unixSocket)
 		if err != nil {
-			return errors.Wrapf(err, "unable to connect to unix socket %q", c.unixSocket)
+			return nil, errors.Wrapf(err, "unable to connect to unix socket %q", c.unixSocket)
 		}
 	} else {
 		dataConn, err = net.Dial("tcp", c.addr+":"+strconv.Itoa(c.dataPort))
 		if err != nil {
-			return errors.Wrapf(err, "unable to connect to data port %q", c.addr+":"+strconv.Itoa(c.dataPort))
+			return nil, errors.Wrapf(err, "unable to connect to data port %q", c.addr+":"+strconv.Itoa(c.dataPort))
 		}
 	}
 
-	c.dataConn = dataConn
-	return nil
+	return dataConn, nil
 }
 
 //CreateTopic creates a new topic. It returns a ErrTopicExists error if the
@@ -230,25 +302,14 @@ func (c *Client) Produce(ctx context.Context, topic []byte, msgs ...[]byte) erro
 		}
 	}
 
-	c.dataConnLock.Lock()
-	defer c.dataConnLock.Unlock()
-
-	return c.produce(ctx, topic, msgs...)
+	c.producerIn <- func(conn net.Conn) error {
+		return c.produce(ctx, conn, topic, msgs...)
+	}
+	return <-c.producerOut
 }
 
-func (c *Client) produce(ctx context.Context, topic []byte, msgs ...[]byte) error {
-	// reconnect to data endpoint if required
-	err := c.dataConnect()
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err != nil {
-			protocol.Close(c.dataConn)
-			c.dataConn = nil
-		}
-	}()
-
+func (c *Client) produce(ctx context.Context, conn net.Conn, topic []byte, msgs ...[]byte) error {
+	var err error
 	msgSizes := make([]int64, len(msgs))
 	var totalSize int64
 	for i := range msgs {
@@ -261,16 +322,9 @@ func (c *Client) produce(ctx context.Context, topic []byte, msgs ...[]byte) erro
 		Topic:    topic,
 		MsgSizes: msgSizes,
 	}
-	err = req.Write(c.dataConn)
+	err = req.Write(conn)
 	if err != nil {
-		// check for broken pipe, try to reconnect and retry
-		c.dataConn = nil
-		if c.dataConnect() == nil {
-			err = req.Write(c.dataConn)
-		}
-		if err != nil {
-			return errors.Wrap(err, "could not write produce header")
-		}
+		return errors.Wrap(err, "could not write produce header")
 	}
 
 	// send messages
@@ -278,21 +332,20 @@ func (c *Client) produce(ctx context.Context, topic []byte, msgs ...[]byte) erro
 	for i := range msgs {
 		n += copy(c.dataBuf[n:], msgs[i])
 	}
-	_, err = c.dataConn.Write(c.dataBuf[:n])
+	_, err = conn.Write(c.dataBuf[:n])
 	if err != nil {
-		return errors.Wrap(err, "unable to write data connection")
+		return errors.Wrap(err, "unable to write messages to data connection")
 	}
 
 	var prefix [6]byte
 	var p byte
-	p, _, err = protocol.ReadPrefix(c.dataConn, prefix[:])
+	p, _, err = protocol.ReadPrefix(conn, prefix[:])
 	if err != nil {
-		if errors.Cause(err) == protocol.ErrTopicDoesNotExist {
-			err = c.CreateTopic(ctx, topic)
-			if err != nil && errors.Cause(err) != protocol.ErrTopicExists {
-				return err
+		if c.createTopics && errors.Cause(err) == protocol.ErrTopicDoesNotExist {
+			e := c.CreateTopic(ctx, topic)
+			if e != nil && errors.Cause(e) != protocol.ErrTopicExists {
+				return e
 			}
-			return c.produce(ctx, topic, msgs...)
 		}
 		return errors.Wrap(err, "could not read from data connection")
 	}
@@ -361,36 +414,27 @@ func (c *Client) Consume(ctx context.Context, topic []byte, offset int64, limit 
 	if buf == nil {
 		buf = NewConsumeBuffer()
 	}
-	c.dataConnLock.Lock()
-	defer c.dataConnLock.Unlock()
 
-	err := c.dataConnect()
-	if err != nil {
-		return nil, errors.Wrap(err, "could not connect to data port")
+	var msgs [][]byte
+	c.consumerIn <- func(conn net.Conn) error {
+		var err error
+		msgs, err = c.consume(ctx, conn, topic, offset, limit, buf)
+		return err
 	}
-	defer func() {
-		if err != nil {
-			protocol.Close(c.dataConn)
-			c.dataConn = nil
-		}
-	}()
+	err := <-c.consumerOut
+	return msgs, err
+}
 
+func (c *Client) consume(ctx context.Context, conn net.Conn, topic []byte, offset int64, limit int64, buf *ConsumeBuffer) ([][]byte, error) {
 	req := protocol.ConsumeRequest{
 		Topic:  topic,
 		Offset: offset,
 		Limit:  limit,
 	}
 
-	err = req.Write(c.dataConn)
+	err := req.Write(conn)
 	if err != nil {
-		// check for broken pipe, try to reconnect and retry
-		c.dataConn = nil
-		if c.dataConnect() == nil {
-			err = req.Write(c.dataConn)
-		}
-		if err != nil {
-			return nil, errors.Wrap(err, "could not write to data connection")
-		}
+		return nil, errors.Wrap(err, "could not write to data connection")
 	}
 
 	var (
@@ -398,7 +442,7 @@ func (c *Client) Consume(ctx context.Context, topic []byte, offset int64, limit 
 		hLen   uint32
 		prefix [6]byte
 	)
-	p, hLen, err = protocol.ReadPrefix(c.dataConn, prefix[:])
+	p, hLen, err = protocol.ReadPrefix(conn, prefix[:])
 	if err != nil {
 		if errors.Cause(err) == protocol.ErrTopicDoesNotExist {
 			return nil, ErrTopicDoesNotExist
@@ -410,7 +454,7 @@ func (c *Client) Consume(ctx context.Context, topic []byte, offset int64, limit 
 	}
 
 	protocol.ExtendBuffer(&buf.headerBuf, int(hLen))
-	_, err = io.ReadFull(c.dataConn, buf.headerBuf)
+	_, err = io.ReadFull(conn, buf.headerBuf)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read error from data connection")
 	}
@@ -429,7 +473,7 @@ func (c *Client) Consume(ctx context.Context, topic []byte, offset int64, limit 
 	totalSize := sum(resp.MsgSizes)
 	protocol.ExtendBuffer(&buf.bodyBuf, int(totalSize))
 
-	_, err = io.ReadFull(c.dataConn, buf.bodyBuf)
+	_, err = io.ReadFull(conn, buf.bodyBuf)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to read batch messages from connection")
 	}

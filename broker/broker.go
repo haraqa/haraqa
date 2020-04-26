@@ -26,6 +26,7 @@ var (
 	DefaultUnixSocket      = "/tmp/haraqa.sock"
 	DefaultUnixMode        = os.FileMode(0600)
 	DefaultLogger          = log.New(ioutil.Discard, "", 0)
+	DefaultGRPCOptions     = []grpc.ServerOption{}
 )
 
 // Broker is core structure of a haraqa broker, it listens for new grpc and data
@@ -71,6 +72,7 @@ func NewBroker(options ...Option) (*Broker, error) {
 		M:               noopMetrics{},
 		groupLocks:      make(map[string]chan struct{}),
 		logger:          DefaultLogger,
+		grpcOptions:     DefaultGRPCOptions,
 	}
 
 	// apply options

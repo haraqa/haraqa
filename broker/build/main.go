@@ -24,7 +24,7 @@ func main() {
 		ballast            int64
 		httpPort           uint
 		fileserver         bool
-		grpcPort, dataPort uint
+		grpcPort, dataPort int
 		unixSocket         string
 		maxEntries         int
 		maxSize            int64
@@ -32,8 +32,8 @@ func main() {
 	flag.Int64Var(&ballast, "ballast", 1<<30, "Garbage collection ballast")
 	flag.UintVar(&httpPort, "http", 6060, "Port for serving pprof metrics and files")
 	flag.BoolVar(&fileserver, "fileserver", true, "If true, files are served at http port")
-	flag.UintVar(&grpcPort, "grpc", broker.DefaultGRPCPort, "Port to listen on for grpc connections")
-	flag.UintVar(&dataPort, "data", broker.DefaultDataPort, "Port to listen on for data connections")
+	flag.IntVar(&grpcPort, "grpc", broker.DefaultGRPCPort, "Port to listen on for grpc connections")
+	flag.IntVar(&dataPort, "data", broker.DefaultDataPort, "Port to listen on for data connections")
 	flag.StringVar(&unixSocket, "unix", broker.DefaultUnixSocket, "Unix socket for local data connections")
 	flag.IntVar(&maxEntries, "max_entries", broker.DefaultMaxEntries, "Max entries per file")
 	flag.Int64Var(&maxSize, "max_size", broker.DefaultMaxSize, "maximum message size the broker will accept, if -1 any message size is accepted")
@@ -45,16 +45,17 @@ func main() {
 
 	// get volumes from args
 	options := []broker.Option{
-		broker.WithGRPCPort(uint16(grpcPort)),
-		broker.WithDataPort(uint16(dataPort)),
+		broker.WithGRPCPort(grpcPort),
+		broker.WithDataPort(dataPort),
 		broker.WithUnixSocket(unixSocket, broker.DefaultUnixMode),
 		broker.WithMaxEntries(maxEntries),
 		broker.WithMaxSize(maxSize),
 		broker.WithVolumes(flag.Args()),
 		broker.WithGRPCOptions(
-			grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
-			grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
-		),
+			append(broker.DefaultGRPCOptions,
+				grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
+				grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
+			)...),
 		broker.WithMetrics(newMetrics()),
 		broker.WithLogger(logger),
 	}

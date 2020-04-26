@@ -95,7 +95,7 @@ func (b *Broker) handleProduce(conn io.ReadWriter, produceReq *protocol.ProduceR
 	err = b.Q.Produce(conn, produceReq.Topic, produceReq.MsgSizes)
 	if err != nil {
 		protocol.ErrorToResponse(conn, err)
-		return errors.Wrap(err, "produce message queue error")
+		return errors.Wrapf(err, "produce message queue error %s", produceReq.Topic)
 	}
 
 	b.M.AddProduceMsgs(produceReq.Topic, produceReq.MsgSizes)
