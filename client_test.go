@@ -82,6 +82,7 @@ func newBrokerClient(name string) (*Client, context.CancelFunc, error) {
 	c, err := NewClient(
 		WithGRPCPort(b.GRPCPort),
 		WithDataPort(b.DataPort),
+		WithTimeout(time.Minute*10),
 	)
 	return c, cancel, err
 }
@@ -596,6 +597,7 @@ func TestLock(t *testing.T) {
 
 	ctx := context.Background()
 	groupName := []byte("lock group")
+	log.Println("Lock1")
 	closer, locked, err := c.Lock(ctx, groupName, true)
 	if err != nil {
 		t.Fatal(err)
@@ -603,7 +605,8 @@ func TestLock(t *testing.T) {
 	if !locked {
 		t.Fatal("not locked")
 	}
-
+	log.Println("Lock1", locked)
+	log.Println("Lock2")
 	_, locked2, err := c.Lock(ctx, groupName, false)
 	if err != nil {
 		t.Fatal(err)
@@ -611,11 +614,13 @@ func TestLock(t *testing.T) {
 	if locked2 {
 		t.Fatal("locked")
 	}
+	log.Println("Lock2", locked2)
 
 	err = closer.Close()
 	if err != nil {
 		t.Fatal(err)
 	}
+	log.Println("closed")
 	t.Run("Lock client error", func(t *testing.T) {
 		mockClient := mocks.NewMockHaraqaClient(gomock.NewController(t))
 		mockClient.EXPECT().Lock(gomock.Any()).Return(nil, errMock)

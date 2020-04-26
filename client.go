@@ -538,6 +538,10 @@ func (c *Client) Lock(ctx context.Context, groupName []byte, blocking bool) (io.
 		Lock:  true,
 	}
 
+	if !blocking {
+		req.Time = 0
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
