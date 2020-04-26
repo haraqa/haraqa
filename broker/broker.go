@@ -3,7 +3,9 @@ package broker
 import (
 	"io/ioutil"
 	"log"
+	"net"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -19,8 +21,8 @@ var (
 	DefaultConsumePoolSize = uint64(10)
 	DefaultMaxEntries      = 10000
 	DefaultMaxSize         = int64(-1)
-	DefaultGRPCPort        = uint(4353)
-	DefaultDataPort        = uint(14353)
+	DefaultGRPCPort        = 4353
+	DefaultDataPort        = 14353
 	DefaultUnixSocket      = "/tmp/haraqa.sock"
 	DefaultUnixMode        = os.FileMode(0600)
 	DefaultLogger          = log.New(ioutil.Discard, "", 0)
@@ -38,18 +40,23 @@ type Broker struct {
 	ConsumePoolSize uint64              // Number of expected consumers per topic
 	MaxEntries      int                 // Maximum number of entries per file before creating a new file
 	MaxSize         int64               // Maximum message size the broker will accept, if -1 any message size is accepted
-	GRPCPort        uint                // port on which to listen for grpc connections
-	DataPort        uint                // port on which to listen for data connections
+	GRPCPort        int                 // port on which to listen for grpc connections
+	DataPort        int                 // port on which to listen for data connections
 	UnixSocket      string              // unixfile on which to listen for a local data connection
 	UnixMode        os.FileMode         // file mode of unixfile
 	grpcOptions     []grpc.ServerOption // options to start the grpc server with
 	logger          *log.Logger         // logger to print error messages to
 
+	// listeners
+	grpcListener net.Listener
+	dataListener net.Listener
+	unixListener net.Listener
+
 	groupMux   sync.Mutex
 	groupLocks map[string]chan struct{}
 }
 
-// NewBroker creates a new instance of the haraqa grpc server
+// NewBroker creates a new instance of the haraqa broker and binds to the given ports
 func NewBroker(options ...Option) (*Broker, error) {
 	// apply defaults
 	b := &Broker{
@@ -81,9 +88,39 @@ func NewBroker(options ...Option) (*Broker, error) {
 	}
 	b.Q = q
 
+	// open unix file data listener
+	b.unixListener, err = net.Listen("unix", b.UnixSocket)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to listen on unix socket %s", b.UnixSocket)
+	}
+	if err = os.Chmod(b.UnixSocket, b.UnixMode); err != nil {
+		b.unixListener.Close()
+		return nil, errors.Wrap(err, "unable to open unix socket to all users")
+	}
+
+	// open tcp file data port
+	b.dataListener, err = net.Listen("tcp", ":"+strconv.Itoa(b.DataPort))
+	if err != nil {
+		b.unixListener.Close()
+		return nil, errors.Wrapf(err, "failed to listen on data port %d", b.DataPort)
+	}
+	if b.DataPort == 0 {
+		b.DataPort = b.dataListener.Addr().(*net.TCPAddr).Port
+	}
+
 	// initialize grpc
 	b.GRPCServer = grpc.NewServer(b.grpcOptions...)
 	protocol.RegisterHaraqaServer(b.GRPCServer, b)
+	b.grpcListener, err = net.Listen("tcp", ":"+strconv.Itoa(b.GRPCPort))
+	if err != nil {
+		b.unixListener.Close()
+		b.dataListener.Close()
+		return nil, errors.Wrapf(err, "failed to listen on grpc port %d", b.GRPCPort)
+	}
+	if b.GRPCPort == 0 {
+		b.GRPCPort = b.grpcListener.Addr().(*net.TCPAddr).Port
+	}
+
 	return b, nil
 }
 
@@ -157,17 +194,17 @@ func WithMaxSize(n int64) Option {
 }
 
 // WithGRPCPort sets the port on which to listen for grpc connections
-func WithGRPCPort(n uint16) Option {
+func WithGRPCPort(n int) Option {
 	return func(b *Broker) error {
-		b.GRPCPort = uint(n)
+		b.GRPCPort = n
 		return nil
 	}
 }
 
 // WithDataPort sets the port on which to listen for data connections
-func WithDataPort(n uint16) Option {
+func WithDataPort(n int) Option {
 	return func(b *Broker) error {
-		b.DataPort = uint(n)
+		b.DataPort = n
 		return nil
 	}
 }

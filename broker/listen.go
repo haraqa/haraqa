@@ -3,57 +3,23 @@ package broker
 import (
 	"context"
 	"net"
-	"os"
-	"strconv"
-	"strings"
 
 	"github.com/pkg/errors"
 )
 
-// Listen starts a new grpc server & listener on the given ports
+// Listen starts accpting connection on the given ports. It blocks until an error occurs
 func (b *Broker) Listen(ctx context.Context) error {
 	errs := make(chan error, 3)
-
-	// open tcp file data port
-	dataListener, err := net.Listen("tcp", ":"+strconv.FormatUint(uint64(b.DataPort), 10))
-	if err != nil {
-		return errors.Wrapf(err, "failed to listen on data port %d", b.DataPort)
-	}
-	defer dataListener.Close()
-
-	// open grpc port
-	lis, err := net.Listen("tcp", ":"+strconv.FormatUint(uint64(b.GRPCPort), 10))
-	if err != nil {
-		return errors.Wrapf(err, "failed to listen on grpc port %d", b.GRPCPort)
-	}
-	defer lis.Close()
-
-	// open unix file data listener
-	unixListener, err := net.Listen("unix", b.UnixSocket)
-	if err != nil {
-		if strings.HasSuffix(err.Error(), "bind: address already in use") {
-			// common issue is reopening a socket if broker didn't close properly, remove and retry
-			if info, e := os.Stat(b.UnixSocket); e == nil {
-				if !info.IsDir() {
-					_ = os.RemoveAll(b.UnixSocket)
-					unixListener, err = net.Listen("unix", b.UnixSocket)
-				}
-			}
-		}
-
-		if err != nil {
-			return errors.Wrapf(err, "failed to listen on unix socket %s", b.UnixSocket)
-		}
-	}
-	defer unixListener.Close()
-	if err = os.Chmod(b.UnixSocket, b.UnixMode); err != nil {
-		return errors.Wrap(err, "unable to open unix socket to all users")
-	}
+	defer func() {
+		b.dataListener.Close()
+		b.grpcListener.Close()
+		b.unixListener.Close()
+	}()
 
 	// serve file data
 	go func() {
 		for {
-			conn, err := dataListener.Accept()
+			conn, err := b.dataListener.Accept()
 			if err != nil {
 				errs <- errors.Wrap(err, "failed to serve tcp data connection")
 				return
@@ -69,7 +35,7 @@ func (b *Broker) Listen(ctx context.Context) error {
 	}()
 	go func() {
 		for {
-			conn, err := unixListener.Accept()
+			conn, err := b.unixListener.Accept()
 			if err != nil {
 				errs <- errors.Wrap(err, "failed to serve unix file data connection")
 				return
@@ -86,7 +52,7 @@ func (b *Broker) Listen(ctx context.Context) error {
 
 	// serve grpc
 	go func() {
-		if err := b.GRPCServer.Serve(lis); err != nil {
+		if err := b.GRPCServer.Serve(b.grpcListener); err != nil {
 			errs <- errors.Wrap(err, "failed to serve")
 			return
 		}
