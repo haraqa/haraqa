@@ -67,6 +67,17 @@ func WithTimeout(timeout time.Duration) Option {
 	}
 }
 
+// WithKeepAlive sets the interval between ping data messages.
+func WithKeepAlive(interval time.Duration) Option {
+	return func(c *Client) error {
+		if interval == 0 {
+			return errors.New("invalid keepalive interval")
+		}
+		c.keepalive = interval
+		return nil
+	}
+}
+
 // WithAESGCM encrypts individual messages prior to publishing and decypts
 // messages when consuming.
 func WithAESGCM(aesKey [32]byte) Option {

@@ -35,6 +35,7 @@ type Client struct {
 	unixSocket   string        // if set, the unix socket is used for the data connection
 	createTopics bool          // if a topic does not exist, automatically create it
 	timeout      time.Duration // the timeout for grpc requests, 0 for no timeout
+	keepalive    time.Duration // the interval between ping messages to the data endpoint
 	preProcess   []func(msgs [][]byte) error
 	postProcess  []func(msgs [][]byte) error
 
@@ -50,6 +51,17 @@ type Client struct {
 	dataBuf []byte
 }
 
+// Defaults
+const (
+	DefaultAddr         = "127.0.0.1"
+	DefaultGRPCPort     = 4353
+	DefaultDataPort     = 14353
+	DefaultUnixSocket   = ""
+	DefaultCreateTopics = true
+	DefaultTimeout      = time.Duration(0)
+	DefaultKeepalive    = 120 * time.Second
+)
+
 // NewClient creates a new haraqa client based on the given config
 //  client, err := haraqa.NewClient()
 //  if err != nil {
@@ -57,14 +69,14 @@ type Client struct {
 //  }
 //  defer client.Close()
 func NewClient(options ...Option) (*Client, error) {
-
 	c := &Client{
-		addr:         "127.0.0.1",
-		gRPCPort:     4353,
-		dataPort:     14353,
-		unixSocket:   "",
-		createTopics: true,
-		timeout:      0,
+		addr:         DefaultAddr,
+		gRPCPort:     DefaultGRPCPort,
+		dataPort:     DefaultDataPort,
+		unixSocket:   DefaultUnixSocket,
+		createTopics: DefaultCreateTopics,
+		timeout:      DefaultTimeout,
+		keepalive:    DefaultKeepalive,
 		preProcess:   make([]func([][]byte) error, 0),
 		postProcess:  make([]func([][]byte) error, 0),
 		producerIn:   make(chan func(net.Conn) error),
@@ -108,7 +120,7 @@ func NewClient(options ...Option) (*Client, error) {
 		// best effort close connection
 		defer protocol.Close(data)
 
-		timer := time.NewTimer(time.Second * 120)
+		timer := time.NewTimer(c.keepalive)
 		defer timer.Stop()
 		for {
 			select {
@@ -123,7 +135,7 @@ func NewClient(options ...Option) (*Client, error) {
 					// attempt to reconnect
 					data, _ = c.dataConnect()
 				}
-				timer.Reset(time.Second * 120)
+				timer.Reset(c.keepalive)
 				continue
 
 			case f = <-c.producerIn:

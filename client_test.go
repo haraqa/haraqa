@@ -81,7 +81,8 @@ func newBrokerClient(name string) (*Client, context.CancelFunc, error) {
 	}()
 	c, err := NewClient(
 		WithGRPCPort(b.GRPCPort),
-		WithDataPort(b.DataPort))
+		WithDataPort(b.DataPort),
+	)
 	return c, cancel, err
 }
 
@@ -707,6 +708,30 @@ func TestOptions(t *testing.T) {
 			t.Fatal(err)
 		}
 		if !c.createTopics {
+			t.Fail()
+		}
+	})
+	t.Run("Timeout", func(t *testing.T) {
+		c := &Client{}
+		err := WithTimeout(time.Second * 3)(c)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if c.timeout != time.Second*3 {
+			t.Fail()
+		}
+	})
+	t.Run("Keepalive", func(t *testing.T) {
+		c := &Client{}
+		err := WithKeepAlive(0)(c)
+		if err.Error() != "invalid keepalive interval" {
+			t.Fatal(err)
+		}
+		err = WithKeepAlive(time.Second * 5)(c)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if c.keepalive != time.Second*5 {
 			t.Fail()
 		}
 	})
