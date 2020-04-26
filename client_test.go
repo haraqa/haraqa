@@ -83,8 +83,19 @@ func newBrokerClient(name string) (*Client, context.CancelFunc, error) {
 		WithGRPCPort(b.GRPCPort),
 		WithDataPort(b.DataPort),
 		WithTimeout(time.Minute*10),
+		WithKeepAlive(time.Millisecond*10),
 	)
 	return c, cancel, err
+}
+
+func TestPing(t *testing.T) {
+	c, cancel, err := newBrokerClient(t.Name())
+	defer cancel()
+	if err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(2 * c.keepalive)
+	c.Close()
 }
 
 func TestCreateTopic(t *testing.T) {
