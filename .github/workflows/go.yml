@@ -23,7 +23,8 @@ jobs:
 
     - name: Test
       run: |
-        go test -covermode=atomic -coverprofile=cover.out ./...
+        go test -covermode=atomic -coverprofile=cover.out.tmp ./...
+        cat cover.out.tmp | grep -v "grpc.pb.go" > cover.out
         go test ./testing -mod=readonly -race -timeout 30s
         $(go env GOPATH)/bin/goveralls -coverprofile=cover.out -service=github-actions -repotoken ${{ secrets.COVERALLS_TOKEN }}
 

@@ -79,11 +79,11 @@ func ReadPrefix(conn io.Reader, prefix []byte) (byte, uint32, error) {
 			errMsg := string(e[:n])
 			switch errMsg {
 			case ErrTopicExists.Error():
-				return prefix[1], hLength, ErrTopicExists
+				err = ErrTopicExists
 			case ErrTopicDoesNotExist.Error():
-				return prefix[1], hLength, ErrTopicDoesNotExist
+				err = ErrTopicDoesNotExist
 			default:
-				return prefix[1], hLength, errors.New(errMsg)
+				err = errors.New(errMsg)
 			}
 		}
 		return prefix[1], hLength, err
