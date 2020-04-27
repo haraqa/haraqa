@@ -75,7 +75,7 @@ func TestOptions(t *testing.T) {
 		t.Fatal(b.MaxSize)
 	}
 
-	err = WithGRPCOptions(grpc.MaxMsgSize(200))(b)
+	err = WithGRPCOptions(grpc.MaxRecvMsgSize(200))(b)
 	if err != nil {
 		t.Fatal(err)
 	}

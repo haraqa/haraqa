@@ -61,12 +61,14 @@ func TestListen(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		listenResult := make(chan error, 1)
 		ctx, cancel := context.WithCancel(context.Background())
 		go func() {
 			err = b.Listen(ctx)
 			if err != ctx.Err() {
-				t.Fatal(err)
+				listenResult <- err
 			}
+			listenResult <- nil
 		}()
 
 		tcpData, err := net.Dial("tcp", "127.0.0.1:"+strconv.Itoa(b.DataPort))
@@ -82,5 +84,9 @@ func TestListen(t *testing.T) {
 		defer unixData.Close()
 
 		cancel()
+		err = <-listenResult
+		if err != nil {
+			t.Fatal(err)
+		}
 	})
 }

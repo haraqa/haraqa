@@ -31,7 +31,9 @@ func Example() {
 
 	// send 10 messages
 	for i := 0; i < 10; i++ {
-		go producer.Send([]byte("hello world"))
+		go func() {
+			_ = producer.Send([]byte("hello world"))
+		}()
 	}
 
 	// get the minimum and maximum available offsets
