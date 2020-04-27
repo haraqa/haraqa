@@ -107,7 +107,7 @@ func NewClient(options ...Option) (*Client, error) {
 	c.grpcClient = protocol.NewHaraqaClient(c.grpcConn)
 
 	// setup worker to process data requests
-	data, err := c.dataConnect()
+	data, err := c.dataConnect(nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to connect to data port %q", c.addr+":"+strconv.Itoa(c.dataPort))
 	}
@@ -128,12 +128,9 @@ func NewClient(options ...Option) (*Client, error) {
 				return
 			case <-timer.C:
 				err = protocol.Ping(data)
+				// on error, attempt to reconnect
 				if err != nil {
-					// best effort close connection
-					_ = data.Close()
-
-					// attempt to reconnect
-					data, _ = c.dataConnect()
+					data, _ = c.dataConnect(data)
 				}
 				timer.Reset(c.keepalive)
 				continue
@@ -153,7 +150,7 @@ func NewClient(options ...Option) (*Client, error) {
 				}
 
 				// attempt to reconnect
-				data, tmpErr = c.dataConnect()
+				data, tmpErr = c.dataConnect(data)
 				if tmpErr != nil {
 					out <- err
 					break
@@ -199,7 +196,12 @@ func (c *Client) Close() error {
 
 // dataConnect connects a new data client connection to the haraqa broker. it should be called
 // before any consume or produce grpc calls
-func (c *Client) dataConnect() (net.Conn, error) {
+func (c *Client) dataConnect(prev net.Conn) (net.Conn, error) {
+	// best effort close previous connection
+	if prev != nil {
+		_ = prev.Close()
+	}
+
 	var err error
 	var dataConn net.Conn
 	// connect to data port

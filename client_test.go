@@ -48,7 +48,7 @@ func TestNewClient(t *testing.T) {
 			t.Fatal(err)
 		}
 		c := &Client{}
-		_, err = c.dataConnect()
+		_, err = c.dataConnect(nil)
 		if err == nil {
 			t.Fatal("expected dial error")
 		}
@@ -355,6 +355,13 @@ func TestConsume(t *testing.T) {
 
 	ctx := context.Background()
 	topic := []byte(t.Name())
+
+	// consume w/ topic not exist
+	_, err = c.Consume(ctx, topic, 0, 1, nil)
+	if errors.Cause(err) != ErrTopicDoesNotExist {
+		t.Fatal(err)
+	}
+
 	msg := []byte("consume message")
 	err = c.Produce(ctx, topic, msg)
 	if err != nil {
@@ -370,6 +377,15 @@ func TestConsume(t *testing.T) {
 		t.Fatal(err)
 	}
 	c.postProcess = nil
+
+	// consume message
+	msgs, err := c.Consume(ctx, topic, 0, 1, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(msgs) != 1 || !bytes.Equal(msgs[0], msg) {
+		t.Fatal(msgs)
+	}
 }
 
 func TestOffsets(t *testing.T) {
