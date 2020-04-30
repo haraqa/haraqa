@@ -767,6 +767,20 @@ func TestOptions(t *testing.T) {
 			t.Fail()
 		}
 	})
+	t.Run("Retries", func(t *testing.T) {
+		c := &Client{}
+		err := WithRetries(-1)(c)
+		if err.Error() != "number of retries must be non-negative" {
+			t.Fatal(err)
+		}
+		err = WithRetries(2)(c)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if c.retries != 2 {
+			t.Fail()
+		}
+	})
 	t.Run("AES", func(t *testing.T) {
 		c := &Client{}
 		err := WithAESGCM([32]byte{})(c)

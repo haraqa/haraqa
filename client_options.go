@@ -121,3 +121,15 @@ func WithAESGCM(aesKey [32]byte) Option {
 		return nil
 	}
 }
+
+// WithRetries sets the number of times a client should retry to send a message if
+// the client experiences a network error.
+func WithRetries(n int) Option {
+	return func(c *Client) error {
+		if n < 0 {
+			return errors.New("number of retries must be non-negative")
+		}
+		c.retries = n
+		return nil
+	}
+}

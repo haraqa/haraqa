@@ -36,6 +36,7 @@ type Client struct {
 	createTopics bool          // if a topic does not exist, automatically create it
 	timeout      time.Duration // the timeout for grpc requests, 0 for no timeout
 	keepalive    time.Duration // the interval between ping messages to the data endpoint
+	retries      int           // the maximum number of retries if a connection experiences an error
 	preProcess   []func(msgs [][]byte) error
 	postProcess  []func(msgs [][]byte) error
 
@@ -60,6 +61,7 @@ const (
 	DefaultCreateTopics = true
 	DefaultTimeout      = time.Duration(0)
 	DefaultKeepalive    = 120 * time.Second
+	DefaultRetries      = 2
 )
 
 // NewClient creates a new haraqa client based on the given config
@@ -77,6 +79,7 @@ func NewClient(options ...Option) (*Client, error) {
 		createTopics: DefaultCreateTopics,
 		timeout:      DefaultTimeout,
 		keepalive:    DefaultKeepalive,
+		retries:      DefaultRetries,
 		preProcess:   make([]func([][]byte) error, 0),
 		postProcess:  make([]func([][]byte) error, 0),
 		producerIn:   make(chan func(net.Conn) error),
@@ -142,7 +145,7 @@ func NewClient(options ...Option) (*Client, error) {
 			}
 
 			// max try twice
-			for tries = 0; tries < 2; tries++ {
+			for tries = 0; tries <= c.retries; tries++ {
 				err = f(data)
 				// no error, moving on
 				if err == nil {
@@ -158,6 +161,8 @@ func NewClient(options ...Option) (*Client, error) {
 
 				// create topic error?
 				if c.createTopics && out == c.producerOut && errors.Cause(err) == protocol.ErrTopicDoesNotExist {
+					// this doesn't count toward retries
+					tries--
 					// retry
 					continue
 				}
