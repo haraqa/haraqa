@@ -19,17 +19,17 @@ jobs:
     - name: Get dependencies
       run: |
         go mod download
+        cd cmd/broker ; go mod download ; cd -
         go get github.com/mattn/goveralls
 
     - name: Test
       run: |
-        go test -covermode=atomic -coverprofile=cover.out.tmp ./...
+        go test -mod=readonly -race -timeout 30s -covermode=atomic -coverprofile=cover.out.tmp ./...
         cat cover.out.tmp | grep -v "grpc.pb.go" > cover.out
-        go test ./testing -mod=readonly -race -timeout 30s
         $(go env GOPATH)/bin/goveralls -coverprofile=cover.out -service=github-actions -repotoken ${{ secrets.COVERALLS_TOKEN }}
 
     - name: Benchmark
-      run: go test -bench=. -benchtime=1000x -run=XXX ./testing
+      run: go test -bench=. -benchtime=1000x -run=XXX ./benchmarks
 
     - name: Build
-      run: go build -v ./broker/build/main.go
+      run: cd cmd/broker && CGO_ENABLED=0 go build -mod=readonly -ldflags '-s -w' main.go
