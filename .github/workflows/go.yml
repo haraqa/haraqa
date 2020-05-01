@@ -20,7 +20,7 @@ jobs:
       run: |
         go mod download
         cd cmd/broker ; go mod download ; cd -
-        go get github.com/mattn/goveralls
+        go get github.com/mattn/goveralls && go mod tidy
 
     - name: Test
       run: |
