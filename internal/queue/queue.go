@@ -243,16 +243,14 @@ func newProduceTopic(volumes []string, topic string, offset int64, open bool) (*
 		}
 	}
 
-	if open {
-		var minOffset int64
-		if len(offsets) > 0 {
-			minOffset = offsets[0]
-		}
-		for i := range offsets {
+	if open && len(offsets) > 0 {
+		minOffset := offsets[0]
+		for i := range offsets[1:] {
 			if offsets[i] < minOffset {
 				minOffset = offsets[i]
 			}
 		}
+		offset = minOffset
 	}
 
 	datMultiWriter, err := zeroc.NewMultiWriter(datFiles...)
@@ -265,13 +263,27 @@ func newProduceTopic(volumes []string, topic string, offset int64, open bool) (*
 		return nil, err
 	}
 
-	// TODO: get relative offset of file
-
-	return &produceTopic{
+	p := &produceTopic{
 		dat:      datMultiWriter,
 		messages: msgMultiWriter,
 		offset:   offset,
-	}, nil
+	}
+
+	if offset > 0 {
+		// get relative offset of file
+		entry := [24]byte{}
+		_, err = datFiles[len(datFiles)-1].Seek((offset-1)*24, io.SeekStart)
+		if err != nil {
+			return nil, err
+		}
+		_, err = io.ReadFull(datFiles[len(datFiles)-1], entry[:])
+		if err != nil {
+			return nil, err
+		}
+		p.relOffset = int64(binary.BigEndian.Uint64(entry[8:16])) + int64(binary.BigEndian.Uint64(entry[16:24]))
+	}
+
+	return p, nil
 }
 
 func (q *queue) DeleteTopic(topic []byte) error {
