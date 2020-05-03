@@ -385,6 +385,166 @@ func TestProduce(t *testing.T) {
 	}
 }
 
+func TestProduceIO(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	c := &Client{}
+	errMock := errors.New("mock error")
+	mockRW := mocks.NewMockReadWriteCloser(ctrl)
+
+	gomock.InOrder(
+		// invalid prefix write
+		mockRW.EXPECT().Write(gomock.Any()).Return(0, errMock),
+
+		// invalid message write
+		mockRW.EXPECT().Write(gomock.Any()).DoAndReturn(func(b []byte) (int, error) {
+			return len(b), nil
+		}),
+		mockRW.EXPECT().Write(gomock.Any()).Return(0, errMock),
+
+		// invalid resp read
+		mockRW.EXPECT().Write(gomock.Any()).DoAndReturn(func(b []byte) (int, error) {
+			return len(b), nil
+		}),
+		mockRW.EXPECT().Write(gomock.Any()).DoAndReturn(func(b []byte) (int, error) {
+			return len(b), nil
+		}),
+		mockRW.EXPECT().Read(gomock.Any()).DoAndReturn(func(b []byte) (int, error) {
+			b[1] = protocol.TypePing
+			return len(b), nil
+		}),
+	)
+
+	ctx := context.Background()
+	topic := []byte("produce-io")
+	msg := []byte("produce-io msg")
+
+	// invalid prefix write
+	err := c.produce(ctx, mockRW, topic, msg)
+	if errors.Cause(err) != errMock {
+		t.Fatal(err)
+	}
+
+	// invalid message write
+	err = c.produce(ctx, mockRW, topic, msg)
+	if errors.Cause(err) != errMock {
+		t.Fatal(err)
+	}
+
+	// invalid resp read
+	err = c.produce(ctx, mockRW, topic, msg)
+	if errors.Cause(err).Error() != "invalid response type read from data connection" {
+		t.Fatal(err)
+	}
+}
+
+func TestConsumeIO(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	c := &Client{}
+	errMock := errors.New("mock error")
+	mockRW := mocks.NewMockReadWriteCloser(ctrl)
+
+	gomock.InOrder(
+		// invalid write
+		mockRW.EXPECT().Write(gomock.Any()).Return(0, errMock),
+
+		// invalid read
+		mockRW.EXPECT().Write(gomock.Any()).DoAndReturn(func(b []byte) (int, error) {
+			return len(b), nil
+		}),
+		mockRW.EXPECT().Read(gomock.Any()).Return(0, errMock),
+
+		// invalid protocol
+		mockRW.EXPECT().Write(gomock.Any()).DoAndReturn(func(b []byte) (int, error) {
+			return len(b), nil
+		}),
+		mockRW.EXPECT().Read(gomock.Any()).DoAndReturn(func(b []byte) (int, error) {
+			b[1] = protocol.TypePing
+			return len(b), nil
+		}),
+
+		// invalid body read
+		mockRW.EXPECT().Write(gomock.Any()).DoAndReturn(func(b []byte) (int, error) {
+			return len(b), nil
+		}),
+		mockRW.EXPECT().Read(gomock.Any()).DoAndReturn(func(b []byte) (int, error) {
+			b[1] = protocol.TypeConsume
+			b[5] = 5
+			return len(b), nil
+		}),
+		mockRW.EXPECT().Read(gomock.Any()).Return(0, errMock),
+
+		// invalid body size
+		mockRW.EXPECT().Write(gomock.Any()).DoAndReturn(func(b []byte) (int, error) {
+			return len(b), nil
+		}),
+		mockRW.EXPECT().Read(gomock.Any()).DoAndReturn(func(b []byte) (int, error) {
+			b[1] = protocol.TypeConsume
+			b[5] = 5
+			return len(b), nil
+		}),
+		mockRW.EXPECT().Read(gomock.Any()).Return(5, nil),
+
+		// invalid msgs read
+		mockRW.EXPECT().Write(gomock.Any()).DoAndReturn(func(b []byte) (int, error) {
+			return len(b), nil
+		}),
+		mockRW.EXPECT().Read(gomock.Any()).DoAndReturn(func(b []byte) (int, error) {
+			b[1] = protocol.TypeConsume
+			b[5] = 8
+			return len(b), nil
+		}),
+		mockRW.EXPECT().Read(gomock.Any()).DoAndReturn(func(b []byte) (int, error) {
+			b[7] = 3
+			return len(b), nil
+		}),
+		mockRW.EXPECT().Read(gomock.Any()).Return(0, errMock),
+	)
+
+	ctx := context.Background()
+	topic := []byte("consume-io")
+	buf := NewConsumeBuffer()
+
+	// invalid write
+	_, err := c.consume(ctx, mockRW, topic, 0, 10, buf)
+	if errors.Cause(err) != errMock {
+		t.Fatal(err)
+	}
+
+	// invalid read
+	_, err = c.consume(ctx, mockRW, topic, 0, 10, buf)
+	if errors.Cause(err) != errMock {
+		t.Fatal(err)
+	}
+
+	// invalid type
+	_, err = c.consume(ctx, mockRW, topic, 0, 10, buf)
+	if errors.Cause(err).Error() != "invalid response type read from data connection" {
+		t.Fatal(err)
+	}
+
+	// invalid body read
+	_, err = c.consume(ctx, mockRW, topic, 0, 10, buf)
+	if errors.Cause(err) != errMock {
+		t.Fatal(err)
+	}
+
+	// invalid body size
+	_, err = c.consume(ctx, mockRW, topic, 0, 10, buf)
+	if errors.Cause(err).Error() != "invalid messages length" {
+		t.Fatal(err)
+	}
+
+	// invalid msgs read
+	_, err = c.consume(ctx, mockRW, topic, 0, 10, buf)
+	if errors.Cause(err) != errMock {
+		t.Fatal(err)
+	}
+}
+
 func TestConsume(t *testing.T) {
 	c, cancel, err := newBrokerClient(t.Name())
 	defer cancel()

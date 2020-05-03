@@ -348,7 +348,7 @@ func (c *Client) Produce(ctx context.Context, topic []byte, msgs ...[]byte) erro
 	return <-c.producerOut
 }
 
-func (c *Client) produce(ctx context.Context, conn net.Conn, topic []byte, msgs ...[]byte) error {
+func (c *Client) produce(ctx context.Context, conn io.ReadWriter, topic []byte, msgs ...[]byte) error {
 	var err error
 	msgSizes := make([]int64, len(msgs))
 	var totalSize int64
@@ -390,7 +390,7 @@ func (c *Client) produce(ctx context.Context, conn net.Conn, topic []byte, msgs 
 		return errors.Wrap(err, "could not read from data connection")
 	}
 	if p != protocol.TypeProduce {
-		return errors.New("invalid response read from data connection")
+		return errors.New("invalid response type read from data connection")
 	}
 
 	return nil
@@ -465,7 +465,7 @@ func (c *Client) Consume(ctx context.Context, topic []byte, offset int64, limit 
 	return msgs, err
 }
 
-func (c *Client) consume(ctx context.Context, conn net.Conn, topic []byte, offset int64, limit int64, buf *ConsumeBuffer) ([][]byte, error) {
+func (c *Client) consume(ctx context.Context, conn io.ReadWriter, topic []byte, offset int64, limit int64, buf *ConsumeBuffer) ([][]byte, error) {
 	req := protocol.ConsumeRequest{
 		Topic:  topic,
 		Offset: offset,
