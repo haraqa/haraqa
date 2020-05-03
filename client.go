@@ -33,7 +33,6 @@ type Client struct {
 	addr         string        // address of the haraqa broker
 	gRPCPort     int           // broker's grpc port (default 4353)
 	dataPort     int           // broker's data port (default 14353)
-	unixSocket   string        // if set, the unix socket is used for the data connection
 	createTopics bool          // if a topic does not exist, automatically create it
 	timeout      time.Duration // the timeout for grpc requests, 0 for no timeout
 	keepalive    time.Duration // the interval between ping messages to the data endpoint
@@ -58,7 +57,6 @@ const (
 	DefaultAddr         = "127.0.0.1"
 	DefaultGRPCPort     = 4353
 	DefaultDataPort     = 14353
-	DefaultUnixSocket   = ""
 	DefaultCreateTopics = true
 	DefaultTimeout      = time.Duration(0)
 	DefaultKeepalive    = 120 * time.Second
@@ -76,7 +74,6 @@ func NewClient(options ...Option) (*Client, error) {
 		addr:         DefaultAddr,
 		gRPCPort:     DefaultGRPCPort,
 		dataPort:     DefaultDataPort,
-		unixSocket:   DefaultUnixSocket,
 		createTopics: DefaultCreateTopics,
 		timeout:      DefaultTimeout,
 		keepalive:    DefaultKeepalive,
@@ -208,16 +205,9 @@ func (c *Client) dataConnect(prev net.Conn) (net.Conn, error) {
 	var err error
 	var dataConn net.Conn
 	// connect to data port
-	if c.unixSocket != "" {
-		dataConn, err = net.Dial("unix", c.unixSocket)
-		if err != nil {
-			return nil, errors.Wrapf(err, "unable to connect to unix socket %q", c.unixSocket)
-		}
-	} else {
-		dataConn, err = net.Dial("tcp", c.addr+":"+strconv.Itoa(c.dataPort))
-		if err != nil {
-			return nil, errors.Wrapf(err, "unable to connect to data port %q", c.addr+":"+strconv.Itoa(c.dataPort))
-		}
+	dataConn, err = net.Dial("tcp", c.addr+":"+strconv.Itoa(c.dataPort))
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to connect to data port %q", c.addr+":"+strconv.Itoa(c.dataPort))
 	}
 
 	return dataConn, nil

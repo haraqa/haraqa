@@ -41,15 +41,6 @@ func WithDataPort(port int) Option {
 	}
 }
 
-// WithUnixSocket sets the unix socket for the client to send and receive on.
-// This is for instances when a broker is running locally
-func WithUnixSocket(unixSocket string) Option {
-	return func(c *Client) error {
-		c.unixSocket = unixSocket
-		return nil
-	}
-}
-
 // WithAutoCreateTopics overrides the default client behavior (createTopics=true)
 // which automatically creates new topics on the broker if they do not exist already.
 func WithAutoCreateTopics(createTopics bool) Option {

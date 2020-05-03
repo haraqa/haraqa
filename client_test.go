@@ -61,14 +61,12 @@ func newBrokerClient(name string) (*Client, context.CancelFunc, error) {
 	r := [8]byte{}
 	rand.Read(r[:])
 
-	unixSocket := ".haraqa.client.sock" + name + base64.URLEncoding.EncodeToString(r[:])
 	volume := ".haraqa.client." + name
 	os.RemoveAll(volume)
 
 	b, err := broker.NewBroker(
 		broker.WithVolumes([]string{volume}),
 		broker.WithLogger(log.New(os.Stdout, "BROKER LOG", log.LstdFlags|log.Lshortfile)),
-		broker.WithUnixSocket(unixSocket, os.ModePerm),
 		broker.WithGRPCPort(0),
 		broker.WithDataPort(0),
 	)
@@ -77,7 +75,6 @@ func newBrokerClient(name string) (*Client, context.CancelFunc, error) {
 	}
 	go func() {
 		b.Listen(ctx)
-		os.RemoveAll(unixSocket)
 	}()
 	c, err := NewClient(
 		WithGRPCPort(b.GRPCPort),
@@ -920,16 +917,6 @@ func TestOptions(t *testing.T) {
 			t.Fatal(err)
 		}
 		if c.dataPort != 1234 {
-			t.Fail()
-		}
-	})
-	t.Run("Unix socket", func(t *testing.T) {
-		c := &Client{}
-		err := WithUnixSocket("/test.tmp")(c)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if c.unixSocket != "/test.tmp" {
 			t.Fail()
 		}
 	})

@@ -102,7 +102,6 @@ docker run -it [port mapping] [volume mounts] haraqa/haraqa [flags] [volumes]
 ```
   -grpc         Port to listen on for grpc connections (default 4353)
   -data         Port to listen on for data connections (default 14353)
-  -unix         Unix socket to listen on for data connections (default /tmp/haraqa.sock)
   -http         Port to listen on for metrics and file serving (default 6060)
   -fileserver   If true, serve topic files on http://[broker address]:[http port]/topics (default true)
   -max_entries  The maximum number of messages per file before creating a new file (default 10000)

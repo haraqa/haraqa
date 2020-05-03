@@ -25,7 +25,6 @@ func main() {
 		httpPort           uint
 		fileserver         bool
 		grpcPort, dataPort int
-		unixSocket         string
 		maxEntries         int
 		maxSize            int64
 	)
@@ -34,7 +33,6 @@ func main() {
 	flag.BoolVar(&fileserver, "fileserver", true, "If true, files are served at http port")
 	flag.IntVar(&grpcPort, "grpc", broker.DefaultGRPCPort, "Port to listen on for grpc connections")
 	flag.IntVar(&dataPort, "data", broker.DefaultDataPort, "Port to listen on for data connections")
-	flag.StringVar(&unixSocket, "unix", broker.DefaultUnixSocket, "Unix socket for local data connections")
 	flag.IntVar(&maxEntries, "max_entries", broker.DefaultMaxEntries, "Max entries per file")
 	flag.Int64Var(&maxSize, "max_size", broker.DefaultMaxSize, "maximum message size the broker will accept, if -1 any message size is accepted")
 
@@ -47,7 +45,6 @@ func main() {
 	options := []broker.Option{
 		broker.WithGRPCPort(grpcPort),
 		broker.WithDataPort(dataPort),
-		broker.WithUnixSocket(unixSocket, broker.DefaultUnixMode),
 		broker.WithMaxEntries(maxEntries),
 		broker.WithMaxSize(maxSize),
 		broker.WithVolumes(flag.Args()),
@@ -75,7 +72,7 @@ func main() {
 		logger.Fatal(http.ListenAndServe(":"+strconv.FormatUint(uint64(httpPort), 10), nil))
 	}()
 
-	logger.Printf("Listening on ports %d (grpc) and %d (data) and unix socket %s (data)\n", b.GRPCPort, b.DataPort, b.UnixSocket)
+	logger.Printf("Listening on ports %d (grpc) and %d (data)\n", b.GRPCPort, b.DataPort)
 	if err := b.Listen(context.Background()); err != nil {
 		logger.Fatalf("failed to serve: %v", err)
 	}

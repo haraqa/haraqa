@@ -13,7 +13,6 @@ func (b *Broker) Listen(ctx context.Context) error {
 	defer func() {
 		b.dataListener.Close()
 		b.grpcListener.Close()
-		b.unixListener.Close()
 	}()
 
 	// serve file data
@@ -28,22 +27,6 @@ func (b *Broker) Listen(ctx context.Context) error {
 			conn.Close()
 			if err != nil {
 				b.logger.Println(errors.Wrap(err, "unable to get tcp connection file"))
-				continue
-			}
-			go b.handleDataConn(f)
-		}
-	}()
-	go func() {
-		for {
-			conn, err := b.unixListener.Accept()
-			if err != nil {
-				errs <- errors.Wrap(err, "failed to serve unix file data connection")
-				return
-			}
-			f, err := conn.(*net.UnixConn).File()
-			conn.Close()
-			if err != nil {
-				b.logger.Println(errors.Wrap(err, "unable to get unix connection file"))
 				continue
 			}
 			go b.handleDataConn(f)
