@@ -106,6 +106,46 @@ func TestCreateTopic(t *testing.T) {
 	}
 	defer c.Close()
 
+	ctx := context.Background()
+	var invalidTopic []byte
+	err = c.CreateTopic(ctx, invalidTopic)
+	if err.Error() != "topic cannot be empty or contain null bytes" {
+		t.Fatal(err)
+	}
+
+	invalidTopic = []byte{0}
+	err = c.CreateTopic(ctx, invalidTopic)
+	if err.Error() != "topic cannot be empty or contain null bytes" {
+		t.Fatal(err)
+	}
+
+	src := make([]byte, 4096)
+	rand.Read(src)
+	invalidTopic = make([]byte, base64.URLEncoding.EncodedLen(len(src)))
+	base64.URLEncoding.Encode(invalidTopic, src)
+	err = c.CreateTopic(ctx, invalidTopic)
+	if err.Error() != "unnested topics cannot exceed 255 bytes" {
+		t.Fatal(err)
+	}
+
+	invalidTopic[0] = byte('/')
+	err = c.CreateTopic(ctx, invalidTopic)
+	if err.Error() != "nested topics cannot exceed 4096 bytes" {
+		t.Fatal(err)
+	}
+
+	invalidTopic = invalidTopic[:500]
+	err = c.CreateTopic(ctx, invalidTopic)
+	if err.Error() != "nested topic cannot be empty" {
+		t.Fatal(err)
+	}
+
+	invalidTopic[0], invalidTopic[300] = byte('b'), byte('/')
+	err = c.CreateTopic(ctx, invalidTopic)
+	if err.Error() != "nested topics cannot exceed 255 bytes each" {
+		t.Fatal(err)
+	}
+
 	err = c.CreateTopic(context.Background(), []byte("test-topic"))
 	if err != nil && err != ErrTopicExists {
 		t.Fatal(err)

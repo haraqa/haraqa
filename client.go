@@ -5,6 +5,7 @@
 package haraqa
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"net"
@@ -137,14 +138,13 @@ func NewClient(options ...Option) (*Client, error) {
 				}
 				timer.Reset(c.keepalive)
 				continue
-
 			case f = <-c.producerIn:
 				out = c.producerOut
 			case f = <-c.consumerIn:
 				out = c.consumerOut
 			}
 
-			// max try twice
+			// max try multiple times
 			for tries = 0; tries <= c.retries; tries++ {
 				err = f(data)
 				// no error, moving on
@@ -163,13 +163,11 @@ func NewClient(options ...Option) (*Client, error) {
 				if c.createTopics && out == c.producerOut && errors.Cause(err) == protocol.ErrTopicDoesNotExist {
 					// this doesn't count toward retries
 					tries--
-					// retry
 					continue
 				}
 
-				// network error?
+				// network error? - retry
 				if _, ok := errors.Cause(err).(*net.OpError); ok {
-					// retry
 					continue
 				}
 
@@ -226,8 +224,31 @@ func (c *Client) dataConnect(prev net.Conn) (net.Conn, error) {
 }
 
 //CreateTopic creates a new topic. It returns a ErrTopicExists error if the
-// topic has already been created
+// topic has already been created. Topics can be nested with a / separator.
+// Topics cannot exceed length of 255, nested topics cannot exceed 255 bytes each
+// or 4096 bytes total.
 func (c *Client) CreateTopic(ctx context.Context, topic []byte) error {
+	if len(topic) == 0 || bytes.ContainsRune(topic, '\000') {
+		return errors.New("topic cannot be empty or contain null bytes")
+	}
+	if len(topic) > 255 {
+		if !bytes.ContainsRune(topic, '/') {
+			return errors.New("unnested topics cannot exceed 255 bytes")
+		}
+		if len(topic) > 4096 {
+			return errors.New("nested topics cannot exceed 4096 bytes")
+		}
+		split := bytes.Split(topic, []byte{'/'})
+		for i := range split {
+			switch {
+			case len(split[i]) == 0:
+				return errors.New("nested topic cannot be empty")
+			case len(split[i]) > 255:
+				return errors.New("nested topics cannot exceed 255 bytes each")
+			}
+		}
+	}
+
 	if c.timeout != 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, c.timeout)
@@ -266,7 +287,7 @@ func (c *Client) DeleteTopic(ctx context.Context, topic []byte) error {
 		Topic: topic,
 	})
 	if err != nil {
-		return errors.Wrap(err, "could not produce")
+		return errors.Wrap(err, "could not delete")
 	}
 	meta := r.GetMeta()
 	if !meta.GetOK() {
@@ -281,7 +302,7 @@ func (c *Client) DeleteTopic(ctx context.Context, topic []byte) error {
 // If regex is given, only topics matching the regexp are included.
 func (c *Client) ListTopics(ctx context.Context, prefix, suffix, regex string) ([][]byte, error) {
 	// check regex before attempting
-	if regex != "" {
+	if regex != "" && regex != ".*" {
 		_, err := regexp.Compile(regex)
 		if err != nil {
 			return nil, err

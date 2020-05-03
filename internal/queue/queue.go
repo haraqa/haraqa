@@ -61,11 +61,16 @@ func NewQueue(volumes []string, maxEntries int, consumePoolSize uint64) (Queue, 
 		}
 		if restorationVolume == "" {
 			restorationVolume = volumes[i]
-			for j := range dirs {
-				if dirs[j].IsDir() {
-					existingTopics[dirs[j].Name()] = nil
+			filepath.Walk(volumes[i], func(path string, info os.FileInfo, err error) error {
+				if path == volumes[i] {
+					return nil
 				}
-			}
+				path = strings.TrimPrefix(path, volumes[i])
+				if info.IsDir() {
+					existingTopics[path] = nil
+				}
+				return nil
+			})
 		}
 	}
 
