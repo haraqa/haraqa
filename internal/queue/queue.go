@@ -402,46 +402,6 @@ func (q *queue) ConsumeInfo(topic []byte, offset int64, limit int64) ([]byte, in
 	return []byte(filename + hrqFileExt), startAt, msgSizes, nil
 }
 
-func (q *queue) readDat(filename string, offset, limit int64) ([]byte, error) {
-	// open the dat file
-	f, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	var datSize int64
-	if offset < 0 || limit < 0 {
-		info, err := f.Stat()
-		if err != nil {
-			return nil, err
-		}
-		datSize = info.Size()
-		if datSize < 24 {
-			return nil, nil
-		}
-	}
-
-	// if the offset is negative (get the latest message), find the latest message offset
-	if offset < 0 {
-		offset = datSize/24 - 1
-	}
-
-	// if limit is less than 1 set to dat size
-	if limit < 1 {
-		limit = datSize/24 + 1
-	}
-
-	// read the dat file
-	buf := make([]byte, limit*24)
-	n, err := f.ReadAt(buf[:], offset*24)
-	if err != nil && err != io.EOF {
-		return nil, err
-	}
-	buf = buf[:n-n%24]
-	return buf, nil
-}
-
 func (q *queue) Consume(tcpConn io.Writer, topic []byte, filename []byte, startAt int64, totalSize int64) error {
 	if totalSize == 0 {
 		return nil
