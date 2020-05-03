@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -87,4 +88,32 @@ func restore(volumes []string, restorationVolume string) error {
 
 		return nil
 	})
+}
+
+func findOffset(volumes []string, topic string) int64 {
+	dir, err := os.Open(filepath.Join(volumes[len(volumes)-1], topic))
+	if err != nil {
+		return 0
+	}
+
+	// err can be ignored since we're checking for names length
+	names, _ := dir.Readdirnames(-1)
+	dir.Close()
+	if len(names) == 0 {
+		return 0
+	}
+	var max int64
+	for i := range names {
+		if !strings.HasSuffix(names[i], datFileExt) {
+			continue
+		}
+		n, err := strconv.ParseInt(strings.TrimSuffix(names[i], datFileExt), 10, 64)
+		if err != nil {
+			continue
+		}
+		if n > max {
+			max = n
+		}
+	}
+	return max
 }

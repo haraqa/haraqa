@@ -115,50 +115,6 @@ func (q *queue) CreateTopic(topic []byte) error {
 	return nil
 }
 
-func findOffset(volumes []string, topic string) int64 {
-	// TODO: detect missing files from a volume
-	offsets := make([]int64, 0, len(volumes))
-	for i := range volumes {
-		dir, err := os.Open(filepath.Join(volumes[i], topic))
-		if err != nil {
-			continue
-		}
-		names, err := dir.Readdirnames(-1)
-		dir.Close()
-		if err != nil {
-			continue
-		}
-		if len(names) == 0 {
-			continue
-		}
-		var max int64
-		for j := range names {
-			if !strings.HasSuffix(names[j], datFileExt) {
-				continue
-			}
-			n, err := strconv.ParseInt(strings.TrimSuffix(names[j], datFileExt), 10, 64)
-			if err != nil {
-				continue
-			}
-			if n > max {
-				max = n
-			}
-		}
-		offsets = append(offsets, max)
-	}
-	if len(offsets) == 0 {
-		return 0
-	}
-	offset := offsets[0]
-	for i := range offsets[1:] {
-		if offsets[i] < offset {
-			offset = offsets[i]
-		}
-	}
-
-	return offset
-}
-
 func newProduceTopic(volumes []string, topic string, offset int64, open bool) (*produceTopic, error) {
 	datFiles := make([]*os.File, len(volumes))
 	msgFiles := make([]*os.File, len(volumes))
