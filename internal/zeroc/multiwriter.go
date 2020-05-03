@@ -15,7 +15,7 @@ type fd interface {
 // one or more files
 type MultiWriter struct {
 	files  []*os.File
-	w      io.Writer
+	W      io.Writer
 	pipes  [][2]int
 	limit  int64
 	offset int64
@@ -35,7 +35,7 @@ func NewMultiWriter(files ...*os.File) (*MultiWriter, error) {
 
 	return &MultiWriter{
 		files: files,
-		w:     io.MultiWriter(w...),
+		W:     io.MultiWriter(w...),
 		pipes: pipes,
 		limit: 0,
 	}, nil
@@ -76,5 +76,5 @@ func (w *MultiWriter) Write(b []byte) (int, error) {
 		}
 	}
 
-	return w.w.Write(b)
+	return w.W.Write(b)
 }

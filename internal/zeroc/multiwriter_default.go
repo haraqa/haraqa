@@ -27,5 +27,5 @@ func (w *MultiWriter) ReadFrom(r io.Reader) (int64, error) {
 		}
 	}
 
-	return io.CopyN(w.w, r, w.limit)
+	return io.CopyN(w.W, r, w.limit)
 }

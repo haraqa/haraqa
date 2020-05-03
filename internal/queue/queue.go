@@ -1,10 +1,7 @@
 package queue
 
 import (
-	"encoding/binary"
-	"fmt"
 	"io"
-	"io/ioutil"
 	"math"
 	"os"
 	"path/filepath"
@@ -38,89 +35,37 @@ func NewQueue(volumes []string, maxEntries int, consumePoolSize uint64) (Queue, 
 	if len(volumes) == 0 {
 		return nil, errors.New("missing volumes from NewQueue call")
 	}
-	duplicateChecker := make(map[string]struct{}, len(volumes))
+
+	err := checkForDuplicates(volumes)
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot create new queue")
+	}
+
 	restorationVolume := ""
 	emptyVolumes := make([]string, 0, len(volumes))
 	existingTopics := make(map[string]*produceTopic)
 	for i := len(volumes) - 1; i >= 0; i-- {
-		if _, ok := duplicateChecker[volumes[i]]; ok {
-			return nil, errors.Errorf("cannot create new queue found duplicate file %s", volumes[i])
-		}
-		duplicateChecker[volumes[i]] = struct{}{}
 		err := os.MkdirAll(volumes[i], os.ModePerm)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "unable to instantiate volume %s", volumes[i])
 		}
-		dirs, err := ioutil.ReadDir(volumes[i])
-		if err != nil {
-			return nil, errors.Wrapf(err, "unable to open volume %q", volumes[i])
-		}
-		if len(dirs) == 0 {
+
+		topics := getVolumeTopics(volumes[i])
+		if len(topics) == 0 {
 			emptyVolumes = append(emptyVolumes, volumes[i])
 			continue
 		}
-		if restorationVolume == "" {
-			restorationVolume = volumes[i]
-			filepath.Walk(volumes[i], func(path string, info os.FileInfo, err error) error {
-				if path == volumes[i] {
-					return nil
-				}
-				path = strings.TrimPrefix(path, volumes[i])
-				if info.IsDir() {
-					existingTopics[path] = nil
-				}
-				return nil
-			})
-		}
+
+		restorationVolume = volumes[i]
+		existingTopics = topics
+		emptyVolumes = append(emptyVolumes, volumes[:i]...)
+		break
 	}
 
 	if len(emptyVolumes) != len(volumes) {
-		topicFiles := make(map[string][]*os.File)
-		for topic := range existingTopics {
-
-			files, err := ioutil.ReadDir(filepath.Join(restorationVolume, topic))
-			if err != nil {
-				return nil, err
-			}
-			topicFiles[topic] = make([]*os.File, 0, len(files))
-
-			for _, file := range files {
-				if !file.IsDir() {
-					src, err := os.Open(filepath.Join(restorationVolume, topic, file.Name()))
-					if err != nil {
-						return nil, err
-					}
-					topicFiles[topic] = append(topicFiles[topic], src)
-				}
-			}
-		}
-
-		for topic, files := range topicFiles {
-			for i := range emptyVolumes {
-				// make directory if not exists
-				err := os.MkdirAll(filepath.Join(emptyVolumes[i], topic), os.ModePerm)
-				if err != nil {
-					return nil, err
-				}
-
-				// copy each file to its destination
-				for _, src := range files {
-					dst, err := os.Create(filepath.Join(emptyVolumes[i], topic, filepath.Base(src.Name())))
-					if err != nil {
-						return nil, err
-					}
-					_, err = io.Copy(dst, src)
-					if err != nil {
-						return nil, err
-					}
-					dst.Close()
-				}
-			}
-
-			// close files
-			for _, src := range files {
-				src.Close()
-			}
+		err = restore(emptyVolumes, restorationVolume)
+		if err != nil {
+			return nil, errors.Wrap(err, "restore data error")
 		}
 	}
 
@@ -188,10 +133,10 @@ func findOffset(volumes []string, topic string) int64 {
 		}
 		var max int64
 		for j := range names {
-			if !strings.HasSuffix(names[j], ".dat") {
+			if !strings.HasSuffix(names[j], datFileExt) {
 				continue
 			}
-			n, err := strconv.ParseInt(strings.TrimSuffix(names[j], ".dat"), 10, 64)
+			n, err := strconv.ParseInt(strings.TrimSuffix(names[j], datFileExt), 10, 64)
 			if err != nil {
 				continue
 			}
@@ -230,7 +175,7 @@ func newProduceTopic(volumes []string, topic string, offset int64, open bool) (*
 			return nil, err
 		}
 
-		datFiles[i], err = os.OpenFile(filepath.Join(path, offsetString+".dat"), os.O_RDWR|os.O_CREATE, 0666)
+		datFiles[i], err = os.OpenFile(filepath.Join(path, offsetString+datFileExt), os.O_RDWR|os.O_CREATE, 0666)
 		if err != nil {
 			return nil, err
 		}
@@ -242,7 +187,7 @@ func newProduceTopic(volumes []string, topic string, offset int64, open bool) (*
 			}
 		}
 
-		msgFiles[i], err = os.OpenFile(filepath.Join(path, offsetString+".hrq"), os.O_RDWR|os.O_CREATE, 0666)
+		msgFiles[i], err = os.OpenFile(filepath.Join(path, offsetString+hrqFileExt), os.O_RDWR|os.O_CREATE, 0666)
 		if err != nil {
 			return nil, err
 		}
@@ -276,7 +221,7 @@ func newProduceTopic(volumes []string, topic string, offset int64, open bool) (*
 
 	if offset > 0 {
 		// get relative offset of file
-		entry := [24]byte{}
+		var entry datum
 		_, err = datFiles[len(datFiles)-1].Seek((offset-1)*24, io.SeekStart)
 		if err != nil {
 			return nil, err
@@ -285,7 +230,7 @@ func newProduceTopic(volumes []string, topic string, offset int64, open bool) (*
 		if err != nil {
 			return nil, err
 		}
-		p.relOffset = int64(binary.BigEndian.Uint64(entry[8:16])) + int64(binary.BigEndian.Uint64(entry[16:24]))
+		p.relOffset = entry.GetStartAt() + entry.GetMsgSize()
 	}
 
 	return p, nil
@@ -360,10 +305,10 @@ func (q *queue) Produce(tcpConn io.Reader, topic []byte, msgSizes []int64) error
 		}
 		q.produceTopics[string(topic)] = mw
 	}
-	q.Unlock()
-
 	mw.Lock()
 	defer mw.Unlock()
+	q.Unlock()
+
 	if mw.relOffset+int64(len(msgSizes)) > q.maxEntries {
 		// handle creating new files for overflow
 		newMW, err := newProduceTopic(q.volumes, string(topic), mw.offset, false)
@@ -386,22 +331,12 @@ func (q *queue) Produce(tcpConn io.Reader, topic []byte, msgSizes []int64) error
 	// write message sizes to dat
 	offset := mw.offset
 	startAt := mw.messages.Offset()
-	buf := make([]byte, 24*len(msgSizes))
-	var dat [24]byte
-	for i := range msgSizes {
-		binary.BigEndian.PutUint64(dat[0:8], uint64(offset))
-		binary.BigEndian.PutUint64(dat[8:16], uint64(startAt))
-		binary.BigEndian.PutUint64(dat[16:24], uint64(msgSizes[i]))
-		copy(buf[24*i:24*(i+1)], dat[:])
-		startAt += msgSizes[i]
-		offset++
-	}
 
-	_, err = mw.dat.Write(buf[:])
+	err = writeDat(mw.dat, offset, startAt, msgSizes)
 	if err != nil {
 		return err
 	}
-	mw.dat.IncreaseOffset(int64(len(buf)))
+
 	mw.messages.IncreaseOffset(n)
 	mw.relOffset = offset - mw.offset
 	mw.offset = offset
@@ -442,10 +377,10 @@ func (q *queue) ConsumeInfo(topic []byte, offset int64, limit int64) ([]byte, in
 	// find the file which matches the offset
 	var baseOffset int64
 	for i := range names {
-		if !strings.HasSuffix(names[i], ".dat") {
+		if !strings.HasSuffix(names[i], datFileExt) {
 			continue
 		}
-		o, err := strconv.ParseInt(strings.TrimSuffix(names[i], ".dat"), 10, 64)
+		o, err := strconv.ParseInt(strings.TrimSuffix(names[i], datFileExt), 10, 64)
 		if err == nil {
 			if o > baseOffset && (offset < 0 || o <= offset) {
 				baseOffset = o
@@ -455,22 +390,16 @@ func (q *queue) ConsumeInfo(topic []byte, offset int64, limit int64) ([]byte, in
 	filename := filepath.Join(q.volumes[len(q.volumes)-1], string(topic), formatFilename(baseOffset))
 
 	// read from .dat file
-	buf, err := q.readDat(filename+".dat", offset, limit)
+	f, err := os.Open(filename + datFileExt)
 	if err != nil {
 		return nil, 0, nil, err
 	}
-	if len(buf) < 24 {
-		return nil, 0, nil, nil
+	startAt, msgSizes, err := readDat(f, offset, limit)
+	if err != nil {
+		return nil, 0, nil, err
 	}
 
-	// convert the dat file contents into a list of message sizes
-	startAt := int64(binary.BigEndian.Uint64(buf[8:16]))
-	msgSizes := make([]int64, 0, len(buf)/24)
-	for i := 0; i < len(buf); i += 24 {
-		msgSizes = append(msgSizes, int64(binary.BigEndian.Uint64(buf[i+16:i+24])))
-	}
-
-	return []byte(filename + ".hrq"), startAt, msgSizes, nil
+	return []byte(filename + hrqFileExt), startAt, msgSizes, nil
 }
 
 func (q *queue) readDat(filename string, offset, limit int64) ([]byte, error) {
@@ -554,10 +483,10 @@ func (q *queue) Offsets(topic []byte) (int64, int64, error) {
 	min = math.MaxInt64
 	var maxName string
 	for j := range names {
-		if !strings.HasSuffix(names[j], ".dat") {
+		if !strings.HasSuffix(names[j], datFileExt) {
 			continue
 		}
-		n, err := strconv.ParseInt(strings.TrimSuffix(names[j], ".dat"), 10, 64)
+		n, err := strconv.ParseInt(strings.TrimSuffix(names[j], datFileExt), 10, 64)
 		if err != nil {
 			continue
 		}
@@ -588,8 +517,4 @@ func (q *queue) Offsets(topic []byte) (int64, int64, error) {
 	}
 
 	return min, max, nil
-}
-
-func formatFilename(n int64) string {
-	return fmt.Sprintf("%016d", n)
 }

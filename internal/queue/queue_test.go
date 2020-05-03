@@ -18,7 +18,7 @@ func TestNewQueue(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = NewQueue([]string{".haraqa", ".haraqa"}, 0, 0)
-	if err.Error() != "cannot create new queue found duplicate file .haraqa" {
+	if errors.Cause(err).Error() != "found duplicate file .haraqa" {
 		t.Fatal(err)
 	}
 	_, err = NewQueue([]string{string([]byte{0, 0, 0})}, 0, 0)
