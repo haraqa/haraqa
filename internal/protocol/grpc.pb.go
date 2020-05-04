@@ -800,6 +800,230 @@ func (m *LockResponse) GetLocked() bool {
 	return false
 }
 
+type GRPCProduceRequest struct {
+	Topic    []byte  `protobuf:"bytes,1,opt,name=topic,proto3" json:"topic,omitempty"`
+	MsgSizes []int64 `protobuf:"varint,2,rep,packed,name=msg_sizes,json=msgSizes,proto3" json:"msg_sizes,omitempty"`
+	Messages []byte  `protobuf:"bytes,3,opt,name=messages,proto3" json:"messages,omitempty"`
+}
+
+func (m *GRPCProduceRequest) Reset()         { *m = GRPCProduceRequest{} }
+func (m *GRPCProduceRequest) String() string { return proto.CompactTextString(m) }
+func (*GRPCProduceRequest) ProtoMessage()    {}
+func (*GRPCProduceRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_bedfbfc9b54e5600, []int{15}
+}
+func (m *GRPCProduceRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *GRPCProduceRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_GRPCProduceRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *GRPCProduceRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GRPCProduceRequest.Merge(m, src)
+}
+func (m *GRPCProduceRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *GRPCProduceRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_GRPCProduceRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GRPCProduceRequest proto.InternalMessageInfo
+
+func (m *GRPCProduceRequest) GetTopic() []byte {
+	if m != nil {
+		return m.Topic
+	}
+	return nil
+}
+
+func (m *GRPCProduceRequest) GetMsgSizes() []int64 {
+	if m != nil {
+		return m.MsgSizes
+	}
+	return nil
+}
+
+func (m *GRPCProduceRequest) GetMessages() []byte {
+	if m != nil {
+		return m.Messages
+	}
+	return nil
+}
+
+type GRPCProduceResponse struct {
+	Meta *Meta `protobuf:"bytes,1,opt,name=meta,proto3" json:"meta,omitempty"`
+}
+
+func (m *GRPCProduceResponse) Reset()         { *m = GRPCProduceResponse{} }
+func (m *GRPCProduceResponse) String() string { return proto.CompactTextString(m) }
+func (*GRPCProduceResponse) ProtoMessage()    {}
+func (*GRPCProduceResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_bedfbfc9b54e5600, []int{16}
+}
+func (m *GRPCProduceResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *GRPCProduceResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_GRPCProduceResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *GRPCProduceResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GRPCProduceResponse.Merge(m, src)
+}
+func (m *GRPCProduceResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *GRPCProduceResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_GRPCProduceResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GRPCProduceResponse proto.InternalMessageInfo
+
+func (m *GRPCProduceResponse) GetMeta() *Meta {
+	if m != nil {
+		return m.Meta
+	}
+	return nil
+}
+
+type GRPCConsumeRequest struct {
+	Topic  []byte `protobuf:"bytes,1,opt,name=topic,proto3" json:"topic,omitempty"`
+	Offset int64  `protobuf:"varint,2,opt,name=offset,proto3" json:"offset,omitempty"`
+	Limit  int64  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
+}
+
+func (m *GRPCConsumeRequest) Reset()         { *m = GRPCConsumeRequest{} }
+func (m *GRPCConsumeRequest) String() string { return proto.CompactTextString(m) }
+func (*GRPCConsumeRequest) ProtoMessage()    {}
+func (*GRPCConsumeRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_bedfbfc9b54e5600, []int{17}
+}
+func (m *GRPCConsumeRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *GRPCConsumeRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_GRPCConsumeRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *GRPCConsumeRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GRPCConsumeRequest.Merge(m, src)
+}
+func (m *GRPCConsumeRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *GRPCConsumeRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_GRPCConsumeRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GRPCConsumeRequest proto.InternalMessageInfo
+
+func (m *GRPCConsumeRequest) GetTopic() []byte {
+	if m != nil {
+		return m.Topic
+	}
+	return nil
+}
+
+func (m *GRPCConsumeRequest) GetOffset() int64 {
+	if m != nil {
+		return m.Offset
+	}
+	return 0
+}
+
+func (m *GRPCConsumeRequest) GetLimit() int64 {
+	if m != nil {
+		return m.Limit
+	}
+	return 0
+}
+
+type GRPCConsumeResponse struct {
+	Meta     *Meta   `protobuf:"bytes,1,opt,name=meta,proto3" json:"meta,omitempty"`
+	MsgSizes []int64 `protobuf:"varint,2,rep,packed,name=msg_sizes,json=msgSizes,proto3" json:"msg_sizes,omitempty"`
+	Messages []byte  `protobuf:"bytes,3,opt,name=messages,proto3" json:"messages,omitempty"`
+}
+
+func (m *GRPCConsumeResponse) Reset()         { *m = GRPCConsumeResponse{} }
+func (m *GRPCConsumeResponse) String() string { return proto.CompactTextString(m) }
+func (*GRPCConsumeResponse) ProtoMessage()    {}
+func (*GRPCConsumeResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_bedfbfc9b54e5600, []int{18}
+}
+func (m *GRPCConsumeResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *GRPCConsumeResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_GRPCConsumeResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *GRPCConsumeResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GRPCConsumeResponse.Merge(m, src)
+}
+func (m *GRPCConsumeResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *GRPCConsumeResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_GRPCConsumeResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GRPCConsumeResponse proto.InternalMessageInfo
+
+func (m *GRPCConsumeResponse) GetMeta() *Meta {
+	if m != nil {
+		return m.Meta
+	}
+	return nil
+}
+
+func (m *GRPCConsumeResponse) GetMsgSizes() []int64 {
+	if m != nil {
+		return m.MsgSizes
+	}
+	return nil
+}
+
+func (m *GRPCConsumeResponse) GetMessages() []byte {
+	if m != nil {
+		return m.Messages
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterType((*Meta)(nil), "protocol.Meta")
 	proto.RegisterType((*CreateTopicRequest)(nil), "protocol.CreateTopicRequest")
@@ -816,49 +1040,60 @@ func init() {
 	proto.RegisterType((*WatchResponse)(nil), "protocol.WatchResponse")
 	proto.RegisterType((*LockRequest)(nil), "protocol.LockRequest")
 	proto.RegisterType((*LockResponse)(nil), "protocol.LockResponse")
+	proto.RegisterType((*GRPCProduceRequest)(nil), "protocol.GRPCProduceRequest")
+	proto.RegisterType((*GRPCProduceResponse)(nil), "protocol.GRPCProduceResponse")
+	proto.RegisterType((*GRPCConsumeRequest)(nil), "protocol.GRPCConsumeRequest")
+	proto.RegisterType((*GRPCConsumeResponse)(nil), "protocol.GRPCConsumeResponse")
 }
 
 func init() { proto.RegisterFile("grpc.proto", fileDescriptor_bedfbfc9b54e5600) }
 
 var fileDescriptor_bedfbfc9b54e5600 = []byte{
-	// 588 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x54, 0x4f, 0x6f, 0xda, 0x30,
-	0x14, 0x27, 0x90, 0x31, 0x78, 0xfc, 0x91, 0xe6, 0xb5, 0x34, 0x4a, 0xdb, 0x0c, 0x59, 0x9a, 0x84,
-	0x76, 0x40, 0x53, 0x7b, 0xda, 0x2a, 0xed, 0xb0, 0x71, 0xd8, 0x06, 0x15, 0x93, 0x55, 0x69, 0xda,
-	0xa9, 0xca, 0x32, 0xc3, 0xa2, 0x12, 0x92, 0xda, 0x41, 0xe2, 0x13, 0x6c, 0xd7, 0x7d, 0xac, 0x1d,
-	0x7b, 0xdc, 0x71, 0x82, 0x2f, 0x52, 0xd9, 0x71, 0x88, 0x03, 0xb4, 0x82, 0x53, 0xfc, 0xfe, 0xfd,
-	0xde, 0xef, 0xf7, 0xec, 0x17, 0x80, 0x31, 0x8b, 0xbc, 0x6e, 0xc4, 0xc2, 0x38, 0x44, 0x15, 0xf9,
-	0xf1, 0xc2, 0x09, 0x3e, 0x07, 0xf3, 0x92, 0xc6, 0x2e, 0x6a, 0x42, 0x71, 0xd8, 0xb7, 0x8c, 0xb6,
-	0xd1, 0xa9, 0x90, 0xe2, 0xb0, 0x8f, 0x8e, 0xa1, 0x4a, 0x19, 0x0b, 0xd9, 0x75, 0xc0, 0xc7, 0x56,
-	0xb1, 0x6d, 0x74, 0xaa, 0xa4, 0x22, 0x1d, 0x97, 0x7c, 0x8c, 0x5f, 0x01, 0xfa, 0xc0, 0xa8, 0x1b,
-	0xd3, 0xab, 0x30, 0xf2, 0x3d, 0x42, 0x6f, 0x67, 0x94, 0xc7, 0xe8, 0x00, 0x9e, 0xc4, 0xc2, 0x96,
-	0x28, 0x75, 0x92, 0x18, 0xf8, 0x0d, 0x3c, 0xcf, 0xe5, 0xf2, 0x28, 0x9c, 0x72, 0x8a, 0x30, 0x98,
-	0x01, 0x8d, 0x5d, 0x99, 0x5b, 0x3b, 0x6b, 0x76, 0x53, 0x42, 0x5d, 0xc1, 0x86, 0xc8, 0x98, 0x68,
-	0xd3, 0xa3, 0x13, 0xba, 0x6b, 0x9b, 0x5c, 0xee, 0x1e, 0x6d, 0x7a, 0x70, 0x70, 0xc5, 0x66, 0x53,
-	0x6f, 0x27, 0x3d, 0xa8, 0x05, 0xe5, 0x70, 0x34, 0xe2, 0x34, 0x96, 0x53, 0x29, 0x11, 0x65, 0xe1,
-	0x0b, 0x38, 0x5c, 0x43, 0xd9, 0x83, 0xc2, 0x37, 0x78, 0x36, 0xf0, 0x79, 0x2c, 0x0b, 0x79, 0xda,
-	0xbf, 0x05, 0xe5, 0x88, 0xd1, 0x91, 0x3f, 0x97, 0xa5, 0x55, 0xa2, 0x2c, 0xe1, 0xe7, 0xb3, 0x91,
-	0xf0, 0x27, 0xf7, 0xa2, 0x2c, 0xc1, 0x97, 0xd1, 0x31, 0x9d, 0x5b, 0x25, 0xe9, 0x4e, 0x0c, 0xfc,
-	0x05, 0x90, 0x0e, 0xbd, 0x3b, 0x29, 0xd1, 0x47, 0x4a, 0xe6, 0x56, 0xb1, 0x5d, 0xea, 0xd4, 0x89,
-	0xb2, 0xf0, 0x4b, 0x68, 0x0c, 0xa5, 0xe6, 0xc7, 0x6f, 0x84, 0x41, 0x33, 0x4d, 0xdb, 0xa3, 0xe9,
-	0x29, 0x40, 0xe0, 0x4f, 0xaf, 0x73, 0x23, 0xae, 0x06, 0xfe, 0x34, 0x81, 0x92, 0x61, 0x77, 0x9e,
-	0x86, 0x4b, 0x2a, 0xec, 0xce, 0x93, 0x30, 0x7e, 0x0b, 0xf5, 0xaf, 0x6e, 0xec, 0xfd, 0xd4, 0x46,
-	0xa8, 0x24, 0x18, 0xba, 0x04, 0x84, 0xc0, 0x8c, 0x29, 0x0b, 0x24, 0x7e, 0x85, 0xc8, 0x33, 0xfe,
-	0x6d, 0x40, 0x43, 0x15, 0xef, 0xc1, 0x77, 0xa5, 0xbd, 0xa8, 0x3f, 0x92, 0xbc, 0x8a, 0xd2, 0xe3,
-	0x2a, 0xcc, 0x75, 0x15, 0x7d, 0xa8, 0x0d, 0x42, 0xef, 0x46, 0x1b, 0xef, 0x98, 0x85, 0xb3, 0x28,
-	0x1d, 0xaf, 0x34, 0xa4, 0x04, 0x3f, 0xa0, 0x6a, 0x44, 0xf2, 0x2c, 0x7c, 0x93, 0xd0, 0xbb, 0x91,
-	0x0d, 0x2b, 0x44, 0x9e, 0xf1, 0x67, 0xa8, 0x27, 0x60, 0xfb, 0xdd, 0xbc, 0xa8, 0xa5, 0x3f, 0xd4,
-	0x80, 0x94, 0x75, 0xf6, 0xcb, 0x84, 0xf2, 0x47, 0x97, 0xb9, 0xb7, 0x2e, 0x1a, 0x40, 0x4d, 0x5b,
-	0x6b, 0x74, 0x92, 0xe1, 0x6c, 0xfe, 0x19, 0xec, 0xd3, 0x07, 0xa2, 0x09, 0x25, 0x5c, 0x10, 0x68,
-	0xda, 0xf6, 0xea, 0x68, 0x9b, 0x3f, 0x00, 0x1d, 0x6d, 0xcb, 0xca, 0xe3, 0x02, 0x22, 0xd0, 0xc8,
-	0xad, 0x22, 0x72, 0xb2, 0x8a, 0x6d, 0x9b, 0x6e, 0xbf, 0x78, 0x30, 0xbe, 0xc2, 0xfc, 0x04, 0x90,
-	0xad, 0x11, 0x3a, 0xce, 0x0a, 0x36, 0xf6, 0xd6, 0x3e, 0xd9, 0x1e, 0x5c, 0x41, 0xbd, 0x83, 0xa7,
-	0xc9, 0x45, 0x73, 0x74, 0x94, 0xa5, 0xe6, 0x56, 0xca, 0xb6, 0x36, 0x03, 0xab, 0xfa, 0x1e, 0xd4,
-	0xe4, 0x3b, 0x55, 0x5c, 0x5a, 0x59, 0xaa, 0xfe, 0xf6, 0xed, 0xa3, 0x0d, 0x7f, 0x8a, 0xd0, 0x31,
-	0x5e, 0x1b, 0xe8, 0x02, 0x4c, 0xf1, 0x2e, 0xd0, 0xa1, 0xc6, 0x36, 0x7b, 0x74, 0x76, 0x6b, 0xdd,
-	0xad, 0x17, 0xbf, 0xb7, 0xfe, 0x2e, 0x1c, 0xe3, 0x6e, 0xe1, 0x18, 0xff, 0x17, 0x8e, 0xf1, 0x67,
-	0xe9, 0x14, 0xee, 0x96, 0x4e, 0xe1, 0xdf, 0xd2, 0x29, 0x7c, 0x2f, 0xcb, 0xb2, 0xf3, 0xfb, 0x00,
-	0x00, 0x00, 0xff, 0xff, 0x27, 0x07, 0x3e, 0x22, 0x6e, 0x06, 0x00, 0x00,
+	// 704 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x54, 0xcb, 0x4e, 0xdb, 0x4c,
+	0x14, 0xb6, 0x93, 0x10, 0x9c, 0x93, 0x80, 0xf4, 0xcf, 0x0f, 0x21, 0x32, 0xe0, 0xa2, 0x91, 0x2a,
+	0x45, 0x5d, 0xa0, 0x0a, 0x56, 0x2d, 0x52, 0x17, 0x05, 0xa9, 0xb4, 0x80, 0x40, 0x53, 0xa4, 0xb6,
+	0x2b, 0xe4, 0x9a, 0x89, 0x6b, 0x11, 0xc7, 0x61, 0xc6, 0x91, 0xa2, 0xbe, 0x40, 0xb7, 0x5d, 0xf7,
+	0x89, 0xba, 0x64, 0xd9, 0x65, 0x05, 0x2f, 0x52, 0xcd, 0xc5, 0xf1, 0x38, 0x09, 0x08, 0xb3, 0xb2,
+	0xcf, 0xed, 0x3b, 0xb7, 0x39, 0x1f, 0x40, 0xc8, 0x86, 0xc1, 0xf6, 0x90, 0x25, 0x69, 0x82, 0x1c,
+	0xf9, 0x09, 0x92, 0x3e, 0xde, 0x85, 0xda, 0x09, 0x4d, 0x7d, 0xb4, 0x0c, 0x95, 0xd3, 0xa3, 0x8e,
+	0xbd, 0x65, 0x77, 0x1d, 0x52, 0x39, 0x3d, 0x42, 0xeb, 0xd0, 0xa0, 0x8c, 0x25, 0xec, 0x22, 0xe6,
+	0x61, 0xa7, 0xb2, 0x65, 0x77, 0x1b, 0xc4, 0x91, 0x8a, 0x13, 0x1e, 0xe2, 0x17, 0x80, 0xf6, 0x19,
+	0xf5, 0x53, 0x7a, 0x9e, 0x0c, 0xa3, 0x80, 0xd0, 0xeb, 0x11, 0xe5, 0x29, 0x5a, 0x81, 0x85, 0x54,
+	0xc8, 0x12, 0xa5, 0x45, 0x94, 0x80, 0x5f, 0xc1, 0xff, 0x05, 0x5f, 0x3e, 0x4c, 0x06, 0x9c, 0x22,
+	0x0c, 0xb5, 0x98, 0xa6, 0xbe, 0xf4, 0x6d, 0xee, 0x2c, 0x6f, 0x67, 0x05, 0x6d, 0x8b, 0x6a, 0x88,
+	0xb4, 0x89, 0x34, 0x07, 0xb4, 0x4f, 0x1f, 0x9b, 0xa6, 0xe0, 0x5b, 0x22, 0xcd, 0x01, 0xac, 0x9c,
+	0xb3, 0xd1, 0x20, 0x78, 0x54, 0x3f, 0xa8, 0x0d, 0xf5, 0xa4, 0xd7, 0xe3, 0x34, 0x95, 0x53, 0xa9,
+	0x12, 0x2d, 0xe1, 0x3d, 0x58, 0x9d, 0x42, 0x29, 0x51, 0xc2, 0x17, 0xf8, 0xef, 0x38, 0xe2, 0xa9,
+	0x0c, 0xe4, 0x59, 0xfe, 0x36, 0xd4, 0x87, 0x8c, 0xf6, 0xa2, 0xb1, 0x0c, 0x6d, 0x10, 0x2d, 0x09,
+	0x3d, 0x1f, 0xf5, 0x84, 0x5e, 0xed, 0x45, 0x4b, 0xa2, 0x5e, 0x46, 0x43, 0x3a, 0xee, 0x54, 0xa5,
+	0x5a, 0x09, 0xf8, 0x0c, 0x90, 0x09, 0xfd, 0xf8, 0xa2, 0x44, 0x1e, 0xd9, 0x32, 0xef, 0x54, 0xb6,
+	0xaa, 0xdd, 0x16, 0xd1, 0x12, 0x7e, 0x0e, 0x4b, 0xa7, 0xb2, 0xe7, 0x87, 0x37, 0xc2, 0x60, 0x39,
+	0x73, 0x2b, 0x91, 0x74, 0x13, 0x20, 0x8e, 0x06, 0x17, 0x85, 0x11, 0x37, 0xe2, 0x68, 0xa0, 0xa0,
+	0xa4, 0xd9, 0x1f, 0x67, 0xe6, 0xaa, 0x36, 0xfb, 0x63, 0x65, 0xc6, 0xaf, 0xa1, 0xf5, 0xc9, 0x4f,
+	0x83, 0x6f, 0xc6, 0x08, 0x75, 0x0b, 0xb6, 0xd9, 0x02, 0x42, 0x50, 0x4b, 0x29, 0x8b, 0x25, 0xbe,
+	0x43, 0xe4, 0x3f, 0xfe, 0x61, 0xc3, 0x92, 0x0e, 0x2e, 0x51, 0xef, 0xa4, 0xf7, 0x8a, 0xf9, 0x48,
+	0x8a, 0x5d, 0x54, 0x1f, 0xee, 0xa2, 0x36, 0xdd, 0xc5, 0x11, 0x34, 0x8f, 0x93, 0xe0, 0xca, 0x18,
+	0x6f, 0xc8, 0x92, 0xd1, 0x30, 0x1b, 0xaf, 0x14, 0x64, 0x0b, 0x51, 0x4c, 0xf5, 0x88, 0xe4, 0xbf,
+	0xd0, 0xf5, 0x93, 0xe0, 0x4a, 0x26, 0x74, 0x88, 0xfc, 0xc7, 0x1f, 0xa0, 0xa5, 0xc0, 0xca, 0x6d,
+	0x5e, 0xc4, 0xd2, 0x4b, 0x3d, 0x20, 0x2d, 0xe1, 0x00, 0xd0, 0x3b, 0x72, 0xb6, 0x7f, 0xc6, 0x92,
+	0xcb, 0x51, 0x40, 0x1f, 0xbe, 0x93, 0x75, 0x68, 0xc4, 0x3c, 0xbc, 0xe0, 0xd1, 0x77, 0xaa, 0x1e,
+	0x50, 0x95, 0x38, 0x31, 0x0f, 0x3f, 0x0a, 0x19, 0xb9, 0xe0, 0xc4, 0x94, 0x73, 0x3f, 0xa4, 0x5c,
+	0x16, 0xdb, 0x22, 0x13, 0x59, 0x5c, 0x72, 0x21, 0x49, 0x89, 0x33, 0xfa, 0xac, 0xea, 0xdb, 0x4f,
+	0x06, 0x7c, 0x14, 0xd3, 0x27, 0xdd, 0xb1, 0xf0, 0xee, 0x47, 0x71, 0x94, 0x6d, 0x4d, 0x09, 0x98,
+	0xa9, 0xa2, 0x26, 0xc8, 0x25, 0x86, 0xf9, 0xd4, 0x41, 0xec, 0xfc, 0x5a, 0x80, 0xfa, 0xa1, 0xcf,
+	0xfc, 0x6b, 0x1f, 0x1d, 0x43, 0xd3, 0x20, 0x51, 0xb4, 0x91, 0x27, 0x9a, 0xe5, 0x61, 0x77, 0xf3,
+	0x1e, 0xab, 0xaa, 0x19, 0x5b, 0x02, 0xcd, 0xe0, 0x4a, 0x13, 0x6d, 0x96, 0x6e, 0x4d, 0xb4, 0x39,
+	0x04, 0x8b, 0x2d, 0x44, 0x60, 0xa9, 0x40, 0x7c, 0xc8, 0xcb, 0x23, 0xe6, 0xf1, 0xaa, 0xfb, 0xec,
+	0x5e, 0xfb, 0x04, 0xf3, 0x3d, 0x40, 0x4e, 0x5a, 0x68, 0x3d, 0x0f, 0x98, 0x61, 0x49, 0x77, 0x63,
+	0xbe, 0x71, 0x02, 0xf5, 0x06, 0x16, 0xd5, 0x59, 0x71, 0xb4, 0x96, 0xbb, 0x16, 0x08, 0xcc, 0xed,
+	0xcc, 0x1a, 0x26, 0xf1, 0x07, 0xd0, 0x94, 0xac, 0xa0, 0x6b, 0x69, 0xe7, 0xae, 0x26, 0xd3, 0xb8,
+	0x6b, 0x33, 0xfa, 0x0c, 0xa1, 0x6b, 0xbf, 0xb4, 0xd1, 0x1e, 0xd4, 0xc4, 0x15, 0xa2, 0x55, 0xa3,
+	0xda, 0xfc, 0xc4, 0xdd, 0xf6, 0xb4, 0xba, 0x10, 0x7c, 0x08, 0x8b, 0xfa, 0x1a, 0xcc, 0x5d, 0xcd,
+	0x5e, 0xa2, 0xb9, 0xab, 0x39, 0x27, 0x84, 0x2d, 0x81, 0xa4, 0x9f, 0xf0, 0x34, 0x52, 0xf1, 0x66,
+	0xa6, 0x91, 0xa6, 0xde, 0x3d, 0xb6, 0xde, 0x76, 0x7e, 0xdf, 0x7a, 0xf6, 0xcd, 0xad, 0x67, 0xff,
+	0xbd, 0xf5, 0xec, 0x9f, 0x77, 0x9e, 0x75, 0x73, 0xe7, 0x59, 0x7f, 0xee, 0x3c, 0xeb, 0x6b, 0x5d,
+	0x46, 0xee, 0xfe, 0x0b, 0x00, 0x00, 0xff, 0xff, 0xc3, 0x54, 0x95, 0x59, 0x70, 0x08, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -873,20 +1108,24 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type HaraqaClient interface {
-	// Sends a message to create a new topic
+	// CreateTopic sends a message to create a new topic
 	CreateTopic(ctx context.Context, in *CreateTopicRequest, opts ...grpc.CallOption) (*CreateTopicResponse, error)
-	// Sends a message to delete a topic
+	// DeleteTopic sends a message to delete a topic
 	DeleteTopic(ctx context.Context, in *DeleteTopicRequest, opts ...grpc.CallOption) (*DeleteTopicResponse, error)
-	// Sends a message to truncate a topic to a specific point
+	// TruncateTopic sends a message to truncate a topic to a specific point
 	TruncateTopic(ctx context.Context, in *TruncateTopicRequest, opts ...grpc.CallOption) (*TruncateTopicResponse, error)
-	// Sends a message to list all topics
+	// ListTopics sends a message to list all topics
 	ListTopics(ctx context.Context, in *ListTopicsRequest, opts ...grpc.CallOption) (*ListTopicsResponse, error)
-	// Sends a message to get a topics beginning and ending offsets
+	// Offsets sends a message to get a topics beginning and ending offsets
 	Offsets(ctx context.Context, in *OffsetRequest, opts ...grpc.CallOption) (*OffsetResponse, error)
-	// Streams requests for watching one or more topics, returns updated offsets
+	// WatchTopics streams requests for watching one or more topics, returns updated offsets
 	WatchTopics(ctx context.Context, opts ...grpc.CallOption) (Haraqa_WatchTopicsClient, error)
-	// Locks a consumer group, waits for an unlock
+	// Lock locks a consumer group, waits for an unlock
 	Lock(ctx context.Context, opts ...grpc.CallOption) (Haraqa_LockClient, error)
+	// Produce produces a batch of messages to a topic
+	Produce(ctx context.Context, in *GRPCProduceRequest, opts ...grpc.CallOption) (*GRPCProduceResponse, error)
+	// Consume consumes a batch of messages from a topic
+	Consume(ctx context.Context, in *GRPCConsumeRequest, opts ...grpc.CallOption) (*GRPCConsumeResponse, error)
 }
 
 type haraqaClient struct {
@@ -1004,22 +1243,44 @@ func (x *haraqaLockClient) Recv() (*LockResponse, error) {
 	return m, nil
 }
 
+func (c *haraqaClient) Produce(ctx context.Context, in *GRPCProduceRequest, opts ...grpc.CallOption) (*GRPCProduceResponse, error) {
+	out := new(GRPCProduceResponse)
+	err := c.cc.Invoke(ctx, "/protocol.Haraqa/Produce", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *haraqaClient) Consume(ctx context.Context, in *GRPCConsumeRequest, opts ...grpc.CallOption) (*GRPCConsumeResponse, error) {
+	out := new(GRPCConsumeResponse)
+	err := c.cc.Invoke(ctx, "/protocol.Haraqa/Consume", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // HaraqaServer is the server API for Haraqa service.
 type HaraqaServer interface {
-	// Sends a message to create a new topic
+	// CreateTopic sends a message to create a new topic
 	CreateTopic(context.Context, *CreateTopicRequest) (*CreateTopicResponse, error)
-	// Sends a message to delete a topic
+	// DeleteTopic sends a message to delete a topic
 	DeleteTopic(context.Context, *DeleteTopicRequest) (*DeleteTopicResponse, error)
-	// Sends a message to truncate a topic to a specific point
+	// TruncateTopic sends a message to truncate a topic to a specific point
 	TruncateTopic(context.Context, *TruncateTopicRequest) (*TruncateTopicResponse, error)
-	// Sends a message to list all topics
+	// ListTopics sends a message to list all topics
 	ListTopics(context.Context, *ListTopicsRequest) (*ListTopicsResponse, error)
-	// Sends a message to get a topics beginning and ending offsets
+	// Offsets sends a message to get a topics beginning and ending offsets
 	Offsets(context.Context, *OffsetRequest) (*OffsetResponse, error)
-	// Streams requests for watching one or more topics, returns updated offsets
+	// WatchTopics streams requests for watching one or more topics, returns updated offsets
 	WatchTopics(Haraqa_WatchTopicsServer) error
-	// Locks a consumer group, waits for an unlock
+	// Lock locks a consumer group, waits for an unlock
 	Lock(Haraqa_LockServer) error
+	// Produce produces a batch of messages to a topic
+	Produce(context.Context, *GRPCProduceRequest) (*GRPCProduceResponse, error)
+	// Consume consumes a batch of messages from a topic
+	Consume(context.Context, *GRPCConsumeRequest) (*GRPCConsumeResponse, error)
 }
 
 // UnimplementedHaraqaServer can be embedded to have forward compatible implementations.
@@ -1046,6 +1307,12 @@ func (*UnimplementedHaraqaServer) WatchTopics(srv Haraqa_WatchTopicsServer) erro
 }
 func (*UnimplementedHaraqaServer) Lock(srv Haraqa_LockServer) error {
 	return status.Errorf(codes.Unimplemented, "method Lock not implemented")
+}
+func (*UnimplementedHaraqaServer) Produce(ctx context.Context, req *GRPCProduceRequest) (*GRPCProduceResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Produce not implemented")
+}
+func (*UnimplementedHaraqaServer) Consume(ctx context.Context, req *GRPCConsumeRequest) (*GRPCConsumeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Consume not implemented")
 }
 
 func RegisterHaraqaServer(s *grpc.Server, srv HaraqaServer) {
@@ -1194,6 +1461,42 @@ func (x *haraqaLockServer) Recv() (*LockRequest, error) {
 	return m, nil
 }
 
+func _Haraqa_Produce_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GRPCProduceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HaraqaServer).Produce(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/protocol.Haraqa/Produce",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HaraqaServer).Produce(ctx, req.(*GRPCProduceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Haraqa_Consume_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GRPCConsumeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HaraqaServer).Consume(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/protocol.Haraqa/Consume",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HaraqaServer).Consume(ctx, req.(*GRPCConsumeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _Haraqa_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "protocol.Haraqa",
 	HandlerType: (*HaraqaServer)(nil),
@@ -1217,6 +1520,14 @@ var _Haraqa_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Offsets",
 			Handler:    _Haraqa_Offsets_Handler,
+		},
+		{
+			MethodName: "Produce",
+			Handler:    _Haraqa_Produce_Handler,
+		},
+		{
+			MethodName: "Consume",
+			Handler:    _Haraqa_Consume_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
@@ -1823,6 +2134,198 @@ func (m *LockResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *GRPCProduceRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *GRPCProduceRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GRPCProduceRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.Messages) > 0 {
+		i -= len(m.Messages)
+		copy(dAtA[i:], m.Messages)
+		i = encodeVarintGrpc(dAtA, i, uint64(len(m.Messages)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.MsgSizes) > 0 {
+		dAtA9 := make([]byte, len(m.MsgSizes)*10)
+		var j8 int
+		for _, num1 := range m.MsgSizes {
+			num := uint64(num1)
+			for num >= 1<<7 {
+				dAtA9[j8] = uint8(uint64(num)&0x7f | 0x80)
+				num >>= 7
+				j8++
+			}
+			dAtA9[j8] = uint8(num)
+			j8++
+		}
+		i -= j8
+		copy(dAtA[i:], dAtA9[:j8])
+		i = encodeVarintGrpc(dAtA, i, uint64(j8))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Topic) > 0 {
+		i -= len(m.Topic)
+		copy(dAtA[i:], m.Topic)
+		i = encodeVarintGrpc(dAtA, i, uint64(len(m.Topic)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *GRPCProduceResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *GRPCProduceResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GRPCProduceResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Meta != nil {
+		{
+			size, err := m.Meta.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintGrpc(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *GRPCConsumeRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *GRPCConsumeRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GRPCConsumeRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Limit != 0 {
+		i = encodeVarintGrpc(dAtA, i, uint64(m.Limit))
+		i--
+		dAtA[i] = 0x18
+	}
+	if m.Offset != 0 {
+		i = encodeVarintGrpc(dAtA, i, uint64(m.Offset))
+		i--
+		dAtA[i] = 0x10
+	}
+	if len(m.Topic) > 0 {
+		i -= len(m.Topic)
+		copy(dAtA[i:], m.Topic)
+		i = encodeVarintGrpc(dAtA, i, uint64(len(m.Topic)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *GRPCConsumeResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *GRPCConsumeResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GRPCConsumeResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.Messages) > 0 {
+		i -= len(m.Messages)
+		copy(dAtA[i:], m.Messages)
+		i = encodeVarintGrpc(dAtA, i, uint64(len(m.Messages)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.MsgSizes) > 0 {
+		dAtA12 := make([]byte, len(m.MsgSizes)*10)
+		var j11 int
+		for _, num1 := range m.MsgSizes {
+			num := uint64(num1)
+			for num >= 1<<7 {
+				dAtA12[j11] = uint8(uint64(num)&0x7f | 0x80)
+				num >>= 7
+				j11++
+			}
+			dAtA12[j11] = uint8(num)
+			j11++
+		}
+		i -= j11
+		copy(dAtA[i:], dAtA12[:j11])
+		i = encodeVarintGrpc(dAtA, i, uint64(j11))
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.Meta != nil {
+		{
+			size, err := m.Meta.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintGrpc(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintGrpc(dAtA []byte, offset int, v uint64) int {
 	offset -= sovGrpc(v)
 	base := offset
@@ -2075,6 +2578,86 @@ func (m *LockResponse) Size() (n int) {
 	}
 	if m.Locked {
 		n += 2
+	}
+	return n
+}
+
+func (m *GRPCProduceRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Topic)
+	if l > 0 {
+		n += 1 + l + sovGrpc(uint64(l))
+	}
+	if len(m.MsgSizes) > 0 {
+		l = 0
+		for _, e := range m.MsgSizes {
+			l += sovGrpc(uint64(e))
+		}
+		n += 1 + sovGrpc(uint64(l)) + l
+	}
+	l = len(m.Messages)
+	if l > 0 {
+		n += 1 + l + sovGrpc(uint64(l))
+	}
+	return n
+}
+
+func (m *GRPCProduceResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Meta != nil {
+		l = m.Meta.Size()
+		n += 1 + l + sovGrpc(uint64(l))
+	}
+	return n
+}
+
+func (m *GRPCConsumeRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Topic)
+	if l > 0 {
+		n += 1 + l + sovGrpc(uint64(l))
+	}
+	if m.Offset != 0 {
+		n += 1 + sovGrpc(uint64(m.Offset))
+	}
+	if m.Limit != 0 {
+		n += 1 + sovGrpc(uint64(m.Limit))
+	}
+	return n
+}
+
+func (m *GRPCConsumeResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Meta != nil {
+		l = m.Meta.Size()
+		n += 1 + l + sovGrpc(uint64(l))
+	}
+	if len(m.MsgSizes) > 0 {
+		l = 0
+		for _, e := range m.MsgSizes {
+			l += sovGrpc(uint64(e))
+		}
+		n += 1 + sovGrpc(uint64(l)) + l
+	}
+	l = len(m.Messages)
+	if l > 0 {
+		n += 1 + l + sovGrpc(uint64(l))
 	}
 	return n
 }
@@ -3698,6 +4281,616 @@ func (m *LockResponse) Unmarshal(dAtA []byte) error {
 				}
 			}
 			m.Locked = bool(v != 0)
+		default:
+			iNdEx = preIndex
+			skippy, err := skipGrpc(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthGrpc
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthGrpc
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *GRPCProduceRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowGrpc
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: GRPCProduceRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: GRPCProduceRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Topic", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGrpc
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthGrpc
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGrpc
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Topic = append(m.Topic[:0], dAtA[iNdEx:postIndex]...)
+			if m.Topic == nil {
+				m.Topic = []byte{}
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType == 0 {
+				var v int64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowGrpc
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					v |= int64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				m.MsgSizes = append(m.MsgSizes, v)
+			} else if wireType == 2 {
+				var packedLen int
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowGrpc
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					packedLen |= int(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				if packedLen < 0 {
+					return ErrInvalidLengthGrpc
+				}
+				postIndex := iNdEx + packedLen
+				if postIndex < 0 {
+					return ErrInvalidLengthGrpc
+				}
+				if postIndex > l {
+					return io.ErrUnexpectedEOF
+				}
+				var elementCount int
+				var count int
+				for _, integer := range dAtA[iNdEx:postIndex] {
+					if integer < 128 {
+						count++
+					}
+				}
+				elementCount = count
+				if elementCount != 0 && len(m.MsgSizes) == 0 {
+					m.MsgSizes = make([]int64, 0, elementCount)
+				}
+				for iNdEx < postIndex {
+					var v int64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowGrpc
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						v |= int64(b&0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					m.MsgSizes = append(m.MsgSizes, v)
+				}
+			} else {
+				return fmt.Errorf("proto: wrong wireType = %d for field MsgSizes", wireType)
+			}
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Messages", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGrpc
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthGrpc
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGrpc
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Messages = append(m.Messages[:0], dAtA[iNdEx:postIndex]...)
+			if m.Messages == nil {
+				m.Messages = []byte{}
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipGrpc(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthGrpc
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthGrpc
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *GRPCProduceResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowGrpc
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: GRPCProduceResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: GRPCProduceResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Meta", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGrpc
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGrpc
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthGrpc
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Meta == nil {
+				m.Meta = &Meta{}
+			}
+			if err := m.Meta.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipGrpc(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthGrpc
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthGrpc
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *GRPCConsumeRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowGrpc
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: GRPCConsumeRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: GRPCConsumeRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Topic", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGrpc
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthGrpc
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGrpc
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Topic = append(m.Topic[:0], dAtA[iNdEx:postIndex]...)
+			if m.Topic == nil {
+				m.Topic = []byte{}
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Offset", wireType)
+			}
+			m.Offset = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGrpc
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Offset |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Limit", wireType)
+			}
+			m.Limit = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGrpc
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Limit |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipGrpc(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthGrpc
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthGrpc
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *GRPCConsumeResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowGrpc
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: GRPCConsumeResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: GRPCConsumeResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Meta", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGrpc
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGrpc
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthGrpc
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Meta == nil {
+				m.Meta = &Meta{}
+			}
+			if err := m.Meta.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType == 0 {
+				var v int64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowGrpc
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					v |= int64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				m.MsgSizes = append(m.MsgSizes, v)
+			} else if wireType == 2 {
+				var packedLen int
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowGrpc
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					packedLen |= int(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				if packedLen < 0 {
+					return ErrInvalidLengthGrpc
+				}
+				postIndex := iNdEx + packedLen
+				if postIndex < 0 {
+					return ErrInvalidLengthGrpc
+				}
+				if postIndex > l {
+					return io.ErrUnexpectedEOF
+				}
+				var elementCount int
+				var count int
+				for _, integer := range dAtA[iNdEx:postIndex] {
+					if integer < 128 {
+						count++
+					}
+				}
+				elementCount = count
+				if elementCount != 0 && len(m.MsgSizes) == 0 {
+					m.MsgSizes = make([]int64, 0, elementCount)
+				}
+				for iNdEx < postIndex {
+					var v int64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowGrpc
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						v |= int64(b&0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					m.MsgSizes = append(m.MsgSizes, v)
+				}
+			} else {
+				return fmt.Errorf("proto: wrong wireType = %d for field MsgSizes", wireType)
+			}
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Messages", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGrpc
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthGrpc
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGrpc
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Messages = append(m.Messages[:0], dAtA[iNdEx:postIndex]...)
+			if m.Messages == nil {
+				m.Messages = []byte{}
+			}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipGrpc(dAtA[iNdEx:])

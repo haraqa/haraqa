@@ -2,6 +2,7 @@ package broker
 
 import (
 	"context"
+	"io"
 	"os"
 	"strings"
 	"testing"
@@ -321,6 +322,106 @@ func TestGRPCServer(t *testing.T) {
 			err = <-errs
 			if errors.Cause(err) != errMock {
 				t.Fatal(err)
+			}
+		})
+		t.Run("Produce", func(t *testing.T) {
+			mockQ := mocks.NewMockQueue(ctrl)
+			b.Q = mockQ
+			topic := []byte("grpc-produce")
+			msgSizes := []int64{5, 6}
+			gomock.InOrder(
+				mockQ.EXPECT().Produce(gomock.Any(), topic, msgSizes).DoAndReturn(func(r io.Reader, b []byte, ms []int64) error {
+					var totalSize int64
+					for i := range ms {
+						totalSize += ms[i]
+					}
+					buf := make([]byte, totalSize)
+					_, err := io.ReadFull(r, buf)
+					return err
+				}),
+				mockQ.EXPECT().Produce(gomock.Any(), topic, msgSizes).Return(errMock),
+			)
+
+			in := &protocol.GRPCProduceRequest{
+				Topic:    topic,
+				MsgSizes: msgSizes,
+				Messages: []byte("hello world"),
+			}
+			resp, err := b.Produce(ctx, in)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !resp.GetMeta().GetOK() {
+				t.Fatal(resp.GetMeta())
+			}
+
+			resp, err = b.Produce(ctx, in)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if resp.GetMeta().GetOK() {
+				t.Fatal(resp.GetMeta())
+			}
+			if resp.GetMeta().GetErrorMsg() != errMock.Error() {
+				t.Fatal(resp.GetMeta().GetErrorMsg())
+			}
+		})
+		t.Run("Consume", func(t *testing.T) {
+			mockQ := mocks.NewMockQueue(ctrl)
+			b.Q = mockQ
+			var (
+				topic     = []byte("grpc-consume")
+				msgSizes  = []int64{5, 6}
+				totalSize = int64(11)
+				filename  = []byte("filename.hrq")
+				startAt   = int64(17)
+				offset    = int64(7)
+				limit     = int64(13)
+			)
+
+			gomock.InOrder(
+				mockQ.EXPECT().ConsumeInfo(topic, offset, limit).Return(filename, startAt, msgSizes, nil),
+				mockQ.EXPECT().Consume(gomock.Any(), topic, filename, startAt, totalSize).Return(nil),
+
+				mockQ.EXPECT().ConsumeInfo(topic, offset, limit).Return(filename, startAt, msgSizes, errMock),
+
+				mockQ.EXPECT().ConsumeInfo(topic, offset, limit).Return(filename, startAt, msgSizes, nil),
+				mockQ.EXPECT().Consume(gomock.Any(), topic, filename, startAt, totalSize).Return(errMock),
+			)
+
+			in := &protocol.GRPCConsumeRequest{
+				Topic:  topic,
+				Offset: offset,
+				Limit:  limit,
+			}
+			resp, err := b.Consume(ctx, in)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !resp.GetMeta().GetOK() {
+				t.Fatal(resp.GetMeta())
+			}
+
+			resp, err = b.Consume(ctx, in)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if resp.GetMeta().GetOK() {
+				t.Fatal(resp.GetMeta())
+			}
+			if resp.GetMeta().GetErrorMsg() != errMock.Error() {
+				t.Fatal(resp.GetMeta().GetErrorMsg())
+			}
+
+			resp, err = b.Consume(ctx, in)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if resp.GetMeta().GetOK() {
+				t.Fatal(resp.GetMeta())
+			}
+			if resp.GetMeta().GetErrorMsg() != errMock.Error() {
+				t.Fatal(resp.GetMeta().GetErrorMsg())
 			}
 		})
 	})

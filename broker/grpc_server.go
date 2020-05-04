@@ -1,6 +1,7 @@
 package broker
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"path/filepath"
@@ -243,4 +244,35 @@ func (b *Broker) Lock(srv protocol.Haraqa_LockServer) error {
 			return err
 		}
 	}
+}
+
+// Produce handles the produce grpc request, it it less efficient than using the data port
+func (b *Broker) Produce(ctx context.Context, in *protocol.GRPCProduceRequest) (*protocol.GRPCProduceResponse, error) {
+	reader := bytes.NewBuffer(in.GetMessages())
+	err := b.Q.Produce(reader, in.GetTopic(), in.GetMsgSizes())
+	if err != nil {
+		return &protocol.GRPCProduceResponse{Meta: &protocol.Meta{OK: false, ErrorMsg: err.Error()}}, nil
+	}
+	return &protocol.GRPCProduceResponse{Meta: &protocol.Meta{OK: true}}, nil
+}
+
+// Consume handles the consume grpc request, it it less efficient than using the data port
+func (b *Broker) Consume(ctx context.Context, in *protocol.GRPCConsumeRequest) (*protocol.GRPCConsumeResponse, error) {
+	filename, startAt, msgSizes, err := b.Q.ConsumeInfo(in.GetTopic(), in.GetOffset(), in.GetLimit())
+	if err != nil {
+		return &protocol.GRPCConsumeResponse{Meta: &protocol.Meta{OK: false, ErrorMsg: err.Error()}}, nil
+	}
+
+	var totalSize int64
+	for i := range msgSizes {
+		totalSize += msgSizes[i]
+	}
+
+	writer := bytes.NewBuffer(make([]byte, totalSize))
+	err = b.Q.Consume(writer, in.GetTopic(), filename, startAt, totalSize)
+	if err != nil {
+		return &protocol.GRPCConsumeResponse{Meta: &protocol.Meta{OK: false, ErrorMsg: err.Error()}}, nil
+	}
+
+	return &protocol.GRPCConsumeResponse{Meta: &protocol.Meta{OK: true}, MsgSizes: msgSizes, Messages: writer.Bytes()}, nil
 }

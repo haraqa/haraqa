@@ -4,20 +4,24 @@ package protocol;
 
 // The greeting service definition.
 service Haraqa {
-  // Sends a message to create a new topic
+  // CreateTopic sends a message to create a new topic
   rpc CreateTopic (CreateTopicRequest) returns (CreateTopicResponse) {}
-  // Sends a message to delete a topic
+  // DeleteTopic sends a message to delete a topic
   rpc DeleteTopic (DeleteTopicRequest) returns (DeleteTopicResponse) {}
-  // Sends a message to truncate a topic to a specific point
+  // TruncateTopic sends a message to truncate a topic to a specific point
   rpc TruncateTopic (TruncateTopicRequest) returns (TruncateTopicResponse) {}
-  // Sends a message to list all topics
+  // ListTopics sends a message to list all topics
   rpc ListTopics (ListTopicsRequest) returns (ListTopicsResponse) {}
-  // Sends a message to get a topics beginning and ending offsets
+  // Offsets sends a message to get a topics beginning and ending offsets
   rpc Offsets (OffsetRequest) returns (OffsetResponse) {}
-  // Streams requests for watching one or more topics, returns updated offsets
+  // WatchTopics streams requests for watching one or more topics, returns updated offsets
   rpc WatchTopics(stream WatchRequest) returns (stream WatchResponse) {}
-  // Locks a consumer group, waits for an unlock
+  // Lock locks a consumer group, waits for an unlock
   rpc Lock(stream LockRequest) returns (stream LockResponse) {}
+  // Produce produces a batch of messages to a topic
+  rpc Produce(GRPCProduceRequest) returns (GRPCProduceResponse) {}
+  // Consume consumes a batch of messages from a topic
+  rpc Consume(GRPCConsumeRequest) returns (GRPCConsumeResponse) {}
 }
 
 message Meta {
@@ -94,4 +98,26 @@ message LockRequest {
 message LockResponse {
   Meta meta = 1;
   bool locked = 2;
+}
+
+message GRPCProduceRequest {
+  bytes topic = 1;
+  repeated int64 msg_sizes = 2;
+  bytes messages = 3;
+}
+
+message GRPCProduceResponse {
+  Meta meta = 1;
+}
+
+message GRPCConsumeRequest {
+  bytes topic = 1;
+  int64 offset = 2;
+  int64 limit = 3;
+}
+
+message GRPCConsumeResponse {
+  Meta meta = 1;
+  repeated int64 msg_sizes = 2;
+  bytes messages = 3;
 }

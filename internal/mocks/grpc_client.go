@@ -36,6 +36,26 @@ func (m *MockHaraqaClient) EXPECT() *MockHaraqaClientMockRecorder {
 	return m.recorder
 }
 
+// Consume mocks base method
+func (m *MockHaraqaClient) Consume(arg0 context.Context, arg1 *protocol.GRPCConsumeRequest, arg2 ...grpc.CallOption) (*protocol.GRPCConsumeResponse, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Consume", varargs...)
+	ret0, _ := ret[0].(*protocol.GRPCConsumeResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Consume indicates an expected call of Consume
+func (mr *MockHaraqaClientMockRecorder) Consume(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Consume", reflect.TypeOf((*MockHaraqaClient)(nil).Consume), varargs...)
+}
+
 // CreateTopic mocks base method
 func (m *MockHaraqaClient) CreateTopic(arg0 context.Context, arg1 *protocol.CreateTopicRequest, arg2 ...grpc.CallOption) (*protocol.CreateTopicResponse, error) {
 	m.ctrl.T.Helper()
@@ -134,6 +154,26 @@ func (mr *MockHaraqaClientMockRecorder) Offsets(arg0, arg1 interface{}, arg2 ...
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Offsets", reflect.TypeOf((*MockHaraqaClient)(nil).Offsets), varargs...)
+}
+
+// Produce mocks base method
+func (m *MockHaraqaClient) Produce(arg0 context.Context, arg1 *protocol.GRPCProduceRequest, arg2 ...grpc.CallOption) (*protocol.GRPCProduceResponse, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Produce", varargs...)
+	ret0, _ := ret[0].(*protocol.GRPCProduceResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Produce indicates an expected call of Produce
+func (mr *MockHaraqaClientMockRecorder) Produce(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Produce", reflect.TypeOf((*MockHaraqaClient)(nil).Produce), varargs...)
 }
 
 // TruncateTopic mocks base method
