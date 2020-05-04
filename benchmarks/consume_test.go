@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"fmt"
 	"log"
 	"math/big"
 	"os"
@@ -13,6 +14,8 @@ import (
 
 	"github.com/haraqa/haraqa"
 	"github.com/haraqa/haraqa/broker"
+	"github.com/haraqa/haraqa/internal/protocol"
+	"google.golang.org/grpc"
 )
 
 func BenchmarkConsume(b *testing.B) {
@@ -35,6 +38,11 @@ func BenchmarkConsume(b *testing.B) {
 	b.Run("consume 10", benchConsumer(10, msgs))
 	b.Run("consume 100", benchConsumer(100, msgs))
 	b.Run("consume 1000", benchConsumer(1000, msgs))
+	fmt.Println("")
+	b.Run("consume grpc 1", benchGRPCConsumer(1, msgs))
+	b.Run("consume grpc 10", benchGRPCConsumer(10, msgs))
+	b.Run("consume grpc 100", benchGRPCConsumer(100, msgs))
+	b.Run("consume grpc 1000", benchGRPCConsumer(1000, msgs))
 }
 
 func createConsumeTopic() [][]byte {
@@ -95,4 +103,51 @@ func benchConsumer(batchSize int, msgs [][]byte) func(b *testing.B) {
 	}
 }
 
-var discardBatch [][]byte
+var grpcConsumeRespDump *protocol.GRPCConsumeResponse
+
+func benchGRPCConsumer(batchSize int, msgs [][]byte) func(b *testing.B) {
+	return func(b *testing.B) {
+		ctx := context.Background()
+		grpcConn, err := grpc.DialContext(ctx, haraqa.DefaultAddr+":"+strconv.Itoa(haraqa.DefaultGRPCPort), grpc.WithInsecure(), grpc.WithBlock())
+		if err != nil {
+			b.Fatal(err)
+		}
+		defer grpcConn.Close()
+		grpcClient := protocol.NewHaraqaClient(grpcConn)
+
+		topic := []byte("consumable")
+		req := &protocol.GRPCConsumeRequest{
+			Topic:  topic,
+			Offset: 0,
+			Limit:  int64(batchSize),
+		}
+		output := make([][]byte, 0, len(msgs))
+		var n int64
+		b.ReportAllocs()
+		b.ResetTimer()
+
+		for i := 0; i < b.N; i += batchSize {
+			n = 0
+			resp, err := grpcClient.Consume(ctx, req)
+			if err != nil {
+				b.Fatal(err)
+			}
+			if !resp.GetMeta().GetOK() {
+				b.Fatal(resp.GetMeta())
+			}
+			req.Offset += int64(len(resp.GetMsgSizes()))
+			buf := resp.GetMessages()
+			for _, size := range resp.GetMsgSizes() {
+				output = append(output, buf[n:n+size])
+				n += size
+			}
+		}
+		b.StopTimer()
+		for i := range output {
+			if !bytes.Equal(msgs[i], output[i]) {
+				b.Log("mismatch at index", i, "\n", string(msgs[i]), "\n", string(output[i]))
+				b.Fail()
+			}
+		}
+	}
+}

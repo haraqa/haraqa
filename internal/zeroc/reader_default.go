@@ -4,8 +4,6 @@ package zeroc
 
 import (
 	"io"
-
-	"github.com/pkg/errors"
 )
 
 // WriteTo copies from the Reader to the writer starting at the offset given in
@@ -13,7 +11,11 @@ import (
 func (r *Reader) WriteTo(w io.Writer) (int64, error) {
 	_, ok := w.(fd)
 	if !ok {
-		return 0, errors.New("missing Fd method on writer input")
+		n, err := r.file.Seek(r.offset, io.SeekStart)
+		if err != nil {
+			return n, err
+		}
+		return io.CopyN(w, r.file, int64(r.count))
 	}
 
 	_, err := r.file.Seek(r.offset, io.SeekStart)

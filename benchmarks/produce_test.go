@@ -5,11 +5,14 @@ import (
 	"crypto/rand"
 	"fmt"
 	"os"
+	"strconv"
 	"sync"
 	"testing"
 
 	"github.com/haraqa/haraqa"
 	"github.com/haraqa/haraqa/broker"
+	"github.com/haraqa/haraqa/internal/protocol"
+	"google.golang.org/grpc"
 )
 
 var errDump error
@@ -44,6 +47,11 @@ func BenchmarkProduce(b *testing.B) {
 	b.Run("producer ch 10", benchProducerErrChan(10))
 	b.Run("producer ch 100", benchProducerErrChan(100))
 	b.Run("producer ch 1000", benchProducerErrChan(1000))
+	fmt.Println("")
+	b.Run("produce grpc 1", benchGRPCProducer(1))
+	b.Run("produce grpc 10", benchGRPCProducer(10))
+	b.Run("produce  grpc 100", benchGRPCProducer(100))
+	b.Run("produce grpc 1000", benchGRPCProducer(1000))
 }
 
 func benchProducer(batchSize int) func(b *testing.B) {
@@ -162,6 +170,42 @@ func benchProducerErrChan(batchSize int) func(b *testing.B) {
 
 		close(blocker)
 		wg.Wait()
+		b.StopTimer()
+	}
+}
+
+var grpcProduceRespDump *protocol.GRPCProduceResponse
+
+func benchGRPCProducer(batchSize int) func(b *testing.B) {
+	return func(b *testing.B) {
+		ctx := context.Background()
+		grpcConn, err := grpc.DialContext(ctx, haraqa.DefaultAddr+":"+strconv.Itoa(haraqa.DefaultGRPCPort), grpc.WithInsecure(), grpc.WithBlock())
+		if err != nil {
+			b.Fatal(err)
+		}
+		defer grpcConn.Close()
+		grpcClient := protocol.NewHaraqaClient(grpcConn)
+
+		topic := []byte("something")
+		msgs := make([]byte, batchSize*100)
+		_, _ = rand.Read(msgs)
+		msgSizes := make([]int64, batchSize)
+		for i := range msgSizes {
+			msgSizes[i] = 100
+		}
+
+		req := &protocol.GRPCProduceRequest{
+			Topic:    topic,
+			MsgSizes: msgSizes,
+			Messages: msgs,
+		}
+
+		b.ReportAllocs()
+		b.ResetTimer()
+
+		for i := 0; i < b.N; i += batchSize {
+			grpcProduceRespDump, errDump = grpcClient.Produce(ctx, req)
+		}
 		b.StopTimer()
 	}
 }

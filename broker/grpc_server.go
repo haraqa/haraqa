@@ -268,7 +268,7 @@ func (b *Broker) Consume(ctx context.Context, in *protocol.GRPCConsumeRequest) (
 		totalSize += msgSizes[i]
 	}
 
-	writer := bytes.NewBuffer(make([]byte, totalSize))
+	writer := bytes.NewBuffer(make([]byte, 0, totalSize))
 	err = b.Q.Consume(writer, in.GetTopic(), filename, startAt, totalSize)
 	if err != nil {
 		return &protocol.GRPCConsumeResponse{Meta: &protocol.Meta{OK: false, ErrorMsg: err.Error()}}, nil
