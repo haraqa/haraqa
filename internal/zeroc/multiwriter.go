@@ -61,6 +61,7 @@ func (w *MultiWriter) Offset() int64 {
 // Close closes the multiwriter and all underlying files
 func (w *MultiWriter) Close() error {
 	for i := range w.files {
+		w.files[i].Sync()
 		w.files[i].Close()
 	}
 

@@ -8,6 +8,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	io "io"
 	reflect "reflect"
+	time "time"
 )
 
 // MockQueue is a mock of Queue interface
@@ -59,6 +60,20 @@ func (m *MockQueue) DeleteTopic(topic []byte) error {
 func (mr *MockQueueMockRecorder) DeleteTopic(topic interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteTopic", reflect.TypeOf((*MockQueue)(nil).DeleteTopic), topic)
+}
+
+// TruncateTopic mocks base method
+func (m *MockQueue) TruncateTopic(topic []byte, offset int64, before time.Time) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TruncateTopic", topic, offset, before)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// TruncateTopic indicates an expected call of TruncateTopic
+func (mr *MockQueueMockRecorder) TruncateTopic(topic, offset, before interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TruncateTopic", reflect.TypeOf((*MockQueue)(nil).TruncateTopic), topic, offset, before)
 }
 
 // ListTopics mocks base method

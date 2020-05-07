@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/haraqa/haraqa/internal/protocol"
 	"github.com/pkg/errors"
@@ -323,4 +324,67 @@ func testOffsets(q Queue, topic []byte) func(*testing.T) {
 			t.Fatal(min, max)
 		}
 	}
+}
+
+func TestTruncateTopic(t *testing.T) {
+	err := os.MkdirAll(".haraqa-truncate/truncate_topic/subdir", os.ModePerm)
+	if err != nil {
+		t.Fatal(err)
+	}
+	q := &queue{
+		volumes: []string{".haraqa-truncate"},
+	}
+	topic := "truncate_topic"
+
+	// setup files
+	f, err := os.Create(filepath.Join(q.volumes[0], topic, formatFilename(0)+datFileExt))
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Sync()
+	f.Close()
+	f, err = os.Create(filepath.Join(q.volumes[0], topic, formatFilename(0)+hrqFileExt))
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Sync()
+	f.Close()
+	f, err = os.Create(filepath.Join(q.volumes[0], topic, formatFilename(1000)+datFileExt))
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Sync()
+	f.Close()
+	f, err = os.Create(filepath.Join(q.volumes[0], topic, formatFilename(1000)+hrqFileExt))
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Sync()
+	f.Close()
+
+	before := time.Now()
+	err = q.TruncateTopic([]byte(topic), -1, before)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = q.TruncateTopic([]byte(topic), 20, before)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = q.TruncateTopic([]byte(topic), 2000, before)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// verify last still exists
+	f, err = os.Open(filepath.Join(q.volumes[0], topic, formatFilename(1000)+datFileExt))
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	f, err = os.Open(filepath.Join(q.volumes[0], topic, formatFilename(1000)+hrqFileExt))
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
 }

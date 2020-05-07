@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/haraqa/haraqa/internal/mocks"
@@ -87,6 +88,44 @@ func TestGRPCServer(t *testing.T) {
 			t.Fatal(resp.GetMeta().GetErrorMsg())
 		}
 	})
+
+	t.Run("TruncateTopic", func(t *testing.T) {
+		mockQ := mocks.NewMockQueue(ctrl)
+		b.Q = mockQ
+		offset := int64(13)
+		topic := []byte("truncate-topic")
+		before := time.Now().Round(time.Second)
+
+		gomock.InOrder(
+			mockQ.EXPECT().TruncateTopic(topic, offset, before).Return(nil),
+			mockQ.EXPECT().TruncateTopic(topic, offset, before).Return(errMock),
+		)
+
+		in := &protocol.TruncateTopicRequest{
+			Topic:  topic,
+			Offset: offset,
+			Time:   before.Unix(),
+		}
+		resp, err := b.TruncateTopic(ctx, in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !resp.GetMeta().GetOK() {
+			t.Fatal(resp.GetMeta())
+		}
+
+		resp, err = b.TruncateTopic(ctx, in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.GetMeta().GetOK() {
+			t.Fatal(resp.GetMeta())
+		}
+		if resp.GetMeta().GetErrorMsg() != errMock.Error() {
+			t.Fatal(resp.GetMeta().GetErrorMsg())
+		}
+	})
+
 	t.Run("ListTopics", func(t *testing.T) {
 		mockQ := mocks.NewMockQueue(ctrl)
 		b.Q = mockQ

@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/haraqa/haraqa/internal/gcmap"
 	"github.com/haraqa/haraqa/internal/protocol"
@@ -22,6 +23,7 @@ import (
 type Queue interface {
 	CreateTopic(topic []byte) error
 	DeleteTopic(topic []byte) error
+	TruncateTopic(topic []byte, offset int64, before time.Time) error
 	ListTopics(prefix, suffix, regex string) ([][]byte, error)
 	Produce(tcpConn io.Reader, topic []byte, msgSizes []int64) error
 	ConsumeInfo(topic []byte, offset int64, limit int64) (filename []byte, startAt int64, msgSizes []int64, err error)
@@ -209,6 +211,74 @@ func (q *queue) DeleteTopic(topic []byte) error {
 		err := os.RemoveAll(filepath.Join(q.volumes[i], string(topic)))
 		if err != nil {
 			return err
+		}
+	}
+
+	return nil
+}
+
+// TruncateTopic will remove topic files up to the file containing the given offset
+func (q *queue) TruncateTopic(topic []byte, offset int64, before time.Time) error {
+	root := filepath.Join(q.volumes[len(q.volumes)-1], string(topic))
+	deletes := make(map[string]struct{})
+	var latestMod time.Time
+	var latestFileName string
+	filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		// skip root directory
+		if path == root {
+			return nil
+		}
+
+		// skip subdirectories
+		if info.IsDir() {
+			return filepath.SkipDir
+		}
+
+		// skip non dat files
+		if !strings.HasSuffix(info.Name(), datFileExt) {
+			return nil
+		}
+
+		// save the last modified
+		if info.ModTime().After(latestMod) {
+			latestMod = info.ModTime()
+			latestFileName = info.Name()
+		}
+
+		// delete if older than before
+		if !before.IsZero() && info.ModTime().Before(before) {
+			deletes[info.Name()] = struct{}{}
+		}
+
+		// if negative offset, delete all but last
+		if offset < 0 {
+			deletes[info.Name()] = struct{}{}
+			return nil
+		}
+
+		// delete if less than offset
+		o, err := strconv.ParseInt(strings.TrimSuffix(info.Name(), datFileExt), 10, 64)
+		if err != nil || o+info.Size()/datumLength < offset {
+			deletes[info.Name()] = struct{}{}
+			return nil
+		}
+
+		return nil
+	})
+	delete(deletes, latestFileName)
+
+	for _, volume := range q.volumes {
+		path := filepath.Join(volume, string(topic))
+		for name := range deletes {
+			err := os.Remove(filepath.Join(path, name))
+			if err != nil {
+				return err
+			}
+			hrq := strings.TrimSuffix(name, datFileExt) + hrqFileExt
+			err = os.Remove(filepath.Join(path, hrq))
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -416,16 +486,10 @@ func (q *queue) Offsets(topic []byte) (int64, int64, error) {
 	}
 
 	if maxName != "" {
-		datFile, err := os.OpenFile(filepath.Join(path, maxName), os.O_RDONLY, 0666)
-		if err != nil {
-			return 0, 0, err
-		}
-
-		info, err := datFile.Stat()
+		info, err := os.Stat(filepath.Join(path, maxName))
 		if err == nil {
 			max += (info.Size() / 24)
 		}
-		datFile.Close()
 	}
 
 	if min >= max {

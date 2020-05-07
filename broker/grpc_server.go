@@ -33,6 +33,21 @@ func (b *Broker) DeleteTopic(ctx context.Context, in *protocol.DeleteTopicReques
 	return &protocol.DeleteTopicResponse{Meta: &protocol.Meta{OK: true}}, nil
 }
 
+// TruncateTopic implements protocol.HaraqaServer TruncateTopic
+func (b *Broker) TruncateTopic(ctx context.Context, in *protocol.TruncateTopicRequest) (*protocol.TruncateTopicResponse, error) {
+	var before time.Time
+	if in.GetTime() > 0 {
+		before = time.Unix(in.GetTime(), 0)
+	}
+
+	err := b.Q.TruncateTopic(in.GetTopic(), in.GetOffset(), before)
+	if err != nil {
+		return &protocol.TruncateTopicResponse{Meta: &protocol.Meta{OK: false, ErrorMsg: err.Error()}}, nil
+	}
+
+	return &protocol.TruncateTopicResponse{Meta: &protocol.Meta{OK: true}}, nil
+}
+
 // ListTopics implements protocol.HaraqaServer ListTopics
 func (b *Broker) ListTopics(ctx context.Context, in *protocol.ListTopicsRequest) (*protocol.ListTopicsResponse, error) {
 	topics, err := b.Q.ListTopics(in.GetPrefix(), in.GetSuffix(), in.GetRegex())

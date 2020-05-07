@@ -29,7 +29,6 @@ var (
 // Broker is core structure of a haraqa broker, it listens for new grpc and data
 //  connections and shepherds data going into and out of a persistent queue
 type Broker struct {
-	protocol.UnimplementedHaraqaServer
 	GRPCServer *grpc.Server
 	Q          queue.Queue
 	M          Metrics

@@ -48,6 +48,7 @@ message DeleteTopicResponse {
 message TruncateTopicRequest {
   bytes topic = 1;
   int64 offset = 2;
+  int64 time = 3;
 }
 
 message TruncateTopicResponse {
