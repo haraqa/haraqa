@@ -290,6 +290,55 @@ func TestDeleteTopics(t *testing.T) {
 	})
 }
 
+func TestTruncateTopic(t *testing.T) {
+	c, cancel, err := newBrokerClient(t.Name())
+	defer cancel()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+
+	topic := []byte(t.Name())
+	err = c.CreateTopic(context.Background(), topic)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = c.TruncateTopic(context.Background(), topic, -1, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("Truncate Topic client error", func(t *testing.T) {
+		mockClient := mocks.NewMockHaraqaClient(gomock.NewController(t))
+		before := time.Now().Round(time.Second)
+		mockClient.EXPECT().TruncateTopic(gomock.Any(), &protocol.TruncateTopicRequest{Topic: []byte("truncate-topic"), Offset: 17, Time: before.Unix()}).
+			Return(nil, errMock)
+		c := &Client{
+			grpcClient: mockClient,
+		}
+		ctx := context.Background()
+		err := c.TruncateTopic(ctx, []byte("truncate-topic"), 17, before)
+		if errors.Cause(err) != errMock {
+			t.Fatal(err)
+		}
+	})
+	t.Run("Truncate Topic error response", func(t *testing.T) {
+		mockClient := mocks.NewMockHaraqaClient(gomock.NewController(t))
+		before := time.Now().Round(time.Second)
+		mockClient.EXPECT().TruncateTopic(gomock.Any(), &protocol.TruncateTopicRequest{Topic: []byte("truncate-topic"), Offset: 17, Time: before.Unix()}).
+			Return(&protocol.TruncateTopicResponse{Meta: &protocol.Meta{ErrorMsg: errMock.Error()}}, nil)
+		c := &Client{
+			grpcClient: mockClient,
+		}
+		ctx := context.Background()
+		err := c.TruncateTopic(ctx, []byte("truncate-topic"), 17, before)
+		if errors.Cause(err).Error() != errMock.Error() {
+			t.Fatal(err)
+		}
+	})
+}
+
 func TestProduce(t *testing.T) {
 	c, cancel, err := newBrokerClient(t.Name())
 	defer cancel()

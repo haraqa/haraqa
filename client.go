@@ -286,6 +286,31 @@ func (c *Client) DeleteTopic(ctx context.Context, topic []byte) error {
 	return nil
 }
 
+// TruncateTopic permanentaly deletes messages in a topic queue up to the given offset or time
+// if offset is -1 only the latest log file for a topic is preserved, all other messages are deleted
+func (c *Client) TruncateTopic(ctx context.Context, topic []byte, offset int64, before time.Time) error {
+	if c.timeout != 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, c.timeout)
+		defer cancel()
+	}
+
+	// send message request
+	r, err := c.grpcClient.TruncateTopic(ctx, &protocol.TruncateTopicRequest{
+		Topic:  topic,
+		Offset: offset,
+		Time:   before.Unix(),
+	})
+	if err != nil {
+		return errors.Wrap(err, "could not delete")
+	}
+	meta := r.GetMeta()
+	if !meta.GetOK() {
+		return errors.Wrapf(errors.New(meta.GetErrorMsg()), "broker error truncating topic %q", string(topic))
+	}
+	return nil
+}
+
 // ListTopics queries the broker for a list of topics.
 // If prefix is given, only topics matching the prefix are included.
 // If suffix is given, only topics matching the suffix are included.
