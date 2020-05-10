@@ -248,6 +248,12 @@ func (q *queue) TruncateTopic(topic []byte, offset int64, before time.Time) erro
 		// delete if older than before
 		if !before.IsZero() && info.ModTime().Before(before) {
 			deletes[info.Name()] = struct{}{}
+			return nil
+		}
+
+		// if offset it zero return fast
+		if offset == 0 {
+			return nil
 		}
 
 		// if negative offset, delete all but last

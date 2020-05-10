@@ -363,15 +363,24 @@ func TestTruncateTopic(t *testing.T) {
 	f.Close()
 
 	before := time.Now()
-	err = q.TruncateTopic([]byte(topic), -1, before)
+	err = q.TruncateTopic([]byte(topic), 0, before)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = q.TruncateTopic([]byte(topic), 20, before)
+	zeroTime := time.Time{}
+	err = q.TruncateTopic([]byte(topic), 0, zeroTime)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = q.TruncateTopic([]byte(topic), 2000, before)
+	err = q.TruncateTopic([]byte(topic), -1, zeroTime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = q.TruncateTopic([]byte(topic), 20, zeroTime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = q.TruncateTopic([]byte(topic), 2000, zeroTime)
 	if err != nil {
 		t.Fatal(err)
 	}
