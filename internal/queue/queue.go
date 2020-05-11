@@ -221,7 +221,6 @@ func (q *queue) DeleteTopic(topic []byte) error {
 func (q *queue) TruncateTopic(topic []byte, offset int64, before time.Time) error {
 	root := filepath.Join(q.volumes[len(q.volumes)-1], string(topic))
 	deletes := make(map[string]struct{})
-	var latestMod time.Time
 	var latestFileName string
 	filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		// skip root directory
@@ -240,8 +239,7 @@ func (q *queue) TruncateTopic(topic []byte, offset int64, before time.Time) erro
 		}
 
 		// save the last modified
-		if info.ModTime().After(latestMod) {
-			latestMod = info.ModTime()
+		if info.Name() > latestFileName {
 			latestFileName = info.Name()
 		}
 
@@ -251,7 +249,7 @@ func (q *queue) TruncateTopic(topic []byte, offset int64, before time.Time) erro
 			return nil
 		}
 
-		// if offset it zero return fast
+		// if offset is zero return fast
 		if offset == 0 {
 			return nil
 		}
