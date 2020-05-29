@@ -7,6 +7,13 @@ import (
 	"github.com/pkg/errors"
 )
 
+// system calls separated out to allow for testing in non-default case
+var (
+	syscallPipe   = syscall.Pipe
+	syscallSplice = syscall.Splice
+	syscallTee    = syscall.Tee
+)
+
 const (
 	spliceFlags int = 0x1 + 0x4 //unix.SPLICE_F_MOVE+unix.SPLICE_F_MORE
 	readPipe        = 0
@@ -16,7 +23,7 @@ const (
 func getPipes(n int) ([][2]int, error) {
 	pipes := make([][2]int, n)
 	for i := range pipes {
-		if err := syscall.Pipe(pipes[i][:]); err != nil {
+		if err := syscallPipe(pipes[i][:]); err != nil {
 			return nil, errors.Wrapf(err, "new pipe syscall failed")
 		}
 	}
@@ -34,14 +41,14 @@ func (w *MultiWriter) ReadFrom(r io.Reader) (int64, error) {
 	var n int64
 	for w.limit > 0 {
 		// splice from source to first write pipe
-		n1, err := syscall.Splice(int(f.Fd()), nil, w.pipes[0][writePipe], nil, int(w.limit), spliceFlags)
+		n1, err := syscallSplice(int(f.Fd()), nil, w.pipes[0][writePipe], nil, int(w.limit), spliceFlags)
 		if err != nil {
 			return n, errors.Wrapf(err, "splice src syscall failed")
 		}
 
 		// tee first read pipe into every subsequent write pipe
 		for i := range w.files[1:] {
-			nx, err := syscall.Tee(w.pipes[0][readPipe], w.pipes[i+1][writePipe], int(n1), 0)
+			nx, err := syscallTee(w.pipes[0][readPipe], w.pipes[i+1][writePipe], int(n1), 0)
 			if err != nil {
 				return n, errors.Wrap(err, "tee syscall failed")
 			}
@@ -53,7 +60,7 @@ func (w *MultiWriter) ReadFrom(r io.Reader) (int64, error) {
 		// splice from each readpipe to the respective dst file
 		for i := range w.files {
 			off := w.offset + n
-			nx, err := syscall.Splice(w.pipes[i][readPipe], nil, int(w.files[i].Fd()), &off, int(n1), spliceFlags)
+			nx, err := syscallSplice(w.pipes[i][readPipe], nil, int(w.files[i].Fd()), &off, int(n1), spliceFlags)
 			if err != nil {
 				return n, errors.Wrap(err, "splice dst syscall failed")
 			}
