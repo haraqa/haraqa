@@ -99,12 +99,6 @@ func testCreate(q Queue, topic []byte) func(*testing.T) {
 		if err != protocol.ErrTopicExists {
 			t.Fatal(err)
 		}
-
-		delete(q.(*queue).produceTopics, string(topic))
-		err = q.CreateTopic(topic)
-		if err != nil {
-			t.Fatal(err)
-		}
 	}
 }
 
@@ -249,7 +243,7 @@ func testProduceConsume(q Queue, topic []byte) func(*testing.T) {
 		}
 
 		// remove topic from produce map
-		q.(*queue).produceTopics[string(topic)] = nil
+		//	q.(*queue).produceTopics[string(topic)] = nil
 
 		msgSizes := []int64{5, 6}
 		err = q.Produce(tcpConn, topic, msgSizes)

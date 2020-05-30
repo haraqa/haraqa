@@ -21,8 +21,8 @@ func checkForDuplicates(volumes []string) error {
 	return nil
 }
 
-func getVolumeTopics(volume string) map[string]*produceTopic {
-	m := make(map[string]*produceTopic)
+func getVolumeTopics(volume string) map[string]struct{} {
+	m := make(map[string]struct{})
 
 	filepath.Walk(volume, func(path string, info os.FileInfo, err error) error {
 		// handle volume doesn't exist
@@ -39,7 +39,7 @@ func getVolumeTopics(volume string) map[string]*produceTopic {
 		if strings.HasSuffix(info.Name(), hrqFileExt) {
 			path = filepath.Dir(path)
 			path = strings.TrimPrefix(path, volume+string(filepath.Separator))
-			m[path] = nil
+			m[path] = struct{}{}
 		}
 		return nil
 	})
