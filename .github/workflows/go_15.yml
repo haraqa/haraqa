@@ -19,7 +19,6 @@ jobs:
     - name: Get dependencies
       run: |
         go mod download
-        cd cmd/broker ; go mod download ; cd -
         go get github.com/mattn/goveralls && go mod tidy
 
     - name: Test
@@ -29,7 +28,7 @@ jobs:
         $(go env GOPATH)/bin/goveralls -coverprofile=cover.out -service=github-actions -repotoken ${{ secrets.COVERALLS_TOKEN }}
 
     - name: Benchmark
-      run: go test -bench=. -benchtime=1000x -run=XXX ./benchmarks
+      run: go test -bench=. -benchtime=10000x -run=XXX ./benchmarks
 
     - name: Build
       run: cd cmd/broker && CGO_ENABLED=0 go build -mod=readonly -ldflags '-s -w' main.go
