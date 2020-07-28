@@ -22,6 +22,7 @@ type FileQueue struct {
 	rootDirs     []*os.File
 	max          int64
 	produceLocks sync.Map
+	produceCache Cache
 }
 
 func NewFileQueue(dirs ...string) (*FileQueue, error) {
@@ -62,6 +63,7 @@ func NewFileQueue(dirs ...string) (*FileQueue, error) {
 		rootDirNames: dirNames,
 		rootDirs:     dirFiles,
 		max:          5000,
+		produceCache: &sync.Map{},
 	}, nil
 }
 
@@ -105,6 +107,31 @@ func (q *FileQueue) TruncateTopic(topic string, id int64) (*TopicInfo, error) {
 	return nil, nil
 }
 
+func (q *FileQueue) loadLatest(topic string) (*LogFiles, error) {
+	var fs *LogFiles
+	if q.produceCache == nil {
+		fs = &LogFiles{}
+		return fs, fs.Open(q.rootDirNames, topic, q.max)
+	}
+
+	value, ok := q.produceCache.Load(topic)
+	if ok {
+		if value.(*LogFiles).Entries < q.max {
+			return value.(*LogFiles), nil
+		}
+		value.(*LogFiles).Close()
+	}
+
+	fs = &LogFiles{}
+	err := fs.Open(q.rootDirNames, topic, q.max)
+	if err != nil {
+		return nil, err
+	}
+	q.produceCache.Store(topic, fs)
+
+	return fs, nil
+}
+
 func (q *FileQueue) Produce(topic string, msgSizes []int64, r io.Reader) error {
 	if len(msgSizes) == 0 {
 		return nil
@@ -113,9 +140,7 @@ func (q *FileQueue) Produce(topic string, msgSizes []int64, r io.Reader) error {
 	mux.(*sync.Mutex).Lock()
 	defer mux.(*sync.Mutex).Unlock()
 
-	var fs LogFiles
-	err := fs.Open(q.rootDirNames, topic, q.max)
-	defer fs.Close()
+	fs, err := q.loadLatest(topic)
 	if err != nil {
 		return err
 	}
@@ -138,7 +163,7 @@ func (q *FileQueue) Produce(topic string, msgSizes []int64, r io.Reader) error {
 		totalSize += size
 	}
 
-	if err = fs.WriteLogs(r, totalSize); err != nil {
+	if err := fs.WriteLogs(r, totalSize); err != nil {
 		return err
 	}
 
@@ -204,6 +229,7 @@ type LogFiles struct {
 	Dats       []*os.File
 	Logs       []*os.File
 	FileOffset int64
+	Entries    int64
 }
 
 func (fs *LogFiles) Close() {
@@ -375,5 +401,12 @@ func (fs *LogFiles) Open(dirs []string, topic string, max int64) error {
 		}
 		fs.Dats = append(fs.Dats, f)
 	}
+
+	fs.Entries = info.Size() / 32
 	return nil
+}
+
+type Cache interface {
+	Load(key interface{}) (interface{}, bool)
+	Store(key, value interface{})
 }

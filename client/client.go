@@ -3,8 +3,10 @@ package client
 import (
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/haraqa/haraqa/protocol"
 )
@@ -16,7 +18,22 @@ type Client struct {
 
 func NewClient(url string) *Client {
 	return &Client{
-		c:   http.DefaultClient,
+		c: &http.Client{
+			Transport: &http.Transport{
+				Proxy: http.ProxyFromEnvironment,
+				DialContext: (&net.Dialer{
+					Timeout:   30 * time.Second,
+					KeepAlive: 30 * time.Second,
+					DualStack: true,
+				}).DialContext,
+				ForceAttemptHTTP2:     true,
+				IdleConnTimeout:       90 * time.Second,
+				TLSHandshakeTimeout:   10 * time.Second,
+				ExpectContinueTimeout: 1 * time.Second,
+				MaxIdleConns:          1000,
+				MaxIdleConnsPerHost:   1000,
+			},
+		},
 		url: url,
 	}
 }

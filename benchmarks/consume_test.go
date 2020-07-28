@@ -83,5 +83,6 @@ func benchConsumer(batchSize int) func(b *testing.B) {
 
 			i += len(body) / 100
 		}
+		b.StopTimer()
 	}
 }

@@ -74,5 +74,6 @@ func benchProducer(batchSize int) func(b *testing.B) {
 				b.Fatal(err)
 			}
 		}
+		b.StopTimer()
 	}
 }

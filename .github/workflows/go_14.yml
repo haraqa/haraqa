@@ -31,4 +31,4 @@ jobs:
       run: go test -bench=. -benchtime=10000x -run=XXX ./benchmarks
 
     - name: Build
-      run: cd cmd/broker && CGO_ENABLED=0 go build -mod=readonly -ldflags '-s -w' main.go
+      run: cd cmd/server && CGO_ENABLED=0 go build -mod=readonly -ldflags '-s -w' main.go
