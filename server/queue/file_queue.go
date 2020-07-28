@@ -2,9 +2,13 @@ package queue
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -15,6 +19,7 @@ var _ Queue = &FileQueue{}
 type FileQueue struct {
 	rootDirNames []string
 	rootDirs     []*os.File
+	max          int64
 }
 
 func NewFileQueue(dirs ...string) (*FileQueue, error) {
@@ -54,6 +59,7 @@ func NewFileQueue(dirs ...string) (*FileQueue, error) {
 	return &FileQueue{
 		rootDirNames: dirNames,
 		rootDirs:     dirFiles,
+		max:          5000,
 	}, nil
 }
 
@@ -103,7 +109,7 @@ func (q *FileQueue) Produce(topic string, msgSizes []int64, r io.Reader) error {
 	}
 
 	var fs LogFiles
-	err := fs.Open(q.rootDirNames, topic)
+	err := fs.Open(q.rootDirNames, topic, q.max)
 	defer fs.Close()
 	if err != nil {
 		return err
@@ -135,8 +141,12 @@ func (q *FileQueue) Produce(topic string, msgSizes []int64, r io.Reader) error {
 }
 
 func (q *FileQueue) Consume(topic string, id int64, N int64) (*ConsumeInfo, error) {
-	name := filepath.Join(q.rootDirNames[len(q.rootDirNames)-1], topic, "tmp.dat")
-	dat, err := os.Open(name)
+	datName, err := getConsumeDat(filepath.Join(q.rootDirNames[len(q.rootDirNames)-1], topic), id)
+	if err != nil {
+		return nil, err
+	}
+	path := filepath.Join(q.rootDirNames[len(q.rootDirNames)-1], topic, datName)
+	dat, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +186,7 @@ func (q *FileQueue) Consume(topic string, id int64, N int64) (*ConsumeInfo, erro
 	}
 	info.EndAt--
 	info.Exists = true
-	info.Filename = filepath.Join(q.rootDirNames[len(q.rootDirNames)-1], topic, "tmp.log")
+	info.Filename = path + ".log"
 	info.File, err = os.Open(info.Filename)
 	if err != nil {
 		return nil, err
@@ -227,31 +237,96 @@ func (fs *LogFiles) WriteLogs(r io.Reader, totalSize int64) error {
 	return nil
 }
 
-func (fs *LogFiles) Open(dirs []string, topic string) error {
-	// open last dat file
-	name := filepath.Join(dirs[len(dirs)-1], topic, "tmp.dat")
-	dat, err := os.OpenFile(name, os.O_RDWR|os.O_CREATE, os.ModePerm)
+func formatName(baseID int64) string {
+	return fmt.Sprintf("%016d", baseID)
+}
+
+func getLatestDat(path string) (string, error) {
+	dir, err := os.Open(path)
 	if err != nil {
-		return errors.Wrapf(err, "unable to open file %q", name)
+		return "", err
+	}
+	names, err := dir.Readdirnames(-1)
+	if err != nil {
+		return "", err
+	}
+	sort.Sort(sort.Reverse(sort.StringSlice(names)))
+	for i := range names {
+		if !strings.HasSuffix(names[i], ".log") {
+			return names[i], nil
+		}
+	}
+	return formatName(0), nil
+}
+
+func getConsumeDat(path string, id int64) (string, error) {
+	dir, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	names, err := dir.Readdirnames(-1)
+	if err != nil {
+		return "", err
+	}
+	sort.Sort(sort.Reverse(sort.StringSlice(names)))
+
+	exact := formatName(id)
+	for i := range names {
+		if !strings.HasSuffix(names[i], ".log") && names[i] <= exact {
+			return names[i], nil
+		}
+	}
+	return formatName(0), nil
+}
+
+func (fs *LogFiles) Open(dirs []string, topic string, max int64) error {
+	datName, err := getLatestDat(filepath.Join(dirs[len(dirs)-1], topic))
+	if err != nil {
+		return err
+	}
+
+	// open last dat file
+	path := filepath.Join(dirs[len(dirs)-1], topic, datName)
+	dat, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, os.ModePerm)
+	if err != nil {
+		return errors.Wrapf(err, "unable to open file %q", path)
 	}
 
 	// get length
 	info, err := dat.Stat()
 	if err != nil {
-		return errors.Wrapf(err, "unable to get file length %q", name)
+		return errors.Wrapf(err, "unable to get file length %q", path)
 	}
-	if info.Size() >= 32 {
+
+	// create a new dat as needed
+	if info.Size()/32 >= max {
+		baseID, err := strconv.ParseInt(datName, 10, 64)
+		if err != nil {
+			return err
+		}
+		baseID += info.Size() / 32
+
+		_ = dat.Close()
+		datName = formatName(baseID)
+		path = filepath.Join(dirs[len(dirs)-1], topic, datName)
+		dat, err = os.OpenFile(path, os.O_RDWR|os.O_CREATE, os.ModePerm)
+		if err != nil {
+			return errors.Wrapf(err, "unable to open file %q", path)
+		}
+		fs.FileOffset = 0
+
+	} else if info.Size() >= 32 {
 		// roll file to the last available entry
 		_, err = dat.Seek(info.Size()-32-info.Size()%32, io.SeekStart)
 		if err != nil {
-			return errors.Wrapf(err, "unable to seek on %q", name)
+			return errors.Wrapf(err, "unable to seek on %q", path)
 		}
 
 		// lastEntry has 32 bytes: id, timestamp, file startAt, length
 		var lastEntry [32]byte
 		n, err := dat.Read(lastEntry[:])
 		if err != nil && n < 32 {
-			err = errors.Wrapf(err, "unable to read %q %d", name, n)
+			err = errors.Wrapf(err, "unable to read %q %d", path, n)
 			return err
 		}
 
@@ -263,14 +338,14 @@ func (fs *LogFiles) Open(dirs []string, topic string) error {
 	fs.Logs = make([]*os.File, 0, len(dirs))
 
 	for i := range dirs {
-		name := filepath.Join(dirs[i], topic, "tmp.log")
-		log, err := os.OpenFile(name, os.O_RDWR|os.O_CREATE, os.ModePerm)
+		path = filepath.Join(dirs[i], topic, datName)
+		log, err := os.OpenFile(path+".log", os.O_RDWR|os.O_CREATE, os.ModePerm)
 		if err != nil {
-			return errors.Wrapf(err, "unable to open file %q", name)
+			return errors.Wrapf(err, "unable to open file %q", path+".log")
 		}
 		_, err = log.Seek(fs.FileOffset, io.SeekStart)
 		if err != nil {
-			return errors.Wrapf(err, "unable to set file offset %q", name)
+			return errors.Wrapf(err, "unable to set file offset %q", path+".log")
 		}
 		fs.Logs = append(fs.Logs, log)
 
@@ -279,14 +354,13 @@ func (fs *LogFiles) Open(dirs []string, topic string) error {
 			continue
 		}
 
-		name = filepath.Join(dirs[i], topic, "tmp.dat")
-		f, err := os.OpenFile(name, os.O_RDWR|os.O_CREATE, os.ModePerm)
+		f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, os.ModePerm)
 		if err != nil {
-			return errors.Wrapf(err, "unable to open file %q", name)
+			return errors.Wrapf(err, "unable to open file %q", path)
 		}
 		_, err = f.Seek(fs.FileOffset, io.SeekStart)
 		if err != nil {
-			return errors.Wrapf(err, "unable to set file offset %q", name)
+			return errors.Wrapf(err, "unable to set file offset %q", path)
 		}
 		fs.Dats = append(fs.Dats, f)
 	}
