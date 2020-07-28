@@ -27,7 +27,7 @@ RUN go test -mod=readonly -bench=. -benchtime=10000x -run=XXX -cpu=4 \
 
 # Build binary
 RUN if [ -z "$TEST_ONLY" ] ; then \
-      cd cmd/broker && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=readonly -ldflags '-s -w' -o /haraqa-build main.go \
+      cd cmd/server && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=readonly -ldflags '-s -w' -o /haraqa-build main.go \
     ; fi
 
 # ===================================================

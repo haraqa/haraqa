@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -20,6 +21,7 @@ type FileQueue struct {
 	rootDirNames []string
 	rootDirs     []*os.File
 	max          int64
+	produceLocks sync.Map
 }
 
 func NewFileQueue(dirs ...string) (*FileQueue, error) {
@@ -107,6 +109,9 @@ func (q *FileQueue) Produce(topic string, msgSizes []int64, r io.Reader) error {
 	if len(msgSizes) == 0 {
 		return nil
 	}
+	mux, _ := q.produceLocks.LoadOrStore(topic, &sync.Mutex{})
+	mux.(*sync.Mutex).Lock()
+	defer mux.(*sync.Mutex).Unlock()
 
 	var fs LogFiles
 	err := fs.Open(q.rootDirNames, topic, q.max)
@@ -250,7 +255,7 @@ func getLatestDat(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	sort.Sort(sort.Reverse(sort.StringSlice(names)))
+	sort.Sort(DirNames(names))
 	for i := range names {
 		if !strings.HasSuffix(names[i], ".log") {
 			return names[i], nil
@@ -268,16 +273,22 @@ func getConsumeDat(path string, id int64) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	sort.Sort(sort.Reverse(sort.StringSlice(names)))
-
+	sort.Sort(DirNames(names))
 	exact := formatName(id)
 	for i := range names {
-		if !strings.HasSuffix(names[i], ".log") && names[i] <= exact {
+		if len(names[i]) == len(exact) && names[i] <= exact {
 			return names[i], nil
 		}
 	}
 	return formatName(0), nil
 }
+
+// DirNames attaches the methods of sort.Interface to []string, sorting in decreasing order.
+type DirNames []string
+
+func (p DirNames) Len() int           { return len(p) }
+func (p DirNames) Less(i, j int) bool { return len(p[i]) < len(p[j]) || p[i] > p[j] }
+func (p DirNames) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
 func (fs *LogFiles) Open(dirs []string, topic string, max int64) error {
 	datName, err := getLatestDat(filepath.Join(dirs[len(dirs)-1], topic))
