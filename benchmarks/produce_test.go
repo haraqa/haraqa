@@ -94,7 +94,7 @@ func benchProducerN(N, batchSize int, c *client.Client) func(b *testing.B) {
 		sizes[i] = int64(len(msgs[i]))
 	}
 	return func(b *testing.B) {
-		ch := make(chan struct{})
+		ch := make(chan struct{}, N)
 		defer close(ch)
 		var wg sync.WaitGroup
 		for i := 0; i < N; i++ {
@@ -110,6 +110,7 @@ func benchProducerN(N, batchSize int, c *client.Client) func(b *testing.B) {
 			}()
 		}
 		b.ReportAllocs()
+		b.ResetTimer()
 		for i := 0; i < b.N; i += len(msgs) {
 			wg.Add(1)
 			ch <- struct{}{}
