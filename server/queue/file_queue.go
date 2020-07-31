@@ -23,6 +23,7 @@ type FileQueue struct {
 	max          int64
 	produceLocks sync.Map
 	produceCache Cache
+	consumeCache Cache
 }
 
 func NewFileQueue(dirs ...string) (*FileQueue, error) {
@@ -64,6 +65,7 @@ func NewFileQueue(dirs ...string) (*FileQueue, error) {
 		rootDirs:     dirFiles,
 		max:          5000,
 		produceCache: &sync.Map{},
+		consumeCache: &sync.Map{},
 	}, nil
 }
 
@@ -145,7 +147,7 @@ func (q *FileQueue) Produce(topic string, msgSizes []int64, r io.Reader) error {
 		return err
 	}
 
-	now := uint64(time.Now().UnixNano())
+	now := uint64(time.Now().Unix())
 	data := make([]byte, 32*len(msgSizes))
 	var n int
 	var id uint64
@@ -171,7 +173,7 @@ func (q *FileQueue) Produce(topic string, msgSizes []int64, r io.Reader) error {
 }
 
 func (q *FileQueue) Consume(topic string, id int64, N int64) (*ConsumeInfo, error) {
-	datName, err := getConsumeDat(filepath.Join(q.rootDirNames[len(q.rootDirNames)-1], topic), id)
+	datName, err := getConsumeDat(q.consumeCache, filepath.Join(q.rootDirNames[len(q.rootDirNames)-1], topic), id)
 	if err != nil {
 		return nil, err
 	}
@@ -251,6 +253,13 @@ func (fs *LogFiles) WriteDats(b []byte) error {
 	return nil
 }
 
+// bufPool is used to reduce heap allocations due to io.CopyBuffer
+var bufPool = sync.Pool{
+	New: func() interface{} {
+		return make([]byte, 32*1024)
+	},
+}
+
 func (fs *LogFiles) WriteLogs(r io.Reader, totalSize int64) error {
 	writers := make([]io.Writer, len(fs.Logs))
 	for i := range fs.Logs {
@@ -258,7 +267,9 @@ func (fs *LogFiles) WriteLogs(r io.Reader, totalSize int64) error {
 	}
 	mw := io.MultiWriter(writers...)
 
-	n, err := io.Copy(mw, r)
+	buf := bufPool.Get().([]byte)
+	n, err := io.CopyBuffer(mw, r, buf)
+	bufPool.Put(buf)
 	if err != nil {
 		return err
 	}
@@ -290,7 +301,18 @@ func getLatestDat(path string) (string, error) {
 	return formatName(0), nil
 }
 
-func getConsumeDat(path string, id int64) (string, error) {
+func getConsumeDat(consumeCache Cache, path string, id int64) (string, error) {
+	exact := formatName(id)
+	value, ok := consumeCache.Load(path)
+	if ok {
+		names := value.([]string)
+		for i := range names {
+			if len(names[i]) == len(exact) && names[i] <= exact {
+				return names[i], nil
+			}
+		}
+	}
+
 	dir, err := os.Open(path)
 	if err != nil {
 		return "", err
@@ -300,7 +322,7 @@ func getConsumeDat(path string, id int64) (string, error) {
 		return "", err
 	}
 	sort.Sort(DirNames(names))
-	exact := formatName(id)
+	consumeCache.Store(path, names)
 	for i := range names {
 		if len(names[i]) == len(exact) && names[i] <= exact {
 			return names[i], nil

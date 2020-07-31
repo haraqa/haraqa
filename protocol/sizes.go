@@ -1,20 +1,24 @@
 package protocol
 
 import (
-	"errors"
 	"net/http"
+	"net/textproto"
 	"strconv"
-	"strings"
+)
+
+// Headers using Canonical MIME structure
+const (
+	HeaderSizes     = "X-Sizes"
+	HeaderBatchSize = "X-Batch-Size"
+	HeaderStartTime = "X-Start-Time"
+	HeaderEndTime   = "X-End-Time"
+	HeaderFileName  = "X-File-Name"
 )
 
 func ReadSizes(header http.Header) ([]int64, error) {
-	xSizes := header.Get("X-SIZES")
-	if xSizes == "" {
-		return nil, errors.New("Missing required header X-SIZES")
-	}
+	sizes := textproto.MIMEHeader(header)[HeaderSizes]
 
 	var err error
-	sizes := strings.Split(xSizes, ",")
 	msgSizes := make([]int64, len(sizes))
 	for i, size := range sizes {
 		msgSizes[i], err = strconv.ParseInt(size, 10, 64)
@@ -25,10 +29,11 @@ func ReadSizes(header http.Header) ([]int64, error) {
 	return msgSizes, nil
 }
 
-func SetSizes(msgSizes []int64) (string, string) {
+func SetSizes(msgSizes []int64, h http.Header) http.Header {
 	sizes := make([]string, len(msgSizes))
 	for i := range msgSizes {
 		sizes[i] = strconv.FormatInt(msgSizes[i], 10)
 	}
-	return "X-SIZES", strings.Join(sizes, ",")
+	h[HeaderSizes] = sizes
+	return h
 }

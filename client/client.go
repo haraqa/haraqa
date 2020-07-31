@@ -39,7 +39,7 @@ func NewClient(url string) *Client {
 }
 
 func (c *Client) CreateTopic(topic string) error {
-	req, err := http.NewRequest("PUT", c.url+"/topics/"+topic, nil)
+	req, err := http.NewRequest(http.MethodPut, c.url+"/topics/"+topic, nil)
 	if err != nil {
 		return err
 	}
@@ -55,11 +55,11 @@ func (c *Client) CreateTopic(topic string) error {
 }
 
 func (c *Client) Produce(topic string, sizes []int64, r io.Reader) error {
-	req, err := http.NewRequest("POST", c.url+"/topics/"+topic, r)
+	req, err := http.NewRequest(http.MethodPost, c.url+"/topics/"+topic, r)
 	if err != nil {
 		return err
 	}
-	req.Header.Set(protocol.SetSizes(sizes))
+	req.Header = protocol.SetSizes(sizes, req.Header)
 
 	resp, err := c.c.Do(req)
 	if err != nil {
@@ -72,12 +72,12 @@ func (c *Client) Produce(topic string, sizes []int64, r io.Reader) error {
 }
 
 func (c *Client) Consume(topic string, id uint64, batchSize int) (io.ReadCloser, []int64, error) {
-	req, err := http.NewRequest("GET", c.url+"/topics/"+topic+"/"+strconv.FormatUint(id, 10), nil)
+	req, err := http.NewRequest(http.MethodGet, c.url+"/topics/"+topic+"/"+strconv.FormatUint(id, 10), nil)
 	if err != nil {
 		return nil, nil, err
 	}
 	if batchSize > 0 {
-		req.Header.Set("X-BATCH-SIZE", strconv.Itoa(batchSize))
+		req.Header[protocol.HeaderBatchSize] = []string{strconv.Itoa(batchSize)}
 	}
 
 	resp, err := c.c.Do(req)

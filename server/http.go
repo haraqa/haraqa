@@ -33,7 +33,7 @@ func WithDirs(dirs ...string) Option {
 
 func NewServer(options ...Option) (*Server, error) {
 	s := &Server{
-		Router: mux.NewRouter(),
+		Router: mux.NewRouter().SkipClean(true),
 	}
 
 	for _, option := range options {
@@ -59,13 +59,13 @@ func NewServer(options ...Option) (*Server, error) {
 
 	s.Router.PathPrefix("/raw/").Handler(http.StripPrefix("/raw/", http.FileServer(http.Dir(s.q.RootDir()))))
 	r := s.Router.PathPrefix("/topics").Subrouter()
-	r.Path("/").Methods("GET").Handler(s.HandleGetAllTopics())
-	r.Path("/{topic}").Methods("PUT").Handler(s.HandleCreateTopic())
-	r.Path("/{topic}").Methods("PATCH").Handler(s.HandleModifyTopic())
-	r.Path("/{topic}").Methods("DELETE").Handler(s.HandleDeleteTopic())
-	r.Path("/{topic}").Methods("GET").Handler(s.HandleInspectTopic())
-	r.Path("/{topic}").Methods("POST").Handler(s.HandleProduce())
-	r.Path("/{topic}/{id}").Methods("GET").Handler(s.HandleConsume())
+	r.Path("/").Methods(http.MethodGet).Handler(s.HandleGetAllTopics())
+	r.Path("/{topic}").Methods(http.MethodPut).Handler(s.HandleCreateTopic())
+	r.Path("/{topic}").Methods(http.MethodPatch).Handler(s.HandleModifyTopic())
+	r.Path("/{topic}").Methods(http.MethodDelete).Handler(s.HandleDeleteTopic())
+	r.Path("/{topic}").Methods(http.MethodGet).Handler(s.HandleInspectTopic())
+	r.Path("/{topic}").Methods(http.MethodPost).Handler(s.HandleProduce())
+	r.Path("/{topic}/{id}").Methods(http.MethodGet).Handler(s.HandleConsume())
 	//s.Router.Use(mux.CORSMethodMiddleware(s.Router))
 
 	return s, nil
@@ -92,7 +92,7 @@ func (s *Server) HandleGetAllTopics() http.HandlerFunc {
 		}
 
 		var response []byte
-		switch r.Header.Get("accept") {
+		switch r.Header.Get("Accept") {
 		case "application/json":
 			response, _ = json.Marshal(map[string][]string{
 				"topics": topics,
@@ -179,7 +179,6 @@ func (s *Server) HandleProduce() http.HandlerFunc {
 		err = s.q.Produce(vars["topic"], sizes, r.Body)
 		r.Body.Close()
 		if err != nil {
-			panic(err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -197,11 +196,11 @@ func (s *Server) HandleConsume() http.HandlerFunc {
 		}
 
 		var n int64
-		batchheader := r.Header.Get("X-BATCH-SIZE")
-		if batchheader == "" {
+		batchheader, ok := r.Header[protocol.HeaderBatchSize]
+		if !ok {
 			n = s.DefaultBatchSize
 		} else {
-			n, err = strconv.ParseInt(batchheader, 10, 64)
+			n, err = strconv.ParseInt(batchheader[0], 10, 64)
 			if err != nil {
 				w.WriteHeader(http.StatusBadRequest)
 				return
@@ -224,15 +223,15 @@ func (s *Server) HandleConsume() http.HandlerFunc {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-
-		w.Header().Set("X-START-TIME", info.StartTime.Format(time.ANSIC))
-		w.Header().Set("X-END-TIME", info.EndTime.Format(time.ANSIC))
-		w.Header().Set("X-FILENAME", info.Filename)
-		w.Header().Set(protocol.SetSizes(info.Sizes))
-
+		wHeader := w.Header()
+		wHeader[protocol.HeaderStartTime] = []string{info.StartTime.Format(time.ANSIC)}
+		wHeader[protocol.HeaderEndTime] = []string{info.EndTime.Format(time.ANSIC)}
+		wHeader[protocol.HeaderFileName] = []string{info.Filename}
+		wHeader["Content-Type"] = []string{"application/octet-stream"}
+		protocol.SetSizes(info.Sizes, wHeader)
 		rangeHeader := "bytes=" + strconv.FormatUint(info.StartAt, 10) + "-" + strconv.FormatUint(info.EndAt, 10)
-		w.Header().Set("RANGE", info.Filename)
-		r.Header.Set("RANGE", rangeHeader)
+		wHeader["Range"] = []string{rangeHeader}
+		r.Header["Range"] = []string{rangeHeader}
 
 		http.ServeContent(w, r, info.Filename, info.EndTime, info.File)
 	}
