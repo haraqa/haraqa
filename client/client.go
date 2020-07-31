@@ -5,7 +5,9 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/haraqa/haraqa/protocol"
@@ -71,8 +73,18 @@ func (c *Client) Produce(topic string, sizes []int64, r io.Reader) error {
 	return nil
 }
 
+var getRequestPool = &sync.Pool{
+	New: func() interface{} {
+		req, _ := http.NewRequest(http.MethodGet, "*", nil)
+		return req
+	},
+}
+
 func (c *Client) Consume(topic string, id uint64, batchSize int) (io.ReadCloser, []int64, error) {
-	req, err := http.NewRequest(http.MethodGet, c.url+"/topics/"+topic+"/"+strconv.FormatUint(id, 10), nil)
+	var err error
+	req := getRequestPool.Get().(*http.Request)
+	defer getRequestPool.Put(req)
+	req.URL, err = url.Parse(c.url + "/topics/" + topic + "/" + strconv.FormatUint(id, 10))
 	if err != nil {
 		return nil, nil, err
 	}
