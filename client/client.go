@@ -1,7 +1,6 @@
 package client
 
 import (
-	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"github.com/haraqa/haraqa/protocol"
+	"github.com/pkg/errors"
 )
 
 type Client struct {
@@ -51,7 +51,8 @@ func (c *Client) CreateTopic(topic string) error {
 		return err
 	}
 	if resp.StatusCode != http.StatusCreated {
-		return errors.New("error creating topic")
+		err = protocol.ReadErrors(resp.Header)
+		return errors.Wrap(err, "error creating topic")
 	}
 	return nil
 }
@@ -68,7 +69,8 @@ func (c *Client) Produce(topic string, sizes []int64, r io.Reader) error {
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return errors.New("error producing")
+		err = protocol.ReadErrors(resp.Header)
+		return errors.Wrap(err, "error producing")
 	}
 	return nil
 }
@@ -80,7 +82,7 @@ var getRequestPool = &sync.Pool{
 	},
 }
 
-func (c *Client) Consume(topic string, id uint64, batchSize int) (io.ReadCloser, []int64, error) {
+func (c *Client) Consume(topic string, id uint64, limit int) (io.ReadCloser, []int64, error) {
 	var err error
 	req := getRequestPool.Get().(*http.Request)
 	defer getRequestPool.Put(req)
@@ -88,8 +90,8 @@ func (c *Client) Consume(topic string, id uint64, batchSize int) (io.ReadCloser,
 	if err != nil {
 		return nil, nil, err
 	}
-	if batchSize > 0 {
-		req.Header[protocol.HeaderBatchSize] = []string{strconv.Itoa(batchSize)}
+	if limit > 0 {
+		req.Header[protocol.HeaderLimit] = []string{strconv.Itoa(limit)}
 	}
 
 	resp, err := c.c.Do(req)
@@ -97,7 +99,8 @@ func (c *Client) Consume(topic string, id uint64, batchSize int) (io.ReadCloser,
 		return nil, nil, err
 	}
 	if resp.StatusCode != http.StatusPartialContent {
-		return nil, nil, errors.New("error consuming")
+		err = protocol.ReadErrors(resp.Header)
+		return nil, nil, errors.Wrap(err, "error consuming")
 	}
 
 	sizes, err := protocol.ReadSizes(resp.Header)

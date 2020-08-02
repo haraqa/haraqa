@@ -5,7 +5,6 @@ FROM golang:1.15rc1 as compiler
 RUN mkdir /profiles && mkdir /haraqa
 WORKDIR /haraqa
 COPY go.mod .
-#COPY cmd/broker/go.mod ./cmd/broker/go.mod
 RUN go mod download
 #&& cd cmd/broker && go mod download
 COPY . .
@@ -20,6 +19,7 @@ ARG TEST_ONLY=""
 #      go tool cover -html=cover.out -o /profiles/coverage.html
 # test for speed
 RUN go test -mod=readonly -bench=. -benchtime=10000x -run=XXX -cpu=4 \
+      -trace        /profiles/trace.out \
       -cpuprofile   /profiles/cpu.out \
       -memprofile   /profiles/mem.out \
       -coverprofile /profiles/cover.out \

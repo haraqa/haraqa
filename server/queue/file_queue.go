@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/haraqa/haraqa/protocol"
+
 	"github.com/pkg/errors"
 )
 
@@ -87,6 +89,9 @@ func (q *FileQueue) ListTopics() ([]string, error) {
 func (q *FileQueue) CreateTopic(topic string) error {
 	for _, name := range q.rootDirNames {
 		err := os.Mkdir(filepath.Join(name, topic), os.ModePerm)
+		if os.IsExist(err) {
+			return protocol.ErrTopicAlreadyExists
+		}
 		if err != nil {
 			return err
 		}
@@ -144,6 +149,9 @@ func (q *FileQueue) Produce(topic string, msgSizes []int64, r io.Reader) error {
 
 	fs, err := q.loadLatest(topic)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return protocol.ErrTopicDoesNotExist
+		}
 		return err
 	}
 
@@ -175,11 +183,17 @@ func (q *FileQueue) Produce(topic string, msgSizes []int64, r io.Reader) error {
 func (q *FileQueue) Consume(topic string, id int64, N int64) (*ConsumeInfo, error) {
 	datName, err := getConsumeDat(q.consumeCache, filepath.Join(q.rootDirNames[len(q.rootDirNames)-1], topic), id)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, protocol.ErrTopicDoesNotExist
+		}
 		return nil, err
 	}
 	path := filepath.Join(q.rootDirNames[len(q.rootDirNames)-1], topic, datName)
 	dat, err := os.Open(path)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, protocol.ErrTopicDoesNotExist
+		}
 		return nil, err
 	}
 	defer dat.Close()
@@ -221,6 +235,9 @@ func (q *FileQueue) Consume(topic string, id int64, N int64) (*ConsumeInfo, erro
 	info.Filename = path + ".log"
 	info.File, err = os.Open(info.Filename)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, protocol.ErrTopicDoesNotExist
+		}
 		return nil, err
 	}
 
@@ -292,7 +309,7 @@ func getLatestDat(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	sort.Sort(DirNames(names))
+	sort.Sort(sortableDirNames(names))
 	for i := range names {
 		if !strings.HasSuffix(names[i], ".log") {
 			return names[i], nil
@@ -321,7 +338,7 @@ func getConsumeDat(consumeCache Cache, path string, id int64) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	sort.Sort(DirNames(names))
+	sort.Sort(sortableDirNames(names))
 	consumeCache.Store(path, names)
 	for i := range names {
 		if len(names[i]) == len(exact) && names[i] <= exact {
@@ -331,12 +348,12 @@ func getConsumeDat(consumeCache Cache, path string, id int64) (string, error) {
 	return formatName(0), nil
 }
 
-// DirNames attaches the methods of sort.Interface to []string, sorting in decreasing order.
-type DirNames []string
+// sortableDirNames attaches the methods of sort.Interface to []string, sorting in decreasing order.
+type sortableDirNames []string
 
-func (p DirNames) Len() int           { return len(p) }
-func (p DirNames) Less(i, j int) bool { return len(p[i]) < len(p[j]) || p[i] > p[j] }
-func (p DirNames) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
+func (p sortableDirNames) Len() int           { return len(p) }
+func (p sortableDirNames) Less(i, j int) bool { return len(p[i]) < len(p[j]) || p[i] > p[j] }
+func (p sortableDirNames) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
 func (fs *LogFiles) Open(dirs []string, topic string, max int64) error {
 	datName, err := getLatestDat(filepath.Join(dirs[len(dirs)-1], topic))

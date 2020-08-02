@@ -2,10 +2,8 @@ package server
 
 import (
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -13,12 +11,16 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/haraqa/haraqa/protocol"
 	"github.com/haraqa/haraqa/server/queue"
+	"github.com/pkg/errors"
 )
 
 type Option func(*Server) error
 
 func WithQueue(q queue.Queue) Option {
 	return func(s *Server) error {
+		if q == nil {
+			return errors.New("queue cannot be nil")
+		}
 		s.q = q
 		return nil
 	}
@@ -26,25 +28,56 @@ func WithQueue(q queue.Queue) Option {
 
 func WithDirs(dirs ...string) Option {
 	return func(s *Server) error {
+		if len(dirs) == 0 {
+			return errors.New("at least one directory must be given")
+		}
 		s.dirs = dirs
 		return nil
 	}
 }
 
+func WithMetrics(metrics Metrics) Option {
+	return func(s *Server) error {
+		if metrics == nil {
+			return errors.New("metrics cannot be nil")
+		}
+		s.metrics = metrics
+		return nil
+	}
+}
+
+func WithDefaultConsumeLimit(n int64) Option {
+	return func(s *Server) error {
+		if n <= 0 {
+			n = -1
+		}
+		s.defaultLimit = n
+		return nil
+	}
+}
+
+type Server struct {
+	*mux.Router
+	q            queue.Queue
+	defaultLimit int64
+	dirs         []string
+	metrics      Metrics
+}
+
 func NewServer(options ...Option) (*Server, error) {
 	s := &Server{
-		Router: mux.NewRouter().SkipClean(true),
+		Router:       mux.NewRouter().SkipClean(true),
+		metrics:      noOpMetrics{},
+		dirs:         []string{".haraqa"},
+		defaultLimit: -1,
 	}
 
 	for _, option := range options {
 		if err := option(s); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "invalid option")
 		}
 	}
 
-	if len(s.dirs) == 0 {
-		s.dirs = []string{".haraqa"}
-	}
 	if s.q == nil {
 		// default queue
 		var err error
@@ -52,9 +85,6 @@ func NewServer(options ...Option) (*Server, error) {
 		if err != nil {
 			return nil, err
 		}
-	}
-	if s.DefaultBatchSize == 0 {
-		s.DefaultBatchSize = -1
 	}
 
 	s.Router.PathPrefix("/raw/").Handler(http.StripPrefix("/raw/", http.FileServer(http.Dir(s.q.RootDir()))))
@@ -66,17 +96,8 @@ func NewServer(options ...Option) (*Server, error) {
 	r.Path("/{topic}").Methods(http.MethodGet).Handler(s.HandleInspectTopic())
 	r.Path("/{topic}").Methods(http.MethodPost).Handler(s.HandleProduce())
 	r.Path("/{topic}/{id}").Methods(http.MethodGet).Handler(s.HandleConsume())
-	//s.Router.Use(mux.CORSMethodMiddleware(s.Router))
 
 	return s, nil
-}
-
-type Server struct {
-	*mux.Router
-	q queue.Queue
-
-	DefaultBatchSize int64
-	dirs             []string
 }
 
 func (s *Server) Close() error {
@@ -87,7 +108,7 @@ func (s *Server) HandleGetAllTopics() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		topics, err := s.q.ListTopics()
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			protocol.SetError(w, err)
 			return
 		}
 
@@ -111,10 +132,14 @@ func (s *Server) HandleCreateTopic() http.HandlerFunc {
 			r.Body.Close()
 		}
 
-		topic := mux.Vars(r)["topic"]
-		err := s.q.CreateTopic(topic)
+		topic, err := protocol.GetTopic(mux.Vars(r))
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			protocol.SetError(w, err)
+			return
+		}
+		err = s.q.CreateTopic(topic)
+		if err != nil {
+			protocol.SetError(w, err)
 			return
 		}
 		w.WriteHeader(http.StatusCreated)
@@ -127,10 +152,14 @@ func (s *Server) HandleModifyTopic() http.HandlerFunc {
 			r.Body.Close()
 		}
 
-		topic := mux.Vars(r)["topic"]
-		_, err := s.q.TruncateTopic(topic, 0)
+		topic, err := protocol.GetTopic(mux.Vars(r))
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			protocol.SetError(w, err)
+			return
+		}
+		_, err = s.q.TruncateTopic(topic, 0)
+		if err != nil {
+			protocol.SetError(w, err)
 			return
 		}
 	}
@@ -142,10 +171,14 @@ func (s *Server) HandleDeleteTopic() http.HandlerFunc {
 			r.Body.Close()
 		}
 
-		topic := mux.Vars(r)["topic"]
-		err := s.q.DeleteTopic(topic)
+		topic, err := protocol.GetTopic(mux.Vars(r))
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			protocol.SetError(w, err)
+			return
+		}
+		err = s.q.DeleteTopic(topic)
+		if err != nil {
+			protocol.SetError(w, err)
 			return
 		}
 	}
@@ -157,10 +190,14 @@ func (s *Server) HandleInspectTopic() http.HandlerFunc {
 			r.Body.Close()
 		}
 
-		topic := mux.Vars(r)["topic"]
-		_, err := s.q.InspectTopic(topic)
+		topic, err := protocol.GetTopic(mux.Vars(r))
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			protocol.SetError(w, err)
+			return
+		}
+		_, err = s.q.InspectTopic(topic)
+		if err != nil {
+			protocol.SetError(w, err)
 			return
 		}
 	}
@@ -169,58 +206,64 @@ func (s *Server) HandleInspectTopic() http.HandlerFunc {
 func (s *Server) HandleProduce() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
+		topic, err := protocol.GetTopic(vars)
+		if err != nil {
+			protocol.SetError(w, err)
+			return
+		}
 
 		sizes, err := protocol.ReadSizes(r.Header)
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
+			protocol.SetError(w, err)
 			return
 		}
 
-		err = s.q.Produce(vars["topic"], sizes, r.Body)
+		err = s.q.Produce(topic, sizes, r.Body)
 		r.Body.Close()
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			protocol.SetError(w, err)
 			return
 		}
+		s.metrics.ProduceMsgs(len(sizes))
 	}
 }
 
 func (s *Server) HandleConsume() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
-		topic := vars["topic"]
+		topic, err := protocol.GetTopic(vars)
+		if err != nil {
+			protocol.SetError(w, err)
+			return
+		}
 		id, err := strconv.ParseInt(vars["id"], 10, 64)
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
+			protocol.SetError(w, protocol.ErrInvalidMessageID)
 			return
 		}
 
 		var n int64
-		batchheader, ok := r.Header[protocol.HeaderBatchSize]
+		limitHeader, ok := r.Header[protocol.HeaderLimit]
 		if !ok {
-			n = s.DefaultBatchSize
+			n = s.defaultLimit
 		} else {
-			n, err = strconv.ParseInt(batchheader[0], 10, 64)
-			if err != nil {
-				w.WriteHeader(http.StatusBadRequest)
+			n, err = strconv.ParseInt(limitHeader[0], 10, 64)
+			if err != nil || n == 0 {
+				protocol.SetError(w, protocol.ErrInvalidHeaderLimit)
 				return
 			}
 		}
 
 		info, err := s.q.Consume(topic, id, n)
 		if err != nil {
-			if os.IsNotExist(errors.Unwrap(err)) {
-				w.WriteHeader(http.StatusNotFound)
-			} else {
-				w.WriteHeader(http.StatusInternalServerError)
-			}
+			protocol.SetError(w, err)
 			return
 		}
 		if closer, ok := info.File.(io.Closer); ok {
 			defer closer.Close()
 		}
 		if !info.Exists {
-			w.WriteHeader(http.StatusNoContent)
+			protocol.SetError(w, errors.New("no content"))
 			return
 		}
 		wHeader := w.Header()
@@ -234,5 +277,6 @@ func (s *Server) HandleConsume() http.HandlerFunc {
 		r.Header["Range"] = []string{rangeHeader}
 
 		http.ServeContent(w, r, info.Filename, info.EndTime, info.File)
+		s.metrics.ConsumeMsgs(len(info.Sizes))
 	}
 }
