@@ -10,99 +10,8 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/haraqa/haraqa/protocol"
-	"github.com/haraqa/haraqa/server/queue"
 	"github.com/pkg/errors"
 )
-
-type Option func(*Server) error
-
-func WithQueue(q queue.Queue) Option {
-	return func(s *Server) error {
-		if q == nil {
-			return errors.New("queue cannot be nil")
-		}
-		s.q = q
-		return nil
-	}
-}
-
-func WithDirs(dirs ...string) Option {
-	return func(s *Server) error {
-		if len(dirs) == 0 {
-			return errors.New("at least one directory must be given")
-		}
-		s.dirs = dirs
-		return nil
-	}
-}
-
-func WithMetrics(metrics Metrics) Option {
-	return func(s *Server) error {
-		if metrics == nil {
-			return errors.New("metrics cannot be nil")
-		}
-		s.metrics = metrics
-		return nil
-	}
-}
-
-func WithDefaultConsumeLimit(n int64) Option {
-	return func(s *Server) error {
-		if n <= 0 {
-			n = -1
-		}
-		s.defaultLimit = n
-		return nil
-	}
-}
-
-type Server struct {
-	*mux.Router
-	q            queue.Queue
-	defaultLimit int64
-	dirs         []string
-	metrics      Metrics
-}
-
-func NewServer(options ...Option) (*Server, error) {
-	s := &Server{
-		Router:       mux.NewRouter().SkipClean(true),
-		metrics:      noOpMetrics{},
-		dirs:         []string{".haraqa"},
-		defaultLimit: -1,
-	}
-
-	for _, option := range options {
-		if err := option(s); err != nil {
-			return nil, errors.Wrap(err, "invalid option")
-		}
-	}
-
-	if s.q == nil {
-		// default queue
-		var err error
-		s.q, err = queue.NewFileQueue(s.dirs...)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	s.Router.PathPrefix("/raw/").Handler(http.StripPrefix("/raw/", http.FileServer(http.Dir(s.q.RootDir()))))
-	r := s.Router.PathPrefix("/topics").Subrouter()
-	r.Path("/").Methods(http.MethodGet).Handler(s.HandleGetAllTopics())
-	r.Path("/{topic}").Methods(http.MethodPut).Handler(s.HandleCreateTopic())
-	r.Path("/{topic}").Methods(http.MethodPatch).Handler(s.HandleModifyTopic())
-	r.Path("/{topic}").Methods(http.MethodDelete).Handler(s.HandleDeleteTopic())
-	r.Path("/{topic}").Methods(http.MethodGet).Handler(s.HandleInspectTopic())
-	r.Path("/{topic}").Methods(http.MethodPost).Handler(s.HandleProduce())
-	r.Path("/{topic}/{id}").Methods(http.MethodGet).Handler(s.HandleConsume())
-
-	return s, nil
-}
-
-func (s *Server) Close() error {
-	return s.q.Close()
-}
 
 func (s *Server) HandleGetAllTopics() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -148,20 +57,32 @@ func (s *Server) HandleCreateTopic() http.HandlerFunc {
 
 func (s *Server) HandleModifyTopic() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Body != nil {
-			r.Body.Close()
+		if r.Body == nil {
+			protocol.SetError(w, protocol.ErrInvalidBodyMissing)
+			return
 		}
+		defer r.Body.Close()
 
 		topic, err := protocol.GetTopic(mux.Vars(r))
 		if err != nil {
 			protocol.SetError(w, err)
 			return
 		}
-		_, err = s.q.TruncateTopic(topic, 0)
-		if err != nil {
-			protocol.SetError(w, err)
+
+		var request protocol.ModifyRequest
+		if err = json.NewDecoder(r.Body).Decode(&request); err != nil {
+			protocol.SetError(w, protocol.ErrInvalidBodyJSON)
 			return
 		}
+
+		if request.Truncate > 0 {
+			_, err = s.q.TruncateTopic(topic, request.Truncate)
+			if err != nil {
+				protocol.SetError(w, err)
+				return
+			}
+		}
+		// TODO: return topic info
 	}
 }
 

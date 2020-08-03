@@ -24,7 +24,7 @@ jobs:
     - name: Test
       run: |
         go test -mod=readonly -race -timeout 30s -covermode=atomic -coverprofile=cover.out.tmp ./...
-        cat cover.out.tmp | grep -v "grpc.pb.go" > cover.out
+        cat cover.out.tmp | grep -v "mock_queue.go" > cover.out
         $(go env GOPATH)/bin/goveralls -coverprofile=cover.out -service=github-actions -repotoken ${{ secrets.COVERALLS_TOKEN }}
 
     - name: Benchmark

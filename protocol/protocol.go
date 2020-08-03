@@ -26,6 +26,8 @@ const (
 	errInvalidHeaderLimit = "invalid header: " + HeaderLimit
 	errInvalidMessageID   = "invalid message id"
 	errInvalidTopic       = "invalid topic"
+	errInvalidBodyMissing = "invalid body: body cannot be empty"
+	errInvalidBodyJSON    = "invalid body: invalid json entry"
 )
 
 // Errors returned by the Client/Server
@@ -36,6 +38,8 @@ var (
 	ErrInvalidHeaderLimit = errors.New(errInvalidHeaderLimit)
 	ErrInvalidMessageID   = errors.New(errInvalidMessageID)
 	ErrInvalidTopic       = errors.New(errInvalidTopic)
+	ErrInvalidBodyMissing = errors.New(errInvalidBodyMissing)
+	ErrInvalidBodyJSON    = errors.New(errInvalidBodyJSON)
 )
 
 func SetError(w http.ResponseWriter, err error) {
@@ -51,7 +55,7 @@ func SetError(w http.ResponseWriter, err error) {
 	switch err {
 	case ErrTopicDoesNotExist, ErrTopicAlreadyExists:
 		w.WriteHeader(http.StatusPreconditionFailed)
-	case ErrInvalidHeaderSizes, ErrInvalidHeaderLimit, ErrInvalidMessageID, ErrInvalidTopic:
+	case ErrInvalidHeaderSizes, ErrInvalidHeaderLimit, ErrInvalidMessageID, ErrInvalidTopic, ErrInvalidBodyMissing, ErrInvalidBodyJSON:
 		w.WriteHeader(http.StatusBadRequest)
 	default:
 		w.WriteHeader(http.StatusInternalServerError)
@@ -80,6 +84,10 @@ func ReadErrors(header http.Header) error {
 			return ErrInvalidMessageID
 		case errInvalidTopic:
 			return ErrInvalidTopic
+		case errInvalidBodyMissing:
+			return ErrInvalidBodyMissing
+		case errInvalidBodyJSON:
+			return ErrInvalidBodyJSON
 		default:
 			return errors.New(err)
 		}
@@ -118,4 +126,8 @@ func SetSizes(msgSizes []int64, h http.Header) http.Header {
 	}
 	h[HeaderSizes] = sizes
 	return h
+}
+
+type ModifyRequest struct {
+	Truncate int64 `json:"truncate,omitempty"`
 }
