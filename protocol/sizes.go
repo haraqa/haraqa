@@ -1,10 +1,12 @@
 package protocol
 
 import (
-	"errors"
 	"net/http"
 	"net/textproto"
 	"strconv"
+	"strings"
+
+	"github.com/pkg/errors"
 )
 
 // Headers using Canonical MIME structure
@@ -41,7 +43,9 @@ func SetError(w http.ResponseWriter, err error) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	err = errors.Unwrap(err)
+	if e := errors.Unwrap(err); e != nil {
+		err = e
+	}
 	h := w.Header()
 	h[HeaderErrors] = []string{err.Error()}
 	switch err {
@@ -88,7 +92,7 @@ func GetTopic(vars map[string]string) (string, error) {
 	if topic == "" {
 		return "", ErrInvalidTopic
 	}
-	return topic, nil
+	return strings.ToLower(topic), nil
 }
 
 func ReadSizes(header http.Header) ([]int64, error) {
