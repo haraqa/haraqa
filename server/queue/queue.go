@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+//go:generate mockgen -source queue.go -package queue -destination mock_queue.go
+
 type Queue interface {
 	RootDir() string
 	Close() error
