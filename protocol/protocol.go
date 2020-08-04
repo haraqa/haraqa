@@ -28,6 +28,7 @@ const (
 	errInvalidTopic       = "invalid topic"
 	errInvalidBodyMissing = "invalid body: body cannot be empty"
 	errInvalidBodyJSON    = "invalid body: invalid json entry"
+	errNoContent          = "no content"
 )
 
 // Errors returned by the Client/Server
@@ -40,6 +41,7 @@ var (
 	ErrInvalidTopic       = errors.New(errInvalidTopic)
 	ErrInvalidBodyMissing = errors.New(errInvalidBodyMissing)
 	ErrInvalidBodyJSON    = errors.New(errInvalidBodyJSON)
+	ErrNoContent          = errors.New(errNoContent)
 )
 
 func SetError(w http.ResponseWriter, err error) {
@@ -57,6 +59,8 @@ func SetError(w http.ResponseWriter, err error) {
 		w.WriteHeader(http.StatusPreconditionFailed)
 	case ErrInvalidHeaderSizes, ErrInvalidHeaderLimit, ErrInvalidMessageID, ErrInvalidTopic, ErrInvalidBodyMissing, ErrInvalidBodyJSON:
 		w.WriteHeader(http.StatusBadRequest)
+	case ErrNoContent:
+		w.WriteHeader(http.StatusNoContent)
 	default:
 		w.WriteHeader(http.StatusInternalServerError)
 	}
@@ -88,6 +92,8 @@ func ReadErrors(header http.Header) error {
 			return ErrInvalidBodyMissing
 		case errInvalidBodyJSON:
 			return ErrInvalidBodyJSON
+		case errNoContent:
+			return ErrNoContent
 		default:
 			return errors.New(err)
 		}

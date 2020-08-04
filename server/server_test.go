@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/gorilla/mux"
@@ -43,10 +44,18 @@ func TestNewServer(t *testing.T) {
 		s.Close()
 	}
 
+	// with invalid dir
+	{
+		_, err := NewServer(WithDirs("invalid/folder/doesnt/exist/..."))
+		if !strings.HasSuffix(err.Error(), "no such file or directory") {
+			t.Fatal(errors.Unwrap(err))
+		}
+	}
+
 	// verify routes
 	{
 		q := queue.NewMockQueue(ctrl)
-		q.EXPECT().RootDir().Return("./.haraqa").Times(1)
+		q.EXPECT().RootDir().Return(".haraqa").Times(1)
 		s, err := NewServer(WithQueue(q))
 		if err != nil {
 			t.Fatal(err)

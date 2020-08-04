@@ -10,7 +10,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/haraqa/haraqa/protocol"
-	"github.com/pkg/errors"
 )
 
 func (s *Server) HandleGetAllTopics() http.HandlerFunc {
@@ -203,7 +202,7 @@ func (s *Server) HandleConsume() http.HandlerFunc {
 			defer closer.Close()
 		}
 		if !info.Exists {
-			protocol.SetError(w, errors.New("no content"))
+			protocol.SetError(w, protocol.ErrNoContent)
 			return
 		}
 		wHeader := w.Header()

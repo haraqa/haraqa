@@ -18,7 +18,7 @@ func TestServer_HandleProduce(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	topic := "modified_topic"
+	topic := "produce_topic"
 	q := queue.NewMockQueue(ctrl)
 	gomock.InOrder(
 		q.EXPECT().Produce(topic, []int64{5, 6}, gomock.Any()).Return(nil).Times(1),
