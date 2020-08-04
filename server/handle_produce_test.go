@@ -2,9 +2,9 @@ package server
 
 import (
 	"bytes"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -14,28 +14,28 @@ import (
 	"github.com/pkg/errors"
 )
 
-func TestServer_HandleModifyTopic(t *testing.T) {
+func TestServer_HandleProduce(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	topic := "modified_topic"
 	q := queue.NewMockQueue(ctrl)
 	gomock.InOrder(
-		q.EXPECT().TruncateTopic(topic, int64(123)).Return(&queue.TopicInfo{MinOffset: 123, MaxOffset: 456}, nil).Times(1),
-		q.EXPECT().TruncateTopic(topic, int64(123)).Return(nil, protocol.ErrTopicDoesNotExist).Times(1),
-		q.EXPECT().TruncateTopic(topic, int64(123)).Return(nil, errors.New("test error")).Times(1),
+		q.EXPECT().Produce(topic, []int64{5, 6}, gomock.Any()).Return(nil).Times(1),
+		q.EXPECT().Produce(topic, []int64{5, 6}, gomock.Any()).Return(protocol.ErrTopicDoesNotExist).Times(1),
+		q.EXPECT().Produce(topic, []int64{5, 6}, gomock.Any()).Return(errors.New("test error")).Times(1),
 	)
-	s := Server{q: q}
+	s := Server{q: q, metrics: noOpMetrics{}}
 
 	// nil body
 	{
 		w := httptest.NewRecorder()
-		r, err := http.NewRequest(http.MethodPatch, "/topics/"+topic, nil)
+		r, err := http.NewRequest(http.MethodPost, "/topics/"+topic, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		s.HandleModifyTopic()(w, r)
+		s.HandleProduce()(w, r)
 		resp := w.Result()
 		if resp.StatusCode != http.StatusBadRequest {
 			t.Fatal(resp.Status)
@@ -49,12 +49,12 @@ func TestServer_HandleModifyTopic(t *testing.T) {
 	// invalid topic
 	{
 		w := httptest.NewRecorder()
-		r, err := http.NewRequest(http.MethodPatch, "/topics/", bytes.NewBuffer([]byte("test body")))
+		r, err := http.NewRequest(http.MethodPost, "/topics/", bytes.NewBuffer([]byte("test body")))
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		s.HandleModifyTopic()(w, r)
+		s.HandleProduce()(w, r)
 		resp := w.Result()
 		if resp.StatusCode != http.StatusBadRequest {
 			t.Fatal(resp.Status)
@@ -65,34 +65,57 @@ func TestServer_HandleModifyTopic(t *testing.T) {
 		}
 	}
 
-	// valid topic, invalid json
+	// valid topic, missing read sizes
 	{
 		w := httptest.NewRecorder()
-		r, err := http.NewRequest(http.MethodPatch, "/topics/"+topic, bytes.NewBuffer([]byte("test body")))
+		r, err := http.NewRequest(http.MethodPost, "/topics/"+topic, bytes.NewBuffer([]byte("test body")))
 		if err != nil {
 			t.Fatal(err)
 		}
 		r = mux.SetURLVars(r, map[string]string{"topic": topic})
-		s.HandleModifyTopic()(w, r)
+		s.HandleProduce()(w, r)
 		resp := w.Result()
 		if resp.StatusCode != http.StatusBadRequest {
 			t.Fatal(resp.Status)
 		}
 		err = protocol.ReadErrors(resp.Header)
-		if err != protocol.ErrInvalidBodyJSON {
+		if err != protocol.ErrInvalidHeaderSizes {
 			t.Fatal(err)
 		}
 	}
 
-	// valid topic, empty json
+	// valid topic, invalid read sizes
 	{
 		w := httptest.NewRecorder()
-		r, err := http.NewRequest(http.MethodPatch, "/topics/"+topic, bytes.NewBuffer([]byte("{}")))
+		r, err := http.NewRequest(http.MethodPost, "/topics/"+topic, bytes.NewBuffer([]byte("test body")))
 		if err != nil {
 			t.Fatal(err)
 		}
 		r = mux.SetURLVars(r, map[string]string{"topic": topic})
-		s.HandleModifyTopic()(w, r)
+		r.Header.Set(strings.ToLower(protocol.HeaderSizes), "invalid")
+		s.HandleProduce()(w, r)
+		resp := w.Result()
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Fatal(resp.Status)
+		}
+		err = protocol.ReadErrors(resp.Header)
+		if err != protocol.ErrInvalidHeaderSizes {
+			t.Fatal(err)
+		}
+	}
+
+	// valid topic, valid sizes
+	{
+		w := httptest.NewRecorder()
+		r, err := http.NewRequest(http.MethodPost, "/topics/"+topic, bytes.NewBuffer([]byte("Hello World")))
+		if err != nil {
+			t.Fatal(err)
+		}
+		r = mux.SetURLVars(r, map[string]string{"topic": topic})
+		r.Header.Add(protocol.HeaderSizes, "5")
+		r.Header.Add(protocol.HeaderSizes, "6")
+
+		s.HandleProduce()(w, r)
 		resp := w.Result()
 		if resp.StatusCode != http.StatusOK {
 			t.Fatal(resp.Status)
@@ -100,45 +123,21 @@ func TestServer_HandleModifyTopic(t *testing.T) {
 		err = protocol.ReadErrors(resp.Header)
 		if err != nil {
 			t.Fatal(err)
-		}
-	}
-
-	// valid topic, happy path
-	{
-		w := httptest.NewRecorder()
-		r, err := http.NewRequest(http.MethodPatch, "/topics/"+topic, bytes.NewBuffer([]byte(`{"truncate":123}`)))
-		if err != nil {
-			t.Fatal(err)
-		}
-		r = mux.SetURLVars(r, map[string]string{"topic": topic})
-		s.HandleModifyTopic()(w, r)
-		resp := w.Result()
-		if resp.StatusCode != http.StatusOK {
-			t.Fatal(resp.Status)
-		}
-		err = protocol.ReadErrors(resp.Header)
-		if err != nil {
-			t.Fatal(err)
-		}
-		var info protocol.TopicInfo
-		err = json.NewDecoder(resp.Body).Decode(&info)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if info.MinOffset != 123 || info.MaxOffset != 456 {
-			t.Fatal(info)
 		}
 	}
 
 	// valid topic, queue error: topic does not exist
 	{
 		w := httptest.NewRecorder()
-		r, err := http.NewRequest(http.MethodPatch, "/topics/"+topic, bytes.NewBuffer([]byte(`{"truncate":123}`)))
+		r, err := http.NewRequest(http.MethodPost, "/topics/"+topic, bytes.NewBuffer([]byte("Hello World")))
 		if err != nil {
 			t.Fatal(err)
 		}
 		r = mux.SetURLVars(r, map[string]string{"topic": topic})
-		s.HandleModifyTopic()(w, r)
+		r.Header.Add(protocol.HeaderSizes, "5")
+		r.Header.Add(protocol.HeaderSizes, "6")
+
+		s.HandleProduce()(w, r)
 		resp := w.Result()
 		if resp.StatusCode != http.StatusPreconditionFailed {
 			t.Fatal(resp.Status)
@@ -152,12 +151,15 @@ func TestServer_HandleModifyTopic(t *testing.T) {
 	// valid topic, queue error: unknown error
 	{
 		w := httptest.NewRecorder()
-		r, err := http.NewRequest(http.MethodPatch, "/topics/"+topic, bytes.NewBuffer([]byte(`{"truncate":123}`)))
+		r, err := http.NewRequest(http.MethodPost, "/topics/"+topic, bytes.NewBuffer([]byte("Hello World")))
 		if err != nil {
 			t.Fatal(err)
 		}
 		r = mux.SetURLVars(r, map[string]string{"topic": topic})
-		s.HandleModifyTopic()(w, r)
+		r.Header.Add(protocol.HeaderSizes, "5")
+		r.Header.Add(protocol.HeaderSizes, "6")
+
+		s.HandleProduce()(w, r)
 		resp := w.Result()
 		if resp.StatusCode != http.StatusInternalServerError {
 			t.Fatal(resp.Status)

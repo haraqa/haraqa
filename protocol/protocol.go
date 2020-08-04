@@ -131,3 +131,8 @@ func SetSizes(msgSizes []int64, h http.Header) http.Header {
 type ModifyRequest struct {
 	Truncate int64 `json:"truncate,omitempty"`
 }
+
+type TopicInfo struct {
+	MinOffset int64 `json:"minOffset"`
+	MaxOffset int64 `json:"maxOffset"`
+}

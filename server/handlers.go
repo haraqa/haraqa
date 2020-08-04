@@ -75,14 +75,18 @@ func (s *Server) HandleModifyTopic() http.HandlerFunc {
 			return
 		}
 
+		var info protocol.TopicInfo
 		if request.Truncate > 0 {
-			_, err = s.q.TruncateTopic(topic, request.Truncate)
+			qInfo, err := s.q.TruncateTopic(topic, request.Truncate)
 			if err != nil {
 				protocol.SetError(w, err)
 				return
 			}
+			info.MaxOffset = qInfo.MaxOffset
+			info.MinOffset = qInfo.MinOffset
 		}
-		// TODO: return topic info
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(&info)
 	}
 }
 
@@ -116,16 +120,27 @@ func (s *Server) HandleInspectTopic() http.HandlerFunc {
 			protocol.SetError(w, err)
 			return
 		}
-		_, err = s.q.InspectTopic(topic)
+		info, err := s.q.InspectTopic(topic)
 		if err != nil {
 			protocol.SetError(w, err)
 			return
 		}
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(&protocol.TopicInfo{
+			MaxOffset: info.MaxOffset,
+			MinOffset: info.MinOffset,
+		})
 	}
 }
 
 func (s *Server) HandleProduce() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Body == nil {
+			protocol.SetError(w, protocol.ErrInvalidBodyMissing)
+			return
+		}
+		defer r.Body.Close()
+
 		vars := mux.Vars(r)
 		topic, err := protocol.GetTopic(vars)
 		if err != nil {
@@ -151,6 +166,10 @@ func (s *Server) HandleProduce() http.HandlerFunc {
 
 func (s *Server) HandleConsume() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Body != nil {
+			r.Body.Close()
+		}
+
 		vars := mux.Vars(r)
 		topic, err := protocol.GetTopic(vars)
 		if err != nil {

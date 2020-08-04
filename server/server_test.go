@@ -3,6 +3,8 @@ package server
 import (
 	"fmt"
 	"net/http"
+	"os"
+	"reflect"
 	"testing"
 
 	"github.com/gorilla/mux"
@@ -70,6 +72,42 @@ func TestNewServer(t *testing.T) {
 
 		// consume from topic
 		testRoute(t, s, http.MethodGet, "/topics/consume_topic/1234", s.HandleConsume(), "consume_topic", "1234")
+	}
+
+	// test defaults
+	{
+		defer func() {
+			err := os.Remove(".haraqa")
+			if err != nil {
+				t.Fatal(err)
+			}
+		}()
+		s, err := NewServer()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		defer s.Close()
+		if s.defaultLimit != -1 {
+			t.Error(err)
+			return
+		}
+		if !reflect.DeepEqual(s.dirs, []string{".haraqa"}) {
+			t.Error(err)
+			return
+		}
+		if reflect.TypeOf(s.metrics) != reflect.TypeOf(noOpMetrics{}) {
+			t.Error(reflect.TypeOf(s.metrics), reflect.TypeOf(noOpMetrics{}))
+			return
+		}
+		if reflect.TypeOf(s.q) != reflect.TypeOf(&queue.FileQueue{}) {
+			t.Error(reflect.TypeOf(s.q), reflect.TypeOf(&queue.FileQueue{}))
+			return
+		}
+		if s.q.RootDir() != ".haraqa" {
+			t.Error(s.q.RootDir())
+			_ = os.Remove(s.q.RootDir())
+		}
 	}
 }
 
