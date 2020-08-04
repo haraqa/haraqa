@@ -22,7 +22,7 @@ func TestServer_HandleDeleteTopic(t *testing.T) {
 	gomock.InOrder(
 		q.EXPECT().DeleteTopic(topic).Return(nil).Times(1),
 		q.EXPECT().DeleteTopic(topic).Return(protocol.ErrTopicDoesNotExist).Times(1),
-		q.EXPECT().DeleteTopic(topic).Return(errors.New("test error")).Times(1),
+		q.EXPECT().DeleteTopic(topic).Return(errors.New("test delete error")).Times(1),
 	)
 	s := Server{q: q}
 
@@ -36,6 +36,7 @@ func TestServer_HandleDeleteTopic(t *testing.T) {
 
 		s.HandleDeleteTopic()(w, r)
 		resp := w.Result()
+		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusBadRequest {
 			t.Fatal(resp.Status)
 		}
@@ -55,6 +56,7 @@ func TestServer_HandleDeleteTopic(t *testing.T) {
 		r = mux.SetURLVars(r, map[string]string{"topic": topic})
 		s.HandleDeleteTopic()(w, r)
 		resp := w.Result()
+		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
 			t.Fatal(resp.Status)
 		}
@@ -74,6 +76,7 @@ func TestServer_HandleDeleteTopic(t *testing.T) {
 		r = mux.SetURLVars(r, map[string]string{"topic": topic})
 		s.HandleDeleteTopic()(w, r)
 		resp := w.Result()
+		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusPreconditionFailed {
 			t.Fatal(resp.Status)
 		}
@@ -93,11 +96,12 @@ func TestServer_HandleDeleteTopic(t *testing.T) {
 		r = mux.SetURLVars(r, map[string]string{"topic": topic})
 		s.HandleDeleteTopic()(w, r)
 		resp := w.Result()
+		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusInternalServerError {
 			t.Fatal(resp.Status)
 		}
 		err = protocol.ReadErrors(resp.Header)
-		if err.Error() != "test error" {
+		if err.Error() != "test delete error" {
 			t.Fatal(err)
 		}
 	}

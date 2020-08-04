@@ -23,7 +23,7 @@ func TestServer_HandleGetAllTopics(t *testing.T) {
 	q := queue.NewMockQueue(ctrl)
 	gomock.InOrder(
 		q.EXPECT().ListTopics().Return(topics, nil).Times(2),
-		q.EXPECT().ListTopics().Return(nil, errors.New("test error")).Times(1),
+		q.EXPECT().ListTopics().Return(nil, errors.New("test get topics error")).Times(1),
 	)
 	s := Server{q: q}
 
@@ -36,6 +36,7 @@ func TestServer_HandleGetAllTopics(t *testing.T) {
 		}
 		s.HandleGetAllTopics()(w, r)
 		resp := w.Result()
+		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
 			t.Fatal(resp.Status)
 		}
@@ -62,6 +63,7 @@ func TestServer_HandleGetAllTopics(t *testing.T) {
 		r.Header["Accept"] = []string{"application/json"}
 		s.HandleGetAllTopics()(w, r)
 		resp := w.Result()
+		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
 			t.Fatal(resp.Status)
 		}
@@ -93,11 +95,12 @@ func TestServer_HandleGetAllTopics(t *testing.T) {
 		}
 		s.HandleGetAllTopics()(w, r)
 		resp := w.Result()
+		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusInternalServerError {
 			t.Fatal(resp.Status)
 		}
 		err = protocol.ReadErrors(resp.Header)
-		if err.Error() != "test error" {
+		if err.Error() != "test get topics error" {
 			t.Fatal(err)
 		}
 	}

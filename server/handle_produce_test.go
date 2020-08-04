@@ -23,7 +23,7 @@ func TestServer_HandleProduce(t *testing.T) {
 	gomock.InOrder(
 		q.EXPECT().Produce(topic, []int64{5, 6}, gomock.Any()).Return(nil).Times(1),
 		q.EXPECT().Produce(topic, []int64{5, 6}, gomock.Any()).Return(protocol.ErrTopicDoesNotExist).Times(1),
-		q.EXPECT().Produce(topic, []int64{5, 6}, gomock.Any()).Return(errors.New("test error")).Times(1),
+		q.EXPECT().Produce(topic, []int64{5, 6}, gomock.Any()).Return(errors.New("test produce error")).Times(1),
 	)
 	s := Server{q: q, metrics: noOpMetrics{}}
 
@@ -37,6 +37,7 @@ func TestServer_HandleProduce(t *testing.T) {
 
 		s.HandleProduce()(w, r)
 		resp := w.Result()
+		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusBadRequest {
 			t.Fatal(resp.Status)
 		}
@@ -56,6 +57,7 @@ func TestServer_HandleProduce(t *testing.T) {
 
 		s.HandleProduce()(w, r)
 		resp := w.Result()
+		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusBadRequest {
 			t.Fatal(resp.Status)
 		}
@@ -75,6 +77,7 @@ func TestServer_HandleProduce(t *testing.T) {
 		r = mux.SetURLVars(r, map[string]string{"topic": topic})
 		s.HandleProduce()(w, r)
 		resp := w.Result()
+		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusBadRequest {
 			t.Fatal(resp.Status)
 		}
@@ -95,6 +98,7 @@ func TestServer_HandleProduce(t *testing.T) {
 		r.Header.Set(strings.ToLower(protocol.HeaderSizes), "invalid")
 		s.HandleProduce()(w, r)
 		resp := w.Result()
+		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusBadRequest {
 			t.Fatal(resp.Status)
 		}
@@ -117,6 +121,7 @@ func TestServer_HandleProduce(t *testing.T) {
 
 		s.HandleProduce()(w, r)
 		resp := w.Result()
+		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
 			t.Fatal(resp.Status)
 		}
@@ -139,6 +144,7 @@ func TestServer_HandleProduce(t *testing.T) {
 
 		s.HandleProduce()(w, r)
 		resp := w.Result()
+		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusPreconditionFailed {
 			t.Fatal(resp.Status)
 		}
@@ -161,11 +167,12 @@ func TestServer_HandleProduce(t *testing.T) {
 
 		s.HandleProduce()(w, r)
 		resp := w.Result()
+		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusInternalServerError {
 			t.Fatal(resp.Status)
 		}
 		err = protocol.ReadErrors(resp.Header)
-		if err.Error() != "test error" {
+		if err.Error() != "test produce error" {
 			t.Fatal(err)
 		}
 	}

@@ -14,9 +14,9 @@ ARG CACHEBUST=1
 ARG TEST_ONLY=""
 
 # test for behavior
-#RUN go test -mod=readonly -race -timeout 30s -count=1 -failfast -coverprofile=cover.out.tmp -covermode=atomic ./... && \
-#      cat cover.out.tmp | grep -v "grpc.pb.go" > cover.out && \
-#      go tool cover -html=cover.out -o /profiles/coverage.html
+RUN go test -mod=readonly -race -timeout 30s -count=1 -failfast -coverprofile=cover.out.tmp -covermode=atomic ./... && \
+      cat cover.out.tmp | grep -v "mock_queue.go" > cover.out && \
+      go tool cover -html=cover.out -o /profiles/coverage.html
 # test for speed
 RUN go test -mod=readonly -bench=. -benchtime=10000x -run=XXX -cpu=4 \
       -trace        /profiles/trace.out \

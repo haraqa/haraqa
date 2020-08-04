@@ -30,14 +30,14 @@ func (s *Server) HandleGetAllTopics() http.HandlerFunc {
 			response = []byte(strings.Join(topics, ","))
 		}
 
-		w.Write(response)
+		_, _ = w.Write(response)
 	}
 }
 
 func (s *Server) HandleCreateTopic() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Body != nil {
-			r.Body.Close()
+			_ = r.Body.Close()
 		}
 
 		topic, err := protocol.GetTopic(mux.Vars(r))
@@ -60,7 +60,9 @@ func (s *Server) HandleModifyTopic() http.HandlerFunc {
 			protocol.SetError(w, protocol.ErrInvalidBodyMissing)
 			return
 		}
-		defer r.Body.Close()
+		defer func() {
+			_ = r.Body.Close()
+		}()
 
 		topic, err := protocol.GetTopic(mux.Vars(r))
 		if err != nil {
@@ -85,14 +87,14 @@ func (s *Server) HandleModifyTopic() http.HandlerFunc {
 			info.MinOffset = qInfo.MinOffset
 		}
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(&info)
+		_ = json.NewEncoder(w).Encode(&info)
 	}
 }
 
 func (s *Server) HandleDeleteTopic() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Body != nil {
-			r.Body.Close()
+			_ = r.Body.Close()
 		}
 
 		topic, err := protocol.GetTopic(mux.Vars(r))
@@ -111,7 +113,7 @@ func (s *Server) HandleDeleteTopic() http.HandlerFunc {
 func (s *Server) HandleInspectTopic() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Body != nil {
-			r.Body.Close()
+			_ = r.Body.Close()
 		}
 
 		topic, err := protocol.GetTopic(mux.Vars(r))
@@ -125,7 +127,7 @@ func (s *Server) HandleInspectTopic() http.HandlerFunc {
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(&protocol.TopicInfo{
+		_ = json.NewEncoder(w).Encode(&protocol.TopicInfo{
 			MaxOffset: info.MaxOffset,
 			MinOffset: info.MinOffset,
 		})
@@ -138,7 +140,9 @@ func (s *Server) HandleProduce() http.HandlerFunc {
 			protocol.SetError(w, protocol.ErrInvalidBodyMissing)
 			return
 		}
-		defer r.Body.Close()
+		defer func() {
+			_ = r.Body.Close()
+		}()
 
 		vars := mux.Vars(r)
 		topic, err := protocol.GetTopic(vars)
@@ -154,7 +158,6 @@ func (s *Server) HandleProduce() http.HandlerFunc {
 		}
 
 		err = s.q.Produce(topic, sizes, r.Body)
-		r.Body.Close()
 		if err != nil {
 			protocol.SetError(w, err)
 			return
@@ -166,7 +169,7 @@ func (s *Server) HandleProduce() http.HandlerFunc {
 func (s *Server) HandleConsume() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Body != nil {
-			r.Body.Close()
+			_ = r.Body.Close()
 		}
 
 		vars := mux.Vars(r)
@@ -199,7 +202,9 @@ func (s *Server) HandleConsume() http.HandlerFunc {
 			return
 		}
 		if closer, ok := info.File.(io.Closer); ok {
-			defer closer.Close()
+			defer func() {
+				_ = closer.Close()
+			}()
 		}
 		if !info.Exists {
 			protocol.SetError(w, protocol.ErrNoContent)

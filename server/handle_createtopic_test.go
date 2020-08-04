@@ -22,7 +22,7 @@ func TestServer_HandleCreateTopic(t *testing.T) {
 	gomock.InOrder(
 		q.EXPECT().CreateTopic(topic).Return(nil).Times(1),
 		q.EXPECT().CreateTopic(topic).Return(protocol.ErrTopicAlreadyExists).Times(1),
-		q.EXPECT().CreateTopic(topic).Return(errors.New("test error")).Times(1),
+		q.EXPECT().CreateTopic(topic).Return(errors.New("test create error")).Times(1),
 	)
 	s := Server{q: q}
 
@@ -36,6 +36,7 @@ func TestServer_HandleCreateTopic(t *testing.T) {
 
 		s.HandleCreateTopic()(w, r)
 		resp := w.Result()
+		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusBadRequest {
 			t.Fatal(resp.Status)
 		}
@@ -55,6 +56,7 @@ func TestServer_HandleCreateTopic(t *testing.T) {
 		r = mux.SetURLVars(r, map[string]string{"topic": topic})
 		s.HandleCreateTopic()(w, r)
 		resp := w.Result()
+		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusCreated {
 			t.Fatal(resp.Status)
 		}
@@ -74,6 +76,7 @@ func TestServer_HandleCreateTopic(t *testing.T) {
 		r = mux.SetURLVars(r, map[string]string{"topic": topic})
 		s.HandleCreateTopic()(w, r)
 		resp := w.Result()
+		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusPreconditionFailed {
 			t.Fatal(resp.Status)
 		}
@@ -93,11 +96,12 @@ func TestServer_HandleCreateTopic(t *testing.T) {
 		r = mux.SetURLVars(r, map[string]string{"topic": topic})
 		s.HandleCreateTopic()(w, r)
 		resp := w.Result()
+		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusInternalServerError {
 			t.Fatal(resp.Status)
 		}
 		err = protocol.ReadErrors(resp.Header)
-		if err.Error() != "test error" {
+		if err.Error() != "test create error" {
 			t.Fatal(err)
 		}
 	}

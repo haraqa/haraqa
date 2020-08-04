@@ -23,7 +23,7 @@ func TestServer_HandleModifyTopic(t *testing.T) {
 	gomock.InOrder(
 		q.EXPECT().TruncateTopic(topic, int64(123)).Return(&queue.TopicInfo{MinOffset: 123, MaxOffset: 456}, nil).Times(1),
 		q.EXPECT().TruncateTopic(topic, int64(123)).Return(nil, protocol.ErrTopicDoesNotExist).Times(1),
-		q.EXPECT().TruncateTopic(topic, int64(123)).Return(nil, errors.New("test error")).Times(1),
+		q.EXPECT().TruncateTopic(topic, int64(123)).Return(nil, errors.New("test modify error")).Times(1),
 	)
 	s := Server{q: q}
 
@@ -37,6 +37,7 @@ func TestServer_HandleModifyTopic(t *testing.T) {
 
 		s.HandleModifyTopic()(w, r)
 		resp := w.Result()
+		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusBadRequest {
 			t.Fatal(resp.Status)
 		}
@@ -56,6 +57,7 @@ func TestServer_HandleModifyTopic(t *testing.T) {
 
 		s.HandleModifyTopic()(w, r)
 		resp := w.Result()
+		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusBadRequest {
 			t.Fatal(resp.Status)
 		}
@@ -75,6 +77,7 @@ func TestServer_HandleModifyTopic(t *testing.T) {
 		r = mux.SetURLVars(r, map[string]string{"topic": topic})
 		s.HandleModifyTopic()(w, r)
 		resp := w.Result()
+		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusBadRequest {
 			t.Fatal(resp.Status)
 		}
@@ -94,6 +97,7 @@ func TestServer_HandleModifyTopic(t *testing.T) {
 		r = mux.SetURLVars(r, map[string]string{"topic": topic})
 		s.HandleModifyTopic()(w, r)
 		resp := w.Result()
+		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
 			t.Fatal(resp.Status)
 		}
@@ -113,6 +117,7 @@ func TestServer_HandleModifyTopic(t *testing.T) {
 		r = mux.SetURLVars(r, map[string]string{"topic": topic})
 		s.HandleModifyTopic()(w, r)
 		resp := w.Result()
+		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
 			t.Fatal(resp.Status)
 		}
@@ -140,6 +145,7 @@ func TestServer_HandleModifyTopic(t *testing.T) {
 		r = mux.SetURLVars(r, map[string]string{"topic": topic})
 		s.HandleModifyTopic()(w, r)
 		resp := w.Result()
+		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusPreconditionFailed {
 			t.Fatal(resp.Status)
 		}
@@ -159,11 +165,12 @@ func TestServer_HandleModifyTopic(t *testing.T) {
 		r = mux.SetURLVars(r, map[string]string{"topic": topic})
 		s.HandleModifyTopic()(w, r)
 		resp := w.Result()
+		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusInternalServerError {
 			t.Fatal(resp.Status)
 		}
 		err = protocol.ReadErrors(resp.Header)
-		if err.Error() != "test error" {
+		if err.Error() != "test modify error" {
 			t.Fatal(err)
 		}
 	}
