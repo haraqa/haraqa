@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"os"
 	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/gorilla/mux"
@@ -32,7 +31,7 @@ func TestNewServer(t *testing.T) {
 
 	// with valid option
 	{
-		q := queue.NewMockQueue(ctrl)
+		q := NewMockQueue(ctrl)
 		gomock.InOrder(
 			q.EXPECT().RootDir().Return("./.haraqa").Times(1),
 			q.EXPECT().Close().Times(1),
@@ -47,14 +46,14 @@ func TestNewServer(t *testing.T) {
 	// with invalid dir
 	{
 		_, err := NewServer(WithDirs("invalid/folder/doesnt/exist/..."))
-		if !strings.HasSuffix(err.Error(), "no such file or directory") {
-			t.Fatal(errors.Unwrap(err))
+		if _, ok := errors.Cause(err).(*os.PathError); !ok {
+			t.Fatal(errors.Cause(err))
 		}
 	}
 
 	// verify routes
 	{
-		q := queue.NewMockQueue(ctrl)
+		q := NewMockQueue(ctrl)
 		q.EXPECT().RootDir().Return(".haraqa").Times(1)
 		s, err := NewServer(WithQueue(q))
 		if err != nil {

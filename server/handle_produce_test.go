@@ -10,7 +10,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/mux"
 	"github.com/haraqa/haraqa/protocol"
-	"github.com/haraqa/haraqa/server/queue"
 	"github.com/pkg/errors"
 )
 
@@ -19,7 +18,7 @@ func TestServer_HandleProduce(t *testing.T) {
 	defer ctrl.Finish()
 
 	topic := "produce_topic"
-	q := queue.NewMockQueue(ctrl)
+	q := NewMockQueue(ctrl)
 	gomock.InOrder(
 		q.EXPECT().Produce(topic, []int64{5, 6}, gomock.Any()).Return(nil).Times(1),
 		q.EXPECT().Produce(topic, []int64{5, 6}, gomock.Any()).Return(protocol.ErrTopicDoesNotExist).Times(1),

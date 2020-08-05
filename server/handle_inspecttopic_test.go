@@ -10,7 +10,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/mux"
 	"github.com/haraqa/haraqa/protocol"
-	"github.com/haraqa/haraqa/server/queue"
 	"github.com/pkg/errors"
 )
 
@@ -19,9 +18,9 @@ func TestServer_HandleInspectTopic(t *testing.T) {
 	defer ctrl.Finish()
 
 	topic := "inspected_topic"
-	q := queue.NewMockQueue(ctrl)
+	q := NewMockQueue(ctrl)
 	gomock.InOrder(
-		q.EXPECT().InspectTopic(topic).Return(&queue.TopicInfo{MinOffset: 123, MaxOffset: 456}, nil).Times(1),
+		q.EXPECT().InspectTopic(topic).Return(&protocol.TopicInfo{MinOffset: 123, MaxOffset: 456}, nil).Times(1),
 		q.EXPECT().InspectTopic(topic).Return(nil, protocol.ErrTopicDoesNotExist).Times(1),
 		q.EXPECT().InspectTopic(topic).Return(nil, errors.New("test inspect error")).Times(1),
 	)

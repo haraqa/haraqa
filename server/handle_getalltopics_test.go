@@ -11,7 +11,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/haraqa/haraqa/protocol"
-	"github.com/haraqa/haraqa/server/queue"
 	"github.com/pkg/errors"
 )
 
@@ -20,7 +19,7 @@ func TestServer_HandleGetAllTopics(t *testing.T) {
 	defer ctrl.Finish()
 
 	topics := []string{"topic_1", "topic_2", "topic_3"}
-	q := queue.NewMockQueue(ctrl)
+	q := NewMockQueue(ctrl)
 	gomock.InOrder(
 		q.EXPECT().ListTopics().Return(topics, nil).Times(2),
 		q.EXPECT().ListTopics().Return(nil, errors.New("test get topics error")).Times(1),

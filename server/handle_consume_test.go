@@ -13,7 +13,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/mux"
 	"github.com/haraqa/haraqa/protocol"
-	"github.com/haraqa/haraqa/server/queue"
 	"github.com/pkg/errors"
 )
 
@@ -31,9 +30,9 @@ func TestServer_HandleConsume(t *testing.T) {
 	defer ctrl.Finish()
 
 	topic := "consume_topic"
-	q := queue.NewMockQueue(ctrl)
+	q := NewMockQueue(ctrl)
 	rs := NewMockReadSeeker(ctrl)
-	info := queue.ConsumeInfo{
+	info := protocol.ConsumeInfo{
 		Filename:  "test_file",
 		File:      readSeekCloser{rs},
 		Exists:    true,
@@ -64,7 +63,7 @@ func TestServer_HandleConsume(t *testing.T) {
 		rs.EXPECT().Seek(int64(0), io.SeekEnd).Return(int64(0), nil).Times(1),
 		rs.EXPECT().Seek(int64(0), io.SeekStart).Return(int64(0), nil).Times(1),
 
-		q.EXPECT().Consume(topic, int64(123), int64(-1)).Return(&queue.ConsumeInfo{Exists: false}, nil).Times(1),
+		q.EXPECT().Consume(topic, int64(123), int64(-1)).Return(&protocol.ConsumeInfo{Exists: false}, nil).Times(1),
 		q.EXPECT().Consume(topic, int64(123), int64(-1)).Return(nil, protocol.ErrTopicDoesNotExist).Times(1),
 		q.EXPECT().Consume(topic, int64(123), int64(-1)).Return(nil, errors.New("test consume error")).Times(1),
 	)

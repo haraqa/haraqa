@@ -10,7 +10,7 @@ import (
 
 type Option func(*Server) error
 
-func WithQueue(q queue.Queue) Option {
+func WithQueue(q Queue) Option {
 	return func(s *Server) error {
 		if q == nil {
 			return errors.New("queue cannot be nil")
@@ -52,7 +52,7 @@ func WithDefaultConsumeLimit(n int64) Option {
 
 type Server struct {
 	*mux.Router
-	q            queue.Queue
+	q            Queue
 	defaultLimit int64
 	dirs         []string
 	metrics      Metrics

@@ -9,7 +9,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/mux"
 	"github.com/haraqa/haraqa/protocol"
-	"github.com/haraqa/haraqa/server/queue"
 	"github.com/pkg/errors"
 )
 
@@ -18,7 +17,7 @@ func TestServer_HandleDeleteTopic(t *testing.T) {
 	defer ctrl.Finish()
 
 	topic := "deleted_topic"
-	q := queue.NewMockQueue(ctrl)
+	q := NewMockQueue(ctrl)
 	gomock.InOrder(
 		q.EXPECT().DeleteTopic(topic).Return(nil).Times(1),
 		q.EXPECT().DeleteTopic(topic).Return(protocol.ErrTopicDoesNotExist).Times(1),

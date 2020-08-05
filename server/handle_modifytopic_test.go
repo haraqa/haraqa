@@ -10,7 +10,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/mux"
 	"github.com/haraqa/haraqa/protocol"
-	"github.com/haraqa/haraqa/server/queue"
 	"github.com/pkg/errors"
 )
 
@@ -19,9 +18,9 @@ func TestServer_HandleModifyTopic(t *testing.T) {
 	defer ctrl.Finish()
 
 	topic := "modified_topic"
-	q := queue.NewMockQueue(ctrl)
+	q := NewMockQueue(ctrl)
 	gomock.InOrder(
-		q.EXPECT().TruncateTopic(topic, int64(123)).Return(&queue.TopicInfo{MinOffset: 123, MaxOffset: 456}, nil).Times(1),
+		q.EXPECT().TruncateTopic(topic, int64(123)).Return(&protocol.TopicInfo{MinOffset: 123, MaxOffset: 456}, nil).Times(1),
 		q.EXPECT().TruncateTopic(topic, int64(123)).Return(nil, protocol.ErrTopicDoesNotExist).Times(1),
 		q.EXPECT().TruncateTopic(topic, int64(123)).Return(nil, errors.New("test modify error")).Times(1),
 	)
@@ -98,7 +97,7 @@ func TestServer_HandleModifyTopic(t *testing.T) {
 		s.HandleModifyTopic()(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode != http.StatusNoContent {
 			t.Fatal(resp.Status)
 		}
 		err = protocol.ReadErrors(resp.Header)

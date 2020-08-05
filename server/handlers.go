@@ -76,15 +76,15 @@ func (s *Server) HandleModifyTopic() http.HandlerFunc {
 			return
 		}
 
-		var info protocol.TopicInfo
-		if request.Truncate > 0 {
-			qInfo, err := s.q.TruncateTopic(topic, request.Truncate)
-			if err != nil {
-				protocol.SetError(w, err)
-				return
-			}
-			info.MaxOffset = qInfo.MaxOffset
-			info.MinOffset = qInfo.MinOffset
+		if request.Truncate == 0 {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		info, err := s.q.TruncateTopic(topic, request.Truncate)
+		if err != nil {
+			protocol.SetError(w, err)
+			return
 		}
 		w.WriteHeader(http.StatusOK)
 		_ = json.NewEncoder(w).Encode(&info)
@@ -127,10 +127,7 @@ func (s *Server) HandleInspectTopic() http.HandlerFunc {
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(&protocol.TopicInfo{
-			MaxOffset: info.MaxOffset,
-			MinOffset: info.MinOffset,
-		})
+		_ = json.NewEncoder(w).Encode(info)
 	}
 }
 

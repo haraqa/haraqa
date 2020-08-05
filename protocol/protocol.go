@@ -1,10 +1,12 @@
 package protocol
 
 import (
+	"io"
 	"net/http"
 	"net/textproto"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 )
@@ -141,4 +143,15 @@ type ModifyRequest struct {
 type TopicInfo struct {
 	MinOffset int64 `json:"minOffset"`
 	MaxOffset int64 `json:"maxOffset"`
+}
+
+type ConsumeInfo struct {
+	Filename  string
+	File      io.ReadSeeker
+	Exists    bool
+	StartAt   uint64
+	EndAt     uint64
+	StartTime time.Time
+	EndTime   time.Time
+	Sizes     []int64
 }

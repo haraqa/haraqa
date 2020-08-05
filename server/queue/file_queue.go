@@ -13,19 +13,21 @@ import (
 	"time"
 
 	"github.com/haraqa/haraqa/protocol"
-
 	"github.com/pkg/errors"
 )
-
-var _ Queue = &FileQueue{}
 
 type FileQueue struct {
 	rootDirNames []string
 	rootDirs     []*os.File
 	max          int64
 	produceLocks sync.Map
-	produceCache Cache
-	consumeCache Cache
+	produceCache cache
+	consumeCache cache
+}
+
+type cache interface {
+	Load(key interface{}) (interface{}, bool)
+	Store(key, value interface{})
 }
 
 func NewFileQueue(dirs ...string) (*FileQueue, error) {
@@ -106,11 +108,11 @@ func (q *FileQueue) DeleteTopic(topic string) error {
 	return nil
 }
 
-func (q *FileQueue) InspectTopic(topic string) (*TopicInfo, error) {
+func (q *FileQueue) InspectTopic(topic string) (*protocol.TopicInfo, error) {
 	return nil, nil
 }
 
-func (q *FileQueue) TruncateTopic(topic string, id int64) (*TopicInfo, error) {
+func (q *FileQueue) TruncateTopic(topic string, id int64) (*protocol.TopicInfo, error) {
 	return nil, nil
 }
 
@@ -180,7 +182,7 @@ func (q *FileQueue) Produce(topic string, msgSizes []int64, r io.Reader) error {
 	return fs.WriteDats(data)
 }
 
-func (q *FileQueue) Consume(topic string, id int64, N int64) (*ConsumeInfo, error) {
+func (q *FileQueue) Consume(topic string, id int64, N int64) (*protocol.ConsumeInfo, error) {
 	datName, err := getConsumeDat(q.consumeCache, filepath.Join(q.rootDirNames[len(q.rootDirNames)-1], topic), id)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -202,7 +204,7 @@ func (q *FileQueue) Consume(topic string, id int64, N int64) (*ConsumeInfo, erro
 	if err != nil {
 		return nil, err
 	}
-	var info ConsumeInfo
+	var info protocol.ConsumeInfo
 	if stat.Size() < id*32 {
 		return &info, nil
 	}
@@ -318,7 +320,7 @@ func getLatestDat(path string) (string, error) {
 	return formatName(0), nil
 }
 
-func getConsumeDat(consumeCache Cache, path string, id int64) (string, error) {
+func getConsumeDat(consumeCache cache, path string, id int64) (string, error) {
 	exact := formatName(id)
 	value, ok := consumeCache.Load(path)
 	if ok {
@@ -443,9 +445,4 @@ func (fs *LogFiles) Open(dirs []string, topic string, max int64) error {
 
 	fs.Entries = info.Size() / 32
 	return nil
-}
-
-type Cache interface {
-	Load(key interface{}) (interface{}, bool)
-	Store(key, value interface{})
 }

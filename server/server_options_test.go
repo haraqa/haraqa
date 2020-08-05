@@ -3,8 +3,6 @@ package server
 import (
 	"reflect"
 	"testing"
-
-	"github.com/haraqa/haraqa/server/queue"
 )
 
 func TestServerOptions(t *testing.T) {
@@ -16,7 +14,7 @@ func TestServerOptions(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		q := &queue.MockQueue{}
+		q := &MockQueue{}
 		err = WithQueue(q)(s)
 		if err != nil {
 			t.Fatal(err)
