@@ -10,7 +10,7 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/golang/mock/gomock"
-	"github.com/haraqa/haraqa/server/queue"
+	"github.com/haraqa/haraqa/internal/queue"
 
 	"github.com/pkg/errors"
 )

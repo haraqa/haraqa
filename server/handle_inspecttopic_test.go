@@ -9,7 +9,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/mux"
-	"github.com/haraqa/haraqa/protocol"
+	"github.com/haraqa/haraqa/internal/protocol"
 	"github.com/pkg/errors"
 )
 

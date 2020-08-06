@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/textproto"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -101,14 +100,6 @@ func ReadErrors(header http.Header) error {
 		}
 	}
 	return nil
-}
-
-func GetTopic(vars map[string]string) (string, error) {
-	topic, _ := vars["topic"]
-	if topic == "" {
-		return "", ErrInvalidTopic
-	}
-	return strings.ToLower(topic), nil
 }
 
 func ReadSizes(header http.Header) ([]int64, error) {

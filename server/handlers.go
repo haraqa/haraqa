@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/haraqa/haraqa/protocol"
+	"github.com/haraqa/haraqa/internal/protocol"
 )
 
 func (s *Server) HandleGetAllTopics() http.HandlerFunc {
@@ -40,7 +40,7 @@ func (s *Server) HandleCreateTopic() http.HandlerFunc {
 			_ = r.Body.Close()
 		}
 
-		topic, err := protocol.GetTopic(mux.Vars(r))
+		topic, err := getTopic(mux.Vars(r))
 		if err != nil {
 			protocol.SetError(w, err)
 			return
@@ -64,7 +64,7 @@ func (s *Server) HandleModifyTopic() http.HandlerFunc {
 			_ = r.Body.Close()
 		}()
 
-		topic, err := protocol.GetTopic(mux.Vars(r))
+		topic, err := getTopic(mux.Vars(r))
 		if err != nil {
 			protocol.SetError(w, err)
 			return
@@ -97,7 +97,7 @@ func (s *Server) HandleDeleteTopic() http.HandlerFunc {
 			_ = r.Body.Close()
 		}
 
-		topic, err := protocol.GetTopic(mux.Vars(r))
+		topic, err := getTopic(mux.Vars(r))
 		if err != nil {
 			protocol.SetError(w, err)
 			return
@@ -116,7 +116,7 @@ func (s *Server) HandleInspectTopic() http.HandlerFunc {
 			_ = r.Body.Close()
 		}
 
-		topic, err := protocol.GetTopic(mux.Vars(r))
+		topic, err := getTopic(mux.Vars(r))
 		if err != nil {
 			protocol.SetError(w, err)
 			return
@@ -142,7 +142,7 @@ func (s *Server) HandleProduce() http.HandlerFunc {
 		}()
 
 		vars := mux.Vars(r)
-		topic, err := protocol.GetTopic(vars)
+		topic, err := getTopic(vars)
 		if err != nil {
 			protocol.SetError(w, err)
 			return
@@ -170,7 +170,7 @@ func (s *Server) HandleConsume() http.HandlerFunc {
 		}
 
 		vars := mux.Vars(r)
-		topic, err := protocol.GetTopic(vars)
+		topic, err := getTopic(vars)
 		if err != nil {
 			protocol.SetError(w, err)
 			return
@@ -220,4 +220,12 @@ func (s *Server) HandleConsume() http.HandlerFunc {
 		http.ServeContent(w, r, info.Filename, info.EndTime, info.File)
 		s.metrics.ConsumeMsgs(len(info.Sizes))
 	}
+}
+
+func getTopic(vars map[string]string) (string, error) {
+	topic, _ := vars["topic"]
+	if topic == "" {
+		return "", protocol.ErrInvalidTopic
+	}
+	return strings.ToLower(topic), nil
 }

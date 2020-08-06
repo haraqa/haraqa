@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/haraqa/haraqa/server/queue"
+	"github.com/haraqa/haraqa/internal/queue"
 	"github.com/pkg/errors"
 )
 

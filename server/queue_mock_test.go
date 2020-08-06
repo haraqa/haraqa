@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	protocol "github.com/haraqa/haraqa/protocol"
+	protocol "github.com/haraqa/haraqa/internal/protocol"
 )
 
 // MockQueue is a mock of Queue interface

@@ -3,9 +3,9 @@ package server
 import (
 	"io"
 
-	"github.com/haraqa/haraqa/protocol"
+	"github.com/haraqa/haraqa/internal/protocol"
 
-	"github.com/haraqa/haraqa/server/queue"
+	"github.com/haraqa/haraqa/internal/queue"
 )
 
 //go:generate mockgen -source queue.go -package server -destination queue_mock_test.go

@@ -22,7 +22,7 @@ RUN go test -mod=readonly -bench=. -benchtime=10000x -run=XXX -cpu=4 \
       -cpuprofile   /profiles/cpu.out \
       -memprofile   /profiles/mem.out \
       -coverprofile /profiles/cover.out \
-      ./benchmarks
+      ./internal/benchmarks
 
 # Build binary
 RUN if [ -z "$TEST_ONLY" ] ; then \

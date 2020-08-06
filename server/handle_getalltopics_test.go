@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/haraqa/haraqa/protocol"
+	"github.com/haraqa/haraqa/internal/protocol"
 	"github.com/pkg/errors"
 )
 

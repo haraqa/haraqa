@@ -27,7 +27,7 @@ jobs:
         $(go env GOPATH)/bin/goveralls -coverprofile=cover.out -service=github-actions -repotoken ${{ secrets.COVERALLS_TOKEN }}
 
     - name: Benchmark
-      run: go test -bench=. -benchtime=10000x -run=XXX ./benchmarks
+      run: go test -bench=. -benchtime=10000x -run=XXX ./internal/benchmarks
 
     - name: Build
       run: cd cmd/server && CGO_ENABLED=0 go build -mod=readonly -ldflags '-s -w' main.go
