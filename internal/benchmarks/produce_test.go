@@ -11,8 +11,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/haraqa/haraqa/client"
-	"github.com/haraqa/haraqa/server"
+	"github.com/haraqa/haraqa/pkg/haraqa"
+	"github.com/haraqa/haraqa/pkg/server"
 )
 
 func BenchmarkProduce(b *testing.B) {
@@ -42,7 +42,7 @@ func BenchmarkProduce(b *testing.B) {
 	s := httptest.NewServer(haraqaServer)
 	defer s.Close()
 
-	c := client.NewClient(s.URL)
+	c := haraqa.NewClient(s.URL)
 	err = c.CreateTopic("benchtopic")
 	if err != nil {
 		log.Fatal(err)
@@ -60,7 +60,7 @@ func BenchmarkProduce(b *testing.B) {
 	b.Run("go produce 1000", benchProducerN(10, 1000, c))
 }
 
-func benchProducer(batchSize int, c *client.Client) func(b *testing.B) {
+func benchProducer(batchSize int, c *haraqa.Client) func(b *testing.B) {
 	var err error
 	msgs := make([][100]byte, batchSize)
 	sizes := make([]int64, len(msgs))
@@ -83,7 +83,7 @@ func benchProducer(batchSize int, c *client.Client) func(b *testing.B) {
 	}
 }
 
-func benchProducerN(N, batchSize int, c *client.Client) func(b *testing.B) {
+func benchProducerN(N, batchSize int, c *haraqa.Client) func(b *testing.B) {
 	var err error
 	msgs := make([][100]byte, batchSize)
 	sizes := make([]int64, len(msgs))

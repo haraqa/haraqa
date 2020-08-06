@@ -2,8 +2,9 @@ package server
 
 import (
 	"io"
+	"net/http"
 
-	"github.com/haraqa/haraqa/internal/protocol"
+	"github.com/haraqa/haraqa/internal/headers"
 
 	"github.com/haraqa/haraqa/internal/queue"
 )
@@ -21,9 +22,9 @@ type Queue interface {
 	CreateTopic(topic string) error
 	DeleteTopic(topic string) error
 
-	TruncateTopic(topic string, id int64) (*protocol.TopicInfo, error)
-	InspectTopic(topic string) (*protocol.TopicInfo, error)
+	TruncateTopic(topic string, id int64) (*headers.TopicInfo, error)
+	InspectTopic(topic string) (*headers.TopicInfo, error)
 
 	Produce(topic string, msgSizes []int64, r io.Reader) error
-	Consume(topic string, id int64, n int64) (*protocol.ConsumeInfo, error)
+	Consume(topic string, id int64, n int64, w http.ResponseWriter) (int, error)
 }

@@ -2,21 +2,19 @@ package server
 
 import (
 	"encoding/json"
-	"io"
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/haraqa/haraqa/internal/protocol"
+	"github.com/haraqa/haraqa/internal/headers"
 )
 
 func (s *Server) HandleGetAllTopics() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		topics, err := s.q.ListTopics()
 		if err != nil {
-			protocol.SetError(w, err)
+			headers.SetError(w, err)
 			return
 		}
 
@@ -42,12 +40,12 @@ func (s *Server) HandleCreateTopic() http.HandlerFunc {
 
 		topic, err := getTopic(mux.Vars(r))
 		if err != nil {
-			protocol.SetError(w, err)
+			headers.SetError(w, err)
 			return
 		}
 		err = s.q.CreateTopic(topic)
 		if err != nil {
-			protocol.SetError(w, err)
+			headers.SetError(w, err)
 			return
 		}
 		w.WriteHeader(http.StatusCreated)
@@ -57,7 +55,7 @@ func (s *Server) HandleCreateTopic() http.HandlerFunc {
 func (s *Server) HandleModifyTopic() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Body == nil {
-			protocol.SetError(w, protocol.ErrInvalidBodyMissing)
+			headers.SetError(w, headers.ErrInvalidBodyMissing)
 			return
 		}
 		defer func() {
@@ -66,13 +64,13 @@ func (s *Server) HandleModifyTopic() http.HandlerFunc {
 
 		topic, err := getTopic(mux.Vars(r))
 		if err != nil {
-			protocol.SetError(w, err)
+			headers.SetError(w, err)
 			return
 		}
 
-		var request protocol.ModifyRequest
+		var request headers.ModifyRequest
 		if err = json.NewDecoder(r.Body).Decode(&request); err != nil {
-			protocol.SetError(w, protocol.ErrInvalidBodyJSON)
+			headers.SetError(w, headers.ErrInvalidBodyJSON)
 			return
 		}
 
@@ -83,7 +81,7 @@ func (s *Server) HandleModifyTopic() http.HandlerFunc {
 
 		info, err := s.q.TruncateTopic(topic, request.Truncate)
 		if err != nil {
-			protocol.SetError(w, err)
+			headers.SetError(w, err)
 			return
 		}
 		w.WriteHeader(http.StatusOK)
@@ -99,12 +97,12 @@ func (s *Server) HandleDeleteTopic() http.HandlerFunc {
 
 		topic, err := getTopic(mux.Vars(r))
 		if err != nil {
-			protocol.SetError(w, err)
+			headers.SetError(w, err)
 			return
 		}
 		err = s.q.DeleteTopic(topic)
 		if err != nil {
-			protocol.SetError(w, err)
+			headers.SetError(w, err)
 			return
 		}
 	}
@@ -118,12 +116,12 @@ func (s *Server) HandleInspectTopic() http.HandlerFunc {
 
 		topic, err := getTopic(mux.Vars(r))
 		if err != nil {
-			protocol.SetError(w, err)
+			headers.SetError(w, err)
 			return
 		}
 		info, err := s.q.InspectTopic(topic)
 		if err != nil {
-			protocol.SetError(w, err)
+			headers.SetError(w, err)
 			return
 		}
 		w.WriteHeader(http.StatusOK)
@@ -134,7 +132,7 @@ func (s *Server) HandleInspectTopic() http.HandlerFunc {
 func (s *Server) HandleProduce() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Body == nil {
-			protocol.SetError(w, protocol.ErrInvalidBodyMissing)
+			headers.SetError(w, headers.ErrInvalidBodyMissing)
 			return
 		}
 		defer func() {
@@ -144,19 +142,19 @@ func (s *Server) HandleProduce() http.HandlerFunc {
 		vars := mux.Vars(r)
 		topic, err := getTopic(vars)
 		if err != nil {
-			protocol.SetError(w, err)
+			headers.SetError(w, err)
 			return
 		}
 
-		sizes, err := protocol.ReadSizes(r.Header)
+		sizes, err := headers.ReadSizes(r.Header)
 		if err != nil {
-			protocol.SetError(w, err)
+			headers.SetError(w, err)
 			return
 		}
 
 		err = s.q.Produce(topic, sizes, r.Body)
 		if err != nil {
-			protocol.SetError(w, err)
+			headers.SetError(w, err)
 			return
 		}
 		s.metrics.ProduceMsgs(len(sizes))
@@ -172,60 +170,44 @@ func (s *Server) HandleConsume() http.HandlerFunc {
 		vars := mux.Vars(r)
 		topic, err := getTopic(vars)
 		if err != nil {
-			protocol.SetError(w, err)
+			headers.SetError(w, err)
 			return
 		}
 		id, err := strconv.ParseInt(vars["id"], 10, 64)
 		if err != nil {
-			protocol.SetError(w, protocol.ErrInvalidMessageID)
+			headers.SetError(w, headers.ErrInvalidMessageID)
 			return
 		}
 
 		var n int64
-		limitHeader, ok := r.Header[protocol.HeaderLimit]
+		limitHeader, ok := r.Header[headers.HeaderLimit]
 		if !ok {
 			n = s.defaultLimit
 		} else {
 			n, err = strconv.ParseInt(limitHeader[0], 10, 64)
 			if err != nil || n == 0 {
-				protocol.SetError(w, protocol.ErrInvalidHeaderLimit)
+				headers.SetError(w, headers.ErrInvalidHeaderLimit)
 				return
 			}
 		}
 
-		info, err := s.q.Consume(topic, id, n)
+		count, err := s.q.Consume(topic, id, n, w)
 		if err != nil {
-			protocol.SetError(w, err)
+			headers.SetError(w, err)
 			return
 		}
-		if closer, ok := info.File.(io.Closer); ok {
-			defer func() {
-				_ = closer.Close()
-			}()
-		}
-		if !info.Exists {
-			protocol.SetError(w, protocol.ErrNoContent)
+		if count == 0 {
+			headers.SetError(w, headers.ErrNoContent)
 			return
 		}
-		wHeader := w.Header()
-		wHeader[protocol.HeaderStartTime] = []string{info.StartTime.Format(time.ANSIC)}
-		wHeader[protocol.HeaderEndTime] = []string{info.EndTime.Format(time.ANSIC)}
-		wHeader[protocol.HeaderFileName] = []string{info.Filename}
-		wHeader["Content-Type"] = []string{"application/octet-stream"}
-		protocol.SetSizes(info.Sizes, wHeader)
-		rangeHeader := "bytes=" + strconv.FormatUint(info.StartAt, 10) + "-" + strconv.FormatUint(info.EndAt, 10)
-		wHeader["Range"] = []string{rangeHeader}
-		r.Header["Range"] = []string{rangeHeader}
-
-		http.ServeContent(w, r, info.Filename, info.EndTime, info.File)
-		s.metrics.ConsumeMsgs(len(info.Sizes))
+		s.metrics.ConsumeMsgs(count)
 	}
 }
 
 func getTopic(vars map[string]string) (string, error) {
 	topic, _ := vars["topic"]
 	if topic == "" {
-		return "", protocol.ErrInvalidTopic
+		return "", headers.ErrInvalidTopic
 	}
 	return strings.ToLower(topic), nil
 }

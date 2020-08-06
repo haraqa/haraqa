@@ -1,4 +1,4 @@
-package client
+package haraqa
 
 import (
 	"io"
@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/haraqa/haraqa/internal/protocol"
+	"github.com/haraqa/haraqa/internal/headers"
 	"github.com/pkg/errors"
 )
 
@@ -51,7 +51,7 @@ func (c *Client) CreateTopic(topic string) error {
 		return err
 	}
 	if resp.StatusCode != http.StatusCreated {
-		err = protocol.ReadErrors(resp.Header)
+		err = headers.ReadErrors(resp.Header)
 		return errors.Wrap(err, "error creating topic")
 	}
 	return nil
@@ -62,14 +62,14 @@ func (c *Client) Produce(topic string, sizes []int64, r io.Reader) error {
 	if err != nil {
 		return err
 	}
-	req.Header = protocol.SetSizes(sizes, req.Header)
+	req.Header = headers.SetSizes(sizes, req.Header)
 
 	resp, err := c.c.Do(req)
 	if err != nil {
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
-		err = protocol.ReadErrors(resp.Header)
+		err = headers.ReadErrors(resp.Header)
 		return errors.Wrap(err, "error producing")
 	}
 	return nil
@@ -91,7 +91,7 @@ func (c *Client) Consume(topic string, id uint64, limit int) (io.ReadCloser, []i
 		return nil, nil, err
 	}
 	if limit > 0 {
-		req.Header[protocol.HeaderLimit] = []string{strconv.Itoa(limit)}
+		req.Header[headers.HeaderLimit] = []string{strconv.Itoa(limit)}
 	}
 
 	resp, err := c.c.Do(req)
@@ -99,11 +99,11 @@ func (c *Client) Consume(topic string, id uint64, limit int) (io.ReadCloser, []i
 		return nil, nil, err
 	}
 	if resp.StatusCode != http.StatusPartialContent {
-		err = protocol.ReadErrors(resp.Header)
+		err = headers.ReadErrors(resp.Header)
 		return nil, nil, errors.Wrap(err, "error consuming")
 	}
 
-	sizes, err := protocol.ReadSizes(resp.Header)
+	sizes, err := headers.ReadSizes(resp.Header)
 	if err != nil {
 		return nil, nil, err
 	}

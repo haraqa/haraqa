@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/haraqa/haraqa/internal/protocol"
+	"github.com/haraqa/haraqa/internal/headers"
 	"github.com/pkg/errors"
 )
 
@@ -39,7 +39,7 @@ func TestServer_HandleGetAllTopics(t *testing.T) {
 		if resp.StatusCode != http.StatusOK {
 			t.Fatal(resp.Status)
 		}
-		err = protocol.ReadErrors(resp.Header)
+		err = headers.ReadErrors(resp.Header)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -66,7 +66,7 @@ func TestServer_HandleGetAllTopics(t *testing.T) {
 		if resp.StatusCode != http.StatusOK {
 			t.Fatal(resp.Status)
 		}
-		err = protocol.ReadErrors(resp.Header)
+		err = headers.ReadErrors(resp.Header)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -98,7 +98,7 @@ func TestServer_HandleGetAllTopics(t *testing.T) {
 		if resp.StatusCode != http.StatusInternalServerError {
 			t.Fatal(resp.Status)
 		}
-		err = protocol.ReadErrors(resp.Header)
+		err = headers.ReadErrors(resp.Header)
 		if err.Error() != "test get topics error" {
 			t.Fatal(err)
 		}

@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/haraqa/haraqa/server"
+	"github.com/haraqa/haraqa/pkg/server"
 )
 
 func main() {
@@ -16,11 +16,12 @@ func main() {
 	)
 	flag.Int64Var(&ballast, "ballast", 1<<30, "Garbage collection ballast")
 	flag.UintVar(&httpPort, "http", 6060, "Port for serving pprof metrics and files")
-
 	flag.Parse()
 
 	// set a ballast
-	_ = make([]byte, ballast)
+	if ballast >= 0 {
+		_ = make([]byte, ballast)
+	}
 
 	s, err := server.NewServer()
 	if err != nil {

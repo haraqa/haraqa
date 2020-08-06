@@ -1,23 +1,8 @@
 package server
 
-import (
-	"bytes"
-	"crypto/rand"
-	"io"
-	"io/ioutil"
-	"net/http"
-	"net/http/httptest"
-	"testing"
-	"time"
-
-	"github.com/golang/mock/gomock"
-	"github.com/gorilla/mux"
-	"github.com/haraqa/haraqa/internal/protocol"
-	"github.com/pkg/errors"
-)
-
-//go:generate mockgen -package server -destination handle_consume_mocks_test.go io ReadSeeker
-//go:generate goimports -w handle_consume_mocks_test.go
+/*
+// go:generate mockgen -package server -destination handle_consume_mocks_test.go io ReadSeeker
+// go:generate goimports -w handle_consume_mocks_test.go
 
 type readSeekCloser struct {
 	io.ReadSeeker
@@ -245,3 +230,4 @@ func TestServer_HandleConsume(t *testing.T) {
 		}
 	}
 }
+*/

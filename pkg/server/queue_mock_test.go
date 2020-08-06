@@ -6,10 +6,11 @@ package server
 
 import (
 	io "io"
+	http "net/http"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	protocol "github.com/haraqa/haraqa/internal/protocol"
+	headers "github.com/haraqa/haraqa/internal/headers"
 )
 
 // MockQueue is a mock of Queue interface
@@ -107,10 +108,10 @@ func (mr *MockQueueMockRecorder) DeleteTopic(topic interface{}) *gomock.Call {
 }
 
 // TruncateTopic mocks base method
-func (m *MockQueue) TruncateTopic(topic string, id int64) (*protocol.TopicInfo, error) {
+func (m *MockQueue) TruncateTopic(topic string, id int64) (*headers.TopicInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "TruncateTopic", topic, id)
-	ret0, _ := ret[0].(*protocol.TopicInfo)
+	ret0, _ := ret[0].(*headers.TopicInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -122,10 +123,10 @@ func (mr *MockQueueMockRecorder) TruncateTopic(topic, id interface{}) *gomock.Ca
 }
 
 // InspectTopic mocks base method
-func (m *MockQueue) InspectTopic(topic string) (*protocol.TopicInfo, error) {
+func (m *MockQueue) InspectTopic(topic string) (*headers.TopicInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InspectTopic", topic)
-	ret0, _ := ret[0].(*protocol.TopicInfo)
+	ret0, _ := ret[0].(*headers.TopicInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -151,16 +152,16 @@ func (mr *MockQueueMockRecorder) Produce(topic, msgSizes, r interface{}) *gomock
 }
 
 // Consume mocks base method
-func (m *MockQueue) Consume(topic string, id, n int64) (*protocol.ConsumeInfo, error) {
+func (m *MockQueue) Consume(topic string, id, n int64, w http.ResponseWriter) (int, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Consume", topic, id, n)
-	ret0, _ := ret[0].(*protocol.ConsumeInfo)
+	ret := m.ctrl.Call(m, "Consume", topic, id, n, w)
+	ret0, _ := ret[0].(int)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Consume indicates an expected call of Consume
-func (mr *MockQueueMockRecorder) Consume(topic, id, n interface{}) *gomock.Call {
+func (mr *MockQueueMockRecorder) Consume(topic, id, n, w interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Consume", reflect.TypeOf((*MockQueue)(nil).Consume), topic, id, n)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Consume", reflect.TypeOf((*MockQueue)(nil).Consume), topic, id, n, w)
 }

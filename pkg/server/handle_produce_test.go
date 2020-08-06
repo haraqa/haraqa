@@ -9,7 +9,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/mux"
-	"github.com/haraqa/haraqa/internal/protocol"
+	"github.com/haraqa/haraqa/internal/headers"
 	"github.com/pkg/errors"
 )
 
@@ -21,7 +21,7 @@ func TestServer_HandleProduce(t *testing.T) {
 	q := NewMockQueue(ctrl)
 	gomock.InOrder(
 		q.EXPECT().Produce(topic, []int64{5, 6}, gomock.Any()).Return(nil).Times(1),
-		q.EXPECT().Produce(topic, []int64{5, 6}, gomock.Any()).Return(protocol.ErrTopicDoesNotExist).Times(1),
+		q.EXPECT().Produce(topic, []int64{5, 6}, gomock.Any()).Return(headers.ErrTopicDoesNotExist).Times(1),
 		q.EXPECT().Produce(topic, []int64{5, 6}, gomock.Any()).Return(errors.New("test produce error")).Times(1),
 	)
 	s := Server{q: q, metrics: noOpMetrics{}}
@@ -40,8 +40,8 @@ func TestServer_HandleProduce(t *testing.T) {
 		if resp.StatusCode != http.StatusBadRequest {
 			t.Fatal(resp.Status)
 		}
-		err = protocol.ReadErrors(resp.Header)
-		if err != protocol.ErrInvalidBodyMissing {
+		err = headers.ReadErrors(resp.Header)
+		if err != headers.ErrInvalidBodyMissing {
 			t.Fatal(err)
 		}
 	}
@@ -60,8 +60,8 @@ func TestServer_HandleProduce(t *testing.T) {
 		if resp.StatusCode != http.StatusBadRequest {
 			t.Fatal(resp.Status)
 		}
-		err = protocol.ReadErrors(resp.Header)
-		if err != protocol.ErrInvalidTopic {
+		err = headers.ReadErrors(resp.Header)
+		if err != headers.ErrInvalidTopic {
 			t.Fatal(err)
 		}
 	}
@@ -80,8 +80,8 @@ func TestServer_HandleProduce(t *testing.T) {
 		if resp.StatusCode != http.StatusBadRequest {
 			t.Fatal(resp.Status)
 		}
-		err = protocol.ReadErrors(resp.Header)
-		if err != protocol.ErrInvalidHeaderSizes {
+		err = headers.ReadErrors(resp.Header)
+		if err != headers.ErrInvalidHeaderSizes {
 			t.Fatal(err)
 		}
 	}
@@ -94,15 +94,15 @@ func TestServer_HandleProduce(t *testing.T) {
 			t.Fatal(err)
 		}
 		r = mux.SetURLVars(r, map[string]string{"topic": topic})
-		r.Header.Set(strings.ToLower(protocol.HeaderSizes), "invalid")
+		r.Header.Set(strings.ToLower(headers.HeaderSizes), "invalid")
 		s.HandleProduce()(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusBadRequest {
 			t.Fatal(resp.Status)
 		}
-		err = protocol.ReadErrors(resp.Header)
-		if err != protocol.ErrInvalidHeaderSizes {
+		err = headers.ReadErrors(resp.Header)
+		if err != headers.ErrInvalidHeaderSizes {
 			t.Fatal(err)
 		}
 	}
@@ -115,8 +115,8 @@ func TestServer_HandleProduce(t *testing.T) {
 			t.Fatal(err)
 		}
 		r = mux.SetURLVars(r, map[string]string{"topic": topic})
-		r.Header.Add(protocol.HeaderSizes, "5")
-		r.Header.Add(protocol.HeaderSizes, "6")
+		r.Header.Add(headers.HeaderSizes, "5")
+		r.Header.Add(headers.HeaderSizes, "6")
 
 		s.HandleProduce()(w, r)
 		resp := w.Result()
@@ -124,7 +124,7 @@ func TestServer_HandleProduce(t *testing.T) {
 		if resp.StatusCode != http.StatusOK {
 			t.Fatal(resp.Status)
 		}
-		err = protocol.ReadErrors(resp.Header)
+		err = headers.ReadErrors(resp.Header)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -138,8 +138,8 @@ func TestServer_HandleProduce(t *testing.T) {
 			t.Fatal(err)
 		}
 		r = mux.SetURLVars(r, map[string]string{"topic": topic})
-		r.Header.Add(protocol.HeaderSizes, "5")
-		r.Header.Add(protocol.HeaderSizes, "6")
+		r.Header.Add(headers.HeaderSizes, "5")
+		r.Header.Add(headers.HeaderSizes, "6")
 
 		s.HandleProduce()(w, r)
 		resp := w.Result()
@@ -147,8 +147,8 @@ func TestServer_HandleProduce(t *testing.T) {
 		if resp.StatusCode != http.StatusPreconditionFailed {
 			t.Fatal(resp.Status)
 		}
-		err = protocol.ReadErrors(resp.Header)
-		if err != protocol.ErrTopicDoesNotExist {
+		err = headers.ReadErrors(resp.Header)
+		if err != headers.ErrTopicDoesNotExist {
 			t.Fatal(err)
 		}
 	}
@@ -161,8 +161,8 @@ func TestServer_HandleProduce(t *testing.T) {
 			t.Fatal(err)
 		}
 		r = mux.SetURLVars(r, map[string]string{"topic": topic})
-		r.Header.Add(protocol.HeaderSizes, "5")
-		r.Header.Add(protocol.HeaderSizes, "6")
+		r.Header.Add(headers.HeaderSizes, "5")
+		r.Header.Add(headers.HeaderSizes, "6")
 
 		s.HandleProduce()(w, r)
 		resp := w.Result()
@@ -170,7 +170,7 @@ func TestServer_HandleProduce(t *testing.T) {
 		if resp.StatusCode != http.StatusInternalServerError {
 			t.Fatal(resp.Status)
 		}
-		err = protocol.ReadErrors(resp.Header)
+		err = headers.ReadErrors(resp.Header)
 		if err.Error() != "test produce error" {
 			t.Fatal(err)
 		}

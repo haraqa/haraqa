@@ -11,8 +11,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/haraqa/haraqa/client"
-	"github.com/haraqa/haraqa/server"
+	"github.com/haraqa/haraqa/pkg/haraqa"
+	"github.com/haraqa/haraqa/pkg/server"
 )
 
 func BenchmarkConsume(b *testing.B) {
@@ -39,7 +39,7 @@ func BenchmarkConsume(b *testing.B) {
 	s := httptest.NewServer(haraqaServer)
 	defer s.Close()
 
-	c := client.NewClient(s.URL)
+	c := haraqa.NewClient(s.URL)
 
 	err = c.CreateTopic("benchtopic")
 	if err != nil {
@@ -74,7 +74,7 @@ func BenchmarkConsume(b *testing.B) {
 	b.Run("go consume 1000", benchConsumerN(10, 1000, c))
 }
 
-func benchConsumer(batchSize int, c *client.Client) func(b *testing.B) {
+func benchConsumer(batchSize int, c *haraqa.Client) func(b *testing.B) {
 	return func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; {
@@ -94,7 +94,7 @@ func benchConsumer(batchSize int, c *client.Client) func(b *testing.B) {
 	}
 }
 
-func benchConsumerN(N, batchSize int, c *client.Client) func(b *testing.B) {
+func benchConsumerN(N, batchSize int, c *haraqa.Client) func(b *testing.B) {
 	return func(b *testing.B) {
 		var wg sync.WaitGroup
 		ch := make(chan struct{}, N)

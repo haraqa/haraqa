@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
@@ -12,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/haraqa/haraqa/internal/protocol"
+	"github.com/haraqa/haraqa/internal/headers"
 	"github.com/pkg/errors"
 )
 
@@ -92,7 +93,7 @@ func (q *FileQueue) CreateTopic(topic string) error {
 	for _, name := range q.rootDirNames {
 		err := os.Mkdir(filepath.Join(name, topic), os.ModePerm)
 		if os.IsExist(err) {
-			return protocol.ErrTopicAlreadyExists
+			return headers.ErrTopicAlreadyExists
 		}
 		if err != nil {
 			return err
@@ -108,11 +109,11 @@ func (q *FileQueue) DeleteTopic(topic string) error {
 	return nil
 }
 
-func (q *FileQueue) InspectTopic(topic string) (*protocol.TopicInfo, error) {
+func (q *FileQueue) InspectTopic(topic string) (*headers.TopicInfo, error) {
 	return nil, nil
 }
 
-func (q *FileQueue) TruncateTopic(topic string, id int64) (*protocol.TopicInfo, error) {
+func (q *FileQueue) TruncateTopic(topic string, id int64) (*headers.TopicInfo, error) {
 	return nil, nil
 }
 
@@ -152,7 +153,7 @@ func (q *FileQueue) Produce(topic string, msgSizes []int64, r io.Reader) error {
 	fs, err := q.loadLatest(topic)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return protocol.ErrTopicDoesNotExist
+			return headers.ErrTopicDoesNotExist
 		}
 		return err
 	}
@@ -182,31 +183,42 @@ func (q *FileQueue) Produce(topic string, msgSizes []int64, r io.Reader) error {
 	return fs.WriteDats(data)
 }
 
-func (q *FileQueue) Consume(topic string, id int64, N int64) (*protocol.ConsumeInfo, error) {
+type consumeInfo struct {
+	Filename  string
+	File      io.ReadSeeker
+	Exists    bool
+	StartAt   uint64
+	EndAt     uint64
+	StartTime time.Time
+	EndTime   time.Time
+	Sizes     []int64
+}
+
+func (q *FileQueue) Consume(topic string, id int64, N int64, w http.ResponseWriter) (int, error) {
 	datName, err := getConsumeDat(q.consumeCache, filepath.Join(q.rootDirNames[len(q.rootDirNames)-1], topic), id)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, protocol.ErrTopicDoesNotExist
+			return 0, headers.ErrTopicDoesNotExist
 		}
-		return nil, err
+		return 0, err
 	}
 	path := filepath.Join(q.rootDirNames[len(q.rootDirNames)-1], topic, datName)
 	dat, err := os.Open(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, protocol.ErrTopicDoesNotExist
+			return 0, headers.ErrTopicDoesNotExist
 		}
-		return nil, err
+		return 0, err
 	}
 	defer dat.Close()
 
 	stat, err := dat.Stat()
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
-	var info protocol.ConsumeInfo
+	var info consumeInfo
 	if stat.Size() < id*32 {
-		return &info, nil
+		return 0, nil
 	}
 
 	if N < 0 {
@@ -216,7 +228,7 @@ func (q *FileQueue) Consume(topic string, id int64, N int64) (*protocol.ConsumeI
 	data := make([]byte, N*32)
 	length, err := dat.ReadAt(data, id*32)
 	if err != nil && length == 0 {
-		return nil, err
+		return 0, err
 	}
 	N = int64(length) / 32
 
@@ -235,15 +247,41 @@ func (q *FileQueue) Consume(topic string, id int64, N int64) (*protocol.ConsumeI
 	info.EndAt--
 	info.Exists = true
 	info.Filename = path + ".log"
-	info.File, err = os.Open(info.Filename)
+	f, err := os.Open(info.Filename)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, protocol.ErrTopicDoesNotExist
+			return 0, headers.ErrTopicDoesNotExist
 		}
-		return nil, err
+		return 0, err
 	}
+	defer f.Close()
+	info.File = f
+	q.consumeResponse(w, &info)
 
-	return &info, nil
+	return len(info.Sizes), nil
+}
+
+var reqPool = sync.Pool{
+	New: func() interface{} {
+		return &http.Request{}
+	},
+}
+
+func (q *FileQueue) consumeResponse(w http.ResponseWriter, info *consumeInfo) {
+
+	wHeader := w.Header()
+	wHeader[headers.HeaderStartTime] = []string{info.StartTime.Format(time.ANSIC)}
+	wHeader[headers.HeaderEndTime] = []string{info.EndTime.Format(time.ANSIC)}
+	wHeader[headers.HeaderFileName] = []string{info.Filename}
+	wHeader["Content-Type"] = []string{"application/octet-stream"}
+	headers.SetSizes(info.Sizes, wHeader)
+	rangeHeader := "bytes=" + strconv.FormatUint(info.StartAt, 10) + "-" + strconv.FormatUint(info.EndAt, 10)
+	wHeader["Range"] = []string{rangeHeader}
+
+	req := reqPool.Get().(*http.Request)
+	req.Header = wHeader
+	http.ServeContent(w, req, info.Filename, info.EndTime, info.File)
+	reqPool.Put(req)
 }
 
 type LogFiles struct {

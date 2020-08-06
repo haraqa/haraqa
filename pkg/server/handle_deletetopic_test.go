@@ -8,7 +8,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/mux"
-	"github.com/haraqa/haraqa/internal/protocol"
+	"github.com/haraqa/haraqa/internal/headers"
 	"github.com/pkg/errors"
 )
 
@@ -20,7 +20,7 @@ func TestServer_HandleDeleteTopic(t *testing.T) {
 	q := NewMockQueue(ctrl)
 	gomock.InOrder(
 		q.EXPECT().DeleteTopic(topic).Return(nil).Times(1),
-		q.EXPECT().DeleteTopic(topic).Return(protocol.ErrTopicDoesNotExist).Times(1),
+		q.EXPECT().DeleteTopic(topic).Return(headers.ErrTopicDoesNotExist).Times(1),
 		q.EXPECT().DeleteTopic(topic).Return(errors.New("test delete error")).Times(1),
 	)
 	s := Server{q: q}
@@ -39,8 +39,8 @@ func TestServer_HandleDeleteTopic(t *testing.T) {
 		if resp.StatusCode != http.StatusBadRequest {
 			t.Fatal(resp.Status)
 		}
-		err = protocol.ReadErrors(resp.Header)
-		if err != protocol.ErrInvalidTopic {
+		err = headers.ReadErrors(resp.Header)
+		if err != headers.ErrInvalidTopic {
 			t.Fatal(err)
 		}
 	}
@@ -59,7 +59,7 @@ func TestServer_HandleDeleteTopic(t *testing.T) {
 		if resp.StatusCode != http.StatusOK {
 			t.Fatal(resp.Status)
 		}
-		err = protocol.ReadErrors(resp.Header)
+		err = headers.ReadErrors(resp.Header)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -79,8 +79,8 @@ func TestServer_HandleDeleteTopic(t *testing.T) {
 		if resp.StatusCode != http.StatusPreconditionFailed {
 			t.Fatal(resp.Status)
 		}
-		err = protocol.ReadErrors(resp.Header)
-		if err != protocol.ErrTopicDoesNotExist {
+		err = headers.ReadErrors(resp.Header)
+		if err != headers.ErrTopicDoesNotExist {
 			t.Fatal(err)
 		}
 	}
@@ -99,7 +99,7 @@ func TestServer_HandleDeleteTopic(t *testing.T) {
 		if resp.StatusCode != http.StatusInternalServerError {
 			t.Fatal(resp.Status)
 		}
-		err = protocol.ReadErrors(resp.Header)
+		err = headers.ReadErrors(resp.Header)
 		if err.Error() != "test delete error" {
 			t.Fatal(err)
 		}
