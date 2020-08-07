@@ -2,7 +2,6 @@ package headers
 
 import (
 	"net/http"
-	"net/textproto"
 	"strconv"
 
 	"github.com/pkg/errors"
@@ -48,9 +47,7 @@ func SetError(w http.ResponseWriter, err error) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	if e := errors.Unwrap(err); e != nil {
-		err = e
-	}
+	err = errors.Cause(err)
 	h := w.Header()
 	h[HeaderErrors] = []string{err.Error()}
 	switch err {
@@ -67,7 +64,7 @@ func SetError(w http.ResponseWriter, err error) {
 }
 
 func ReadErrors(header http.Header) error {
-	errs := textproto.MIMEHeader(header)[HeaderErrors]
+	errs := header[HeaderErrors]
 	if len(errs) == 0 {
 		return nil
 	}
@@ -101,7 +98,7 @@ func ReadErrors(header http.Header) error {
 }
 
 func ReadSizes(header http.Header) ([]int64, error) {
-	sizes := textproto.MIMEHeader(header)[HeaderSizes]
+	sizes := header[HeaderSizes]
 	if len(sizes) == 0 {
 		return nil, ErrInvalidHeaderSizes
 	}
