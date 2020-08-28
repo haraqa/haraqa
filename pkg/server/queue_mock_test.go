@@ -107,34 +107,19 @@ func (mr *MockQueueMockRecorder) DeleteTopic(topic interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteTopic", reflect.TypeOf((*MockQueue)(nil).DeleteTopic), topic)
 }
 
-// TruncateTopic mocks base method
-func (m *MockQueue) TruncateTopic(topic string, id int64) (*headers.TopicInfo, error) {
+// ModifyTopic mocks base method
+func (m *MockQueue) ModifyTopic(topic string, request headers.ModifyRequest) (*headers.TopicInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "TruncateTopic", topic, id)
+	ret := m.ctrl.Call(m, "ModifyTopic", topic, request)
 	ret0, _ := ret[0].(*headers.TopicInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// TruncateTopic indicates an expected call of TruncateTopic
-func (mr *MockQueueMockRecorder) TruncateTopic(topic, id interface{}) *gomock.Call {
+// ModifyTopic indicates an expected call of ModifyTopic
+func (mr *MockQueueMockRecorder) ModifyTopic(topic, request interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TruncateTopic", reflect.TypeOf((*MockQueue)(nil).TruncateTopic), topic, id)
-}
-
-// InspectTopic mocks base method
-func (m *MockQueue) InspectTopic(topic string) (*headers.TopicInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "InspectTopic", topic)
-	ret0, _ := ret[0].(*headers.TopicInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// InspectTopic indicates an expected call of InspectTopic
-func (mr *MockQueueMockRecorder) InspectTopic(topic interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InspectTopic", reflect.TypeOf((*MockQueue)(nil).InspectTopic), topic)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModifyTopic", reflect.TypeOf((*MockQueue)(nil).ModifyTopic), topic, request)
 }
 
 // Produce mocks base method

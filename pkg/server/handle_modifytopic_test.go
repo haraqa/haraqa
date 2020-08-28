@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/gorilla/mux"
 	"github.com/haraqa/haraqa/internal/headers"
 	"github.com/pkg/errors"
 )
@@ -20,11 +19,15 @@ func TestServer_HandleModifyTopic(t *testing.T) {
 	topic := "modified_topic"
 	q := NewMockQueue(ctrl)
 	gomock.InOrder(
-		q.EXPECT().TruncateTopic(topic, int64(123)).Return(&headers.TopicInfo{MinOffset: 123, MaxOffset: 456}, nil).Times(1),
-		q.EXPECT().TruncateTopic(topic, int64(123)).Return(nil, headers.ErrTopicDoesNotExist).Times(1),
-		q.EXPECT().TruncateTopic(topic, int64(123)).Return(nil, errors.New("test modify error")).Times(1),
+		q.EXPECT().RootDir().Times(1).Return(""),
+		q.EXPECT().ModifyTopic(topic, gomock.Any()).Return(&headers.TopicInfo{MinOffset: 123, MaxOffset: 456}, nil).Times(1),
+		q.EXPECT().ModifyTopic(topic, gomock.Any()).Return(nil, headers.ErrTopicDoesNotExist).Times(1),
+		q.EXPECT().ModifyTopic(topic, gomock.Any()).Return(nil, errors.New("test modify error")).Times(1),
 	)
-	s := Server{q: q}
+	s, err := NewServer(WithQueue(q))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// nil body
 	{
@@ -34,7 +37,7 @@ func TestServer_HandleModifyTopic(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		s.HandleModifyTopic()(w, r)
+		s.ServeHTTP(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusBadRequest {
@@ -73,8 +76,7 @@ func TestServer_HandleModifyTopic(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		r = mux.SetURLVars(r, map[string]string{"topic": topic})
-		s.HandleModifyTopic()(w, r)
+		s.ServeHTTP(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusBadRequest {
@@ -93,8 +95,7 @@ func TestServer_HandleModifyTopic(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		r = mux.SetURLVars(r, map[string]string{"topic": topic})
-		s.HandleModifyTopic()(w, r)
+		s.ServeHTTP(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusNoContent {
@@ -113,8 +114,7 @@ func TestServer_HandleModifyTopic(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		r = mux.SetURLVars(r, map[string]string{"topic": topic})
-		s.HandleModifyTopic()(w, r)
+		s.ServeHTTP(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
@@ -141,8 +141,7 @@ func TestServer_HandleModifyTopic(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		r = mux.SetURLVars(r, map[string]string{"topic": topic})
-		s.HandleModifyTopic()(w, r)
+		s.ServeHTTP(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusPreconditionFailed {
@@ -161,8 +160,7 @@ func TestServer_HandleModifyTopic(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		r = mux.SetURLVars(r, map[string]string{"topic": topic})
-		s.HandleModifyTopic()(w, r)
+		s.ServeHTTP(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusInternalServerError {

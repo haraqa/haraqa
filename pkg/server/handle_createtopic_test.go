@@ -19,11 +19,15 @@ func TestServer_HandleCreateTopic(t *testing.T) {
 	topic := "created_topic"
 	q := NewMockQueue(ctrl)
 	gomock.InOrder(
+		q.EXPECT().RootDir().Times(1).Return(""),
 		q.EXPECT().CreateTopic(topic).Return(nil).Times(1),
 		q.EXPECT().CreateTopic(topic).Return(headers.ErrTopicAlreadyExists).Times(1),
 		q.EXPECT().CreateTopic(topic).Return(errors.New("test create error")).Times(1),
 	)
-	s := Server{q: q}
+	s, err := NewServer(WithQueue(q))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// invalid topic
 	{
@@ -53,7 +57,7 @@ func TestServer_HandleCreateTopic(t *testing.T) {
 			t.Fatal(err)
 		}
 		r = mux.SetURLVars(r, map[string]string{"topic": topic})
-		s.HandleCreateTopic()(w, r)
+		s.ServeHTTP(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusCreated {
@@ -73,7 +77,7 @@ func TestServer_HandleCreateTopic(t *testing.T) {
 			t.Fatal(err)
 		}
 		r = mux.SetURLVars(r, map[string]string{"topic": topic})
-		s.HandleCreateTopic()(w, r)
+		s.ServeHTTP(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusPreconditionFailed {
@@ -93,7 +97,7 @@ func TestServer_HandleCreateTopic(t *testing.T) {
 			t.Fatal(err)
 		}
 		r = mux.SetURLVars(r, map[string]string{"topic": topic})
-		s.HandleCreateTopic()(w, r)
+		s.ServeHTTP(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusInternalServerError {

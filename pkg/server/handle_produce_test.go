@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/gorilla/mux"
 	"github.com/haraqa/haraqa/internal/headers"
 	"github.com/pkg/errors"
 )
@@ -20,11 +19,15 @@ func TestServer_HandleProduce(t *testing.T) {
 	topic := "produce_topic"
 	q := NewMockQueue(ctrl)
 	gomock.InOrder(
+		q.EXPECT().RootDir().Times(1).Return(""),
 		q.EXPECT().Produce(topic, []int64{5, 6}, gomock.Any()).Return(nil).Times(1),
 		q.EXPECT().Produce(topic, []int64{5, 6}, gomock.Any()).Return(headers.ErrTopicDoesNotExist).Times(1),
 		q.EXPECT().Produce(topic, []int64{5, 6}, gomock.Any()).Return(errors.New("test produce error")).Times(1),
 	)
-	s := Server{q: q, metrics: noOpMetrics{}}
+	s, err := NewServer(WithQueue(q))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// nil body
 	{
@@ -34,7 +37,7 @@ func TestServer_HandleProduce(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		s.HandleProduce()(w, r)
+		s.ServeHTTP(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusBadRequest {
@@ -73,8 +76,7 @@ func TestServer_HandleProduce(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		r = mux.SetURLVars(r, map[string]string{"topic": topic})
-		s.HandleProduce()(w, r)
+		s.ServeHTTP(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusBadRequest {
@@ -93,9 +95,8 @@ func TestServer_HandleProduce(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		r = mux.SetURLVars(r, map[string]string{"topic": topic})
 		r.Header.Set(strings.ToLower(headers.HeaderSizes), "invalid")
-		s.HandleProduce()(w, r)
+		s.ServeHTTP(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusBadRequest {
@@ -114,11 +115,10 @@ func TestServer_HandleProduce(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		r = mux.SetURLVars(r, map[string]string{"topic": topic})
 		r.Header.Add(headers.HeaderSizes, "5")
 		r.Header.Add(headers.HeaderSizes, "6")
 
-		s.HandleProduce()(w, r)
+		s.ServeHTTP(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
@@ -137,11 +137,10 @@ func TestServer_HandleProduce(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		r = mux.SetURLVars(r, map[string]string{"topic": topic})
 		r.Header.Add(headers.HeaderSizes, "5")
 		r.Header.Add(headers.HeaderSizes, "6")
 
-		s.HandleProduce()(w, r)
+		s.ServeHTTP(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusPreconditionFailed {
@@ -160,11 +159,10 @@ func TestServer_HandleProduce(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		r = mux.SetURLVars(r, map[string]string{"topic": topic})
 		r.Header.Add(headers.HeaderSizes, "5")
 		r.Header.Add(headers.HeaderSizes, "6")
 
-		s.HandleProduce()(w, r)
+		s.ServeHTTP(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusInternalServerError {

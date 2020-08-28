@@ -21,19 +21,23 @@ func TestServer_HandleGetAllTopics(t *testing.T) {
 	topics := []string{"topic_1", "topic_2", "topic_3"}
 	q := NewMockQueue(ctrl)
 	gomock.InOrder(
+		q.EXPECT().RootDir().Times(1).Return(""),
 		q.EXPECT().ListTopics().Return(topics, nil).Times(2),
 		q.EXPECT().ListTopics().Return(nil, errors.New("test get topics error")).Times(1),
 	)
-	s := Server{q: q}
+	s, err := NewServer(WithQueue(q))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// valid request, happy path, csv output
 	{
 		w := httptest.NewRecorder()
-		r, err := http.NewRequest(http.MethodPut, "/topics", bytes.NewBuffer([]byte("test body")))
+		r, err := http.NewRequest(http.MethodGet, "/topics", bytes.NewBuffer([]byte("test body")))
 		if err != nil {
 			t.Fatal(err)
 		}
-		s.HandleGetAllTopics()(w, r)
+		s.ServeHTTP(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
@@ -55,12 +59,12 @@ func TestServer_HandleGetAllTopics(t *testing.T) {
 	// valid request, happy path, json output
 	{
 		w := httptest.NewRecorder()
-		r, err := http.NewRequest(http.MethodPut, "/topics", bytes.NewBuffer([]byte("test body")))
+		r, err := http.NewRequest(http.MethodGet, "/topics", bytes.NewBuffer([]byte("test body")))
 		if err != nil {
 			t.Fatal(err)
 		}
 		r.Header["Accept"] = []string{"application/json"}
-		s.HandleGetAllTopics()(w, r)
+		s.ServeHTTP(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
@@ -88,11 +92,11 @@ func TestServer_HandleGetAllTopics(t *testing.T) {
 	// valid request, queue error: unknown error
 	{
 		w := httptest.NewRecorder()
-		r, err := http.NewRequest(http.MethodPut, "/topics", bytes.NewBuffer([]byte("test body")))
+		r, err := http.NewRequest(http.MethodGet, "/topics", bytes.NewBuffer([]byte("test body")))
 		if err != nil {
 			t.Fatal(err)
 		}
-		s.HandleGetAllTopics()(w, r)
+		s.ServeHTTP(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusInternalServerError {

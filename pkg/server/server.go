@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/haraqa/haraqa/internal/queue"
+	"github.com/haraqa/haraqa/internal/filequeue"
 	"github.com/pkg/errors"
 )
 
@@ -75,7 +75,7 @@ func NewServer(options ...Option) (*Server, error) {
 	if s.q == nil {
 		// default queue
 		var err error
-		s.q, err = queue.NewFileQueue(s.dirs...)
+		s.q, err = filequeue.New(s.dirs...)
 		if err != nil {
 			return nil, err
 		}
@@ -83,13 +83,13 @@ func NewServer(options ...Option) (*Server, error) {
 
 	s.Router.PathPrefix("/raw/").Handler(http.StripPrefix("/raw/", http.FileServer(http.Dir(s.q.RootDir()))))
 	r := s.Router.PathPrefix("/topics").Subrouter()
-	r.Path("/").Methods(http.MethodGet).Handler(s.HandleGetAllTopics())
-	r.Path("/{topic}").Methods(http.MethodPut).Handler(s.HandleCreateTopic())
-	r.Path("/{topic}").Methods(http.MethodPatch).Handler(s.HandleModifyTopic())
-	r.Path("/{topic}").Methods(http.MethodDelete).Handler(s.HandleDeleteTopic())
-	r.Path("/{topic}").Methods(http.MethodGet).Handler(s.HandleInspectTopic())
-	r.Path("/{topic}").Methods(http.MethodPost).Handler(s.HandleProduce())
-	r.Path("/{topic}/{id}").Methods(http.MethodGet).Handler(s.HandleConsume())
+	r.Path("").Methods(http.MethodGet).Handler(s.HandleGetAllTopics())
+	r.Path("/{topic:.*}").Methods(http.MethodPut).Handler(s.HandleCreateTopic())
+	r.Path("/{topic:.*}").Methods(http.MethodPatch).Handler(s.HandleModifyTopic())
+	r.Path("/{topic:.*}").Methods(http.MethodDelete).Handler(s.HandleDeleteTopic())
+	//r.Path("/{topic:.*}").Methods(http.MethodGet).Handler(s.HandleInspectTopic())
+	r.Path("/{topic:.*}").Methods(http.MethodPost).Handler(s.HandleProduce())
+	r.Path("/{topic:.*}").Methods(http.MethodGet).Handler(s.HandleConsume())
 
 	return s, nil
 }

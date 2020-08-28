@@ -86,7 +86,7 @@ func (c *Client) Consume(topic string, id uint64, limit int) (io.ReadCloser, []i
 	var err error
 	req := getRequestPool.Get().(*http.Request)
 	defer getRequestPool.Put(req)
-	req.URL, err = url.Parse(c.url + "/topics/" + topic + "/" + strconv.FormatUint(id, 10))
+	req.URL, err = url.Parse(c.url + "/topics/" + topic + "?id=" + strconv.FormatUint(id, 10))
 	if err != nil {
 		return nil, nil, err
 	}

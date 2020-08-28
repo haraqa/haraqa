@@ -19,11 +19,15 @@ func TestServer_HandleDeleteTopic(t *testing.T) {
 	topic := "deleted_topic"
 	q := NewMockQueue(ctrl)
 	gomock.InOrder(
+		q.EXPECT().RootDir().Times(1).Return(""),
 		q.EXPECT().DeleteTopic(topic).Return(nil).Times(1),
 		q.EXPECT().DeleteTopic(topic).Return(headers.ErrTopicDoesNotExist).Times(1),
 		q.EXPECT().DeleteTopic(topic).Return(errors.New("test delete error")).Times(1),
 	)
-	s := Server{q: q}
+	s, err := NewServer(WithQueue(q))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// invalid topic
 	{
@@ -53,7 +57,7 @@ func TestServer_HandleDeleteTopic(t *testing.T) {
 			t.Fatal(err)
 		}
 		r = mux.SetURLVars(r, map[string]string{"topic": topic})
-		s.HandleDeleteTopic()(w, r)
+		s.ServeHTTP(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
@@ -73,7 +77,7 @@ func TestServer_HandleDeleteTopic(t *testing.T) {
 			t.Fatal(err)
 		}
 		r = mux.SetURLVars(r, map[string]string{"topic": topic})
-		s.HandleDeleteTopic()(w, r)
+		s.ServeHTTP(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusPreconditionFailed {
@@ -93,7 +97,7 @@ func TestServer_HandleDeleteTopic(t *testing.T) {
 			t.Fatal(err)
 		}
 		r = mux.SetURLVars(r, map[string]string{"topic": topic})
-		s.HandleDeleteTopic()(w, r)
+		s.ServeHTTP(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusInternalServerError {

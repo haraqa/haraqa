@@ -6,13 +6,13 @@ import (
 
 	"github.com/haraqa/haraqa/internal/headers"
 
-	"github.com/haraqa/haraqa/internal/queue"
+	"github.com/haraqa/haraqa/internal/filequeue"
 )
 
 //go:generate mockgen -source queue.go -package server -destination queue_mock_test.go
 //go:generate goimports -w queue_mock_test.go
 
-var _ Queue = &queue.FileQueue{}
+var _ Queue = &filequeue.FileQueue{}
 
 type Queue interface {
 	RootDir() string
@@ -21,9 +21,7 @@ type Queue interface {
 	ListTopics() ([]string, error)
 	CreateTopic(topic string) error
 	DeleteTopic(topic string) error
-
-	TruncateTopic(topic string, id int64) (*headers.TopicInfo, error)
-	InspectTopic(topic string) (*headers.TopicInfo, error)
+	ModifyTopic(topic string, request headers.ModifyRequest) (*headers.TopicInfo, error)
 
 	Produce(topic string, msgSizes []int64, r io.Reader) error
 	Consume(topic string, id int64, n int64, w http.ResponseWriter) (int, error)

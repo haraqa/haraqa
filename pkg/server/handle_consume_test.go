@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/gorilla/mux"
 	"github.com/haraqa/haraqa/internal/headers"
 	"github.com/pkg/errors"
 )
@@ -19,6 +18,7 @@ func TestServer_HandleConsume(t *testing.T) {
 	topic := "consume_topic"
 	q := NewMockQueue(ctrl)
 	gomock.InOrder(
+		q.EXPECT().RootDir().Times(1).Return(""),
 		q.EXPECT().Consume(topic, int64(123), int64(-1), gomock.Any()).DoAndReturn(func(topic string, offset, limit int64, w http.ResponseWriter) (int, error) {
 			w.WriteHeader(http.StatusPartialContent)
 			return 10, nil
@@ -27,8 +27,10 @@ func TestServer_HandleConsume(t *testing.T) {
 		q.EXPECT().Consume(topic, int64(123), int64(-1), gomock.Any()).Return(0, headers.ErrTopicDoesNotExist).Times(1),
 		q.EXPECT().Consume(topic, int64(123), int64(-1), gomock.Any()).Return(0, errors.New("test consume error")).Times(1),
 	)
-	s := Server{q: q, metrics: noOpMetrics{}, defaultLimit: -1}
-
+	s, err := NewServer(WithQueue(q))
+	if err != nil {
+		t.Fatal(err)
+	}
 	// invalid topic
 	{
 		w := httptest.NewRecorder()
@@ -49,16 +51,33 @@ func TestServer_HandleConsume(t *testing.T) {
 		}
 	}
 
-	// valid topic, invalid id
+	// valid topic, missing id
 	{
 		w := httptest.NewRecorder()
-		r, err := http.NewRequest(http.MethodGet, "/topics/", bytes.NewBuffer([]byte("test body")))
+		r, err := http.NewRequest(http.MethodGet, "/topics/"+topic, bytes.NewBuffer([]byte("test body")))
 		if err != nil {
 			t.Fatal(err)
 		}
-		r = mux.SetURLVars(r, map[string]string{"topic": topic, "id": "invalid"})
+		s.ServeHTTP(w, r)
+		resp := w.Result()
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Fatal(resp.Status)
+		}
+		err = headers.ReadErrors(resp.Header)
+		if err != headers.ErrInvalidMessageID {
+			t.Fatal(err)
+		}
+	}
 
-		s.HandleConsume()(w, r)
+	// valid topic, invalid id
+	{
+		w := httptest.NewRecorder()
+		r, err := http.NewRequest(http.MethodGet, "/topics/"+topic+"?id=invalid", bytes.NewBuffer([]byte("test body")))
+		if err != nil {
+			t.Fatal(err)
+		}
+		s.ServeHTTP(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusBadRequest {
@@ -73,13 +92,12 @@ func TestServer_HandleConsume(t *testing.T) {
 	// valid topic, valid id, invalid limit
 	{
 		w := httptest.NewRecorder()
-		r, err := http.NewRequest(http.MethodGet, "/topics/"+topic, bytes.NewBuffer([]byte("test body")))
+		r, err := http.NewRequest(http.MethodGet, "/topics/"+topic+"?id=123", bytes.NewBuffer([]byte("test body")))
 		if err != nil {
 			t.Fatal(err)
 		}
-		r = mux.SetURLVars(r, map[string]string{"topic": topic, "id": "123"})
 		r.Header.Set(headers.HeaderLimit, "invalid")
-		s.HandleConsume()(w, r)
+		s.ServeHTTP(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusBadRequest {
@@ -94,13 +112,11 @@ func TestServer_HandleConsume(t *testing.T) {
 	// valid topic, valid id, happy path
 	{
 		w := httptest.NewRecorder()
-		r, err := http.NewRequest(http.MethodGet, "/topics/"+topic, bytes.NewBuffer([]byte("Hello World")))
+		r, err := http.NewRequest(http.MethodGet, "/topics/"+topic+"?id=123", bytes.NewBuffer([]byte("Hello World")))
 		if err != nil {
 			t.Fatal(err)
 		}
-		r = mux.SetURLVars(r, map[string]string{"topic": topic, "id": "123"})
-
-		s.HandleConsume()(w, r)
+		s.ServeHTTP(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusPartialContent {
@@ -115,13 +131,12 @@ func TestServer_HandleConsume(t *testing.T) {
 	// valid topic, valid id, no content
 	{
 		w := httptest.NewRecorder()
-		r, err := http.NewRequest(http.MethodGet, "/topics/"+topic, bytes.NewBuffer([]byte("Hello World")))
+		r, err := http.NewRequest(http.MethodGet, "/topics/"+topic+"?id=123", bytes.NewBuffer([]byte("Hello World")))
 		if err != nil {
 			t.Fatal(err)
 		}
-		r = mux.SetURLVars(r, map[string]string{"topic": topic, "id": "123"})
 
-		s.HandleConsume()(w, r)
+		s.ServeHTTP(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusNoContent {
@@ -136,13 +151,12 @@ func TestServer_HandleConsume(t *testing.T) {
 	// valid topic, queue error: topic does not exist
 	{
 		w := httptest.NewRecorder()
-		r, err := http.NewRequest(http.MethodGet, "/topics/"+topic, bytes.NewBuffer([]byte("Hello World")))
+		r, err := http.NewRequest(http.MethodGet, "/topics/"+topic+"?id=123", bytes.NewBuffer([]byte("Hello World")))
 		if err != nil {
 			t.Fatal(err)
 		}
-		r = mux.SetURLVars(r, map[string]string{"topic": topic, "id": "123"})
 
-		s.HandleConsume()(w, r)
+		s.ServeHTTP(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusPreconditionFailed {
@@ -157,13 +171,12 @@ func TestServer_HandleConsume(t *testing.T) {
 	// valid topic, queue error: unknown error
 	{
 		w := httptest.NewRecorder()
-		r, err := http.NewRequest(http.MethodGet, "/topics/"+topic, bytes.NewBuffer([]byte("Hello World")))
+		r, err := http.NewRequest(http.MethodGet, "/topics/"+topic+"?id=123", bytes.NewBuffer([]byte("Hello World")))
 		if err != nil {
 			t.Fatal(err)
 		}
-		r = mux.SetURLVars(r, map[string]string{"topic": topic, "id": "123"})
 
-		s.HandleConsume()(w, r)
+		s.ServeHTTP(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusInternalServerError {

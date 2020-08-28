@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -79,7 +80,7 @@ func (s *Server) HandleModifyTopic() http.HandlerFunc {
 			return
 		}
 
-		info, err := s.q.TruncateTopic(topic, request.Truncate)
+		info, err := s.q.ModifyTopic(topic, request)
 		if err != nil {
 			headers.SetError(w, err)
 			return
@@ -105,27 +106,6 @@ func (s *Server) HandleDeleteTopic() http.HandlerFunc {
 			headers.SetError(w, err)
 			return
 		}
-	}
-}
-
-func (s *Server) HandleInspectTopic() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Body != nil {
-			_ = r.Body.Close()
-		}
-
-		topic, err := getTopic(mux.Vars(r))
-		if err != nil {
-			headers.SetError(w, err)
-			return
-		}
-		info, err := s.q.InspectTopic(topic)
-		if err != nil {
-			headers.SetError(w, err)
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(info)
 	}
 }
 
@@ -173,7 +153,8 @@ func (s *Server) HandleConsume() http.HandlerFunc {
 			headers.SetError(w, err)
 			return
 		}
-		id, err := strconv.ParseInt(vars["id"], 10, 64)
+
+		id, err := strconv.ParseInt(r.URL.Query().Get("id"), 10, 64)
 		if err != nil {
 			headers.SetError(w, headers.ErrInvalidMessageID)
 			return
@@ -206,8 +187,9 @@ func (s *Server) HandleConsume() http.HandlerFunc {
 
 func getTopic(vars map[string]string) (string, error) {
 	topic, _ := vars["topic"]
-	if topic == "" {
+	topic = filepath.Clean(strings.ToLower(topic))
+	if topic == "" || topic == "." {
 		return "", headers.ErrInvalidTopic
 	}
-	return strings.ToLower(topic), nil
+	return topic, nil
 }
