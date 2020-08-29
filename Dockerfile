@@ -1,7 +1,7 @@
 # ===================================================
 # Compiler image (use debian for -race detection)
 # ===================================================
-FROM golang:1.15rc1 as compiler
+FROM golang:1.15 as compiler
 RUN mkdir /profiles && mkdir /haraqa
 WORKDIR /haraqa
 COPY go.mod .
