@@ -21,7 +21,6 @@ RUN go test -mod=readonly -bench=. -benchtime=1000x -run=XXX -cpu=4 \
       -trace        /profiles/trace.out \
       -cpuprofile   /profiles/cpu.out \
       -memprofile   /profiles/mem.out \
-      -coverprofile /profiles/cover.out \
       ./internal/benchmarks
 
 # Build binary

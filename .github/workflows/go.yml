@@ -27,7 +27,13 @@ jobs:
         $(go env GOPATH)/bin/goveralls -coverprofile=cover.out -service=github-actions -repotoken ${{ secrets.COVERALLS_TOKEN }}
 
     - name: Benchmark
-      run: go test -bench=. -benchtime=10000x -run=XXX ./internal/benchmarks
+      run: go test -bench=. -benchtime=10000x -run=XXX -trace profiles/trace.out -cpuprofile profiles/cpu.out -memprofile profiles/mem.out ./internal/benchmarks
+
+    - name: Upload profiles
+      uses: actions/upload-artifact@v2
+      with:
+        name: profiles
+        path: profiles/*
 
     - name: Build
       run: cd cmd/server && CGO_ENABLED=0 go build -mod=readonly -ldflags '-s -w' main.go
