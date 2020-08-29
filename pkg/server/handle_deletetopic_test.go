@@ -23,11 +23,13 @@ func TestServer_HandleDeleteTopic(t *testing.T) {
 		q.EXPECT().DeleteTopic(topic).Return(nil).Times(1),
 		q.EXPECT().DeleteTopic(topic).Return(headers.ErrTopicDoesNotExist).Times(1),
 		q.EXPECT().DeleteTopic(topic).Return(errors.New("test delete error")).Times(1),
+		q.EXPECT().Close().Return(nil).Times(1),
 	)
 	s, err := NewServer(WithQueue(q))
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer s.Close()
 
 	// invalid topic
 	{

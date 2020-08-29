@@ -20,14 +20,16 @@ func TestServer_HandleProduce(t *testing.T) {
 	q := NewMockQueue(ctrl)
 	gomock.InOrder(
 		q.EXPECT().RootDir().Times(1).Return(""),
-		q.EXPECT().Produce(topic, []int64{5, 6}, gomock.Any()).Return(nil).Times(1),
-		q.EXPECT().Produce(topic, []int64{5, 6}, gomock.Any()).Return(headers.ErrTopicDoesNotExist).Times(1),
-		q.EXPECT().Produce(topic, []int64{5, 6}, gomock.Any()).Return(errors.New("test produce error")).Times(1),
+		q.EXPECT().Produce(topic, []int64{5, 6}, gomock.Any(), gomock.Any()).Return(nil).Times(1),
+		q.EXPECT().Produce(topic, []int64{5, 6}, gomock.Any(), gomock.Any()).Return(headers.ErrTopicDoesNotExist).Times(1),
+		q.EXPECT().Produce(topic, []int64{5, 6}, gomock.Any(), gomock.Any()).Return(errors.New("test produce error")).Times(1),
+		q.EXPECT().Close().Return(nil).Times(1),
 	)
 	s, err := NewServer(WithQueue(q))
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer s.Close()
 
 	// nil body
 	{

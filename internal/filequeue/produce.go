@@ -5,12 +5,11 @@ import (
 	"io"
 	"os"
 	"sync"
-	"time"
 
 	"github.com/haraqa/haraqa/internal/headers"
 )
 
-func (q *FileQueue) Produce(topic string, msgSizes []int64, r io.Reader) error {
+func (q *FileQueue) Produce(topic string, msgSizes []int64, timestamp uint64, r io.Reader) error {
 	if len(msgSizes) == 0 {
 		return nil
 	}
@@ -26,7 +25,6 @@ func (q *FileQueue) Produce(topic string, msgSizes []int64, r io.Reader) error {
 		return err
 	}
 
-	now := uint64(time.Now().Unix())
 	data := make([]byte, 32*len(msgSizes))
 	var n int
 	var id uint64
@@ -34,7 +32,7 @@ func (q *FileQueue) Produce(topic string, msgSizes []int64, r io.Reader) error {
 	for _, size := range msgSizes {
 		binary.LittleEndian.PutUint64(data[n:], id)
 		n += 8
-		binary.LittleEndian.PutUint64(data[n:], now)
+		binary.LittleEndian.PutUint64(data[n:], timestamp)
 		n += 8
 		binary.LittleEndian.PutUint64(data[n:], uint64(fs.FileOffset+totalSize))
 		n += 8

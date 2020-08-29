@@ -23,11 +23,13 @@ func TestServer_HandleModifyTopic(t *testing.T) {
 		q.EXPECT().ModifyTopic(topic, gomock.Any()).Return(&headers.TopicInfo{MinOffset: 123, MaxOffset: 456}, nil).Times(1),
 		q.EXPECT().ModifyTopic(topic, gomock.Any()).Return(nil, headers.ErrTopicDoesNotExist).Times(1),
 		q.EXPECT().ModifyTopic(topic, gomock.Any()).Return(nil, errors.New("test modify error")).Times(1),
+		q.EXPECT().Close().Return(nil).Times(1),
 	)
 	s, err := NewServer(WithQueue(q))
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer s.Close()
 
 	// nil body
 	{

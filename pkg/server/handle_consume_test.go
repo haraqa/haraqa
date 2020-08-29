@@ -26,11 +26,13 @@ func TestServer_HandleConsume(t *testing.T) {
 		q.EXPECT().Consume(topic, int64(123), int64(-1), gomock.Any()).Return(0, nil).Times(1),
 		q.EXPECT().Consume(topic, int64(123), int64(-1), gomock.Any()).Return(0, headers.ErrTopicDoesNotExist).Times(1),
 		q.EXPECT().Consume(topic, int64(123), int64(-1), gomock.Any()).Return(0, errors.New("test consume error")).Times(1),
+		q.EXPECT().Close().Return(nil).Times(1),
 	)
 	s, err := NewServer(WithQueue(q))
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer s.Close()
 	// invalid topic
 	{
 		w := httptest.NewRecorder()

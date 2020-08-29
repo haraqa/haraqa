@@ -23,11 +23,13 @@ func TestServer_HandleCreateTopic(t *testing.T) {
 		q.EXPECT().CreateTopic(topic).Return(nil).Times(1),
 		q.EXPECT().CreateTopic(topic).Return(headers.ErrTopicAlreadyExists).Times(1),
 		q.EXPECT().CreateTopic(topic).Return(errors.New("test create error")).Times(1),
+		q.EXPECT().Close().Return(nil).Times(1),
 	)
 	s, err := NewServer(WithQueue(q))
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer s.Close()
 
 	// invalid topic
 	{

@@ -56,6 +56,7 @@ type Server struct {
 	defaultLimit int64
 	dirs         []string
 	metrics      Metrics
+	isClosed     bool
 }
 
 func NewServer(options ...Option) (*Server, error) {
@@ -95,5 +96,6 @@ func NewServer(options ...Option) (*Server, error) {
 }
 
 func (s *Server) Close() error {
+	s.isClosed = true
 	return s.q.Close()
 }

@@ -123,30 +123,30 @@ func (mr *MockQueueMockRecorder) ModifyTopic(topic, request interface{}) *gomock
 }
 
 // Produce mocks base method
-func (m *MockQueue) Produce(topic string, msgSizes []int64, r io.Reader) error {
+func (m *MockQueue) Produce(topic string, msgSizes []int64, timestamp uint64, r io.Reader) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Produce", topic, msgSizes, r)
+	ret := m.ctrl.Call(m, "Produce", topic, msgSizes, timestamp, r)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Produce indicates an expected call of Produce
-func (mr *MockQueueMockRecorder) Produce(topic, msgSizes, r interface{}) *gomock.Call {
+func (mr *MockQueueMockRecorder) Produce(topic, msgSizes, timestamp, r interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Produce", reflect.TypeOf((*MockQueue)(nil).Produce), topic, msgSizes, r)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Produce", reflect.TypeOf((*MockQueue)(nil).Produce), topic, msgSizes, timestamp, r)
 }
 
 // Consume mocks base method
-func (m *MockQueue) Consume(topic string, id, n int64, w http.ResponseWriter) (int, error) {
+func (m *MockQueue) Consume(topic string, id, limit int64, w http.ResponseWriter) (int, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Consume", topic, id, n, w)
+	ret := m.ctrl.Call(m, "Consume", topic, id, limit, w)
 	ret0, _ := ret[0].(int)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Consume indicates an expected call of Consume
-func (mr *MockQueueMockRecorder) Consume(topic, id, n, w interface{}) *gomock.Call {
+func (mr *MockQueueMockRecorder) Consume(topic, id, limit, w interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Consume", reflect.TypeOf((*MockQueue)(nil).Consume), topic, id, n, w)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Consume", reflect.TypeOf((*MockQueue)(nil).Consume), topic, id, limit, w)
 }

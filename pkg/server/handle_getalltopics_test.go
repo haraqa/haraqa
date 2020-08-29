@@ -24,11 +24,13 @@ func TestServer_HandleGetAllTopics(t *testing.T) {
 		q.EXPECT().RootDir().Times(1).Return(""),
 		q.EXPECT().ListTopics().Return(topics, nil).Times(2),
 		q.EXPECT().ListTopics().Return(nil, errors.New("test get topics error")).Times(1),
+		q.EXPECT().Close().Return(nil).Times(1),
 	)
 	s, err := NewServer(WithQueue(q))
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer s.Close()
 
 	// valid request, happy path, csv output
 	{

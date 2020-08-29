@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/haraqa/haraqa/internal/headers"
@@ -110,6 +112,16 @@ func (s *Server) HandleDeleteTopic() http.HandlerFunc {
 }
 
 func (s *Server) HandleProduce() http.HandlerFunc {
+	timestamp := uint64(time.Now().Unix())
+	go func() {
+		ticker := time.NewTicker(time.Second)
+		for ts := range ticker.C {
+			atomic.SwapUint64(&timestamp, uint64(ts.Unix()))
+			if s.isClosed {
+				ticker.Stop()
+			}
+		}
+	}()
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Body == nil {
 			headers.SetError(w, headers.ErrInvalidBodyMissing)
@@ -132,7 +144,7 @@ func (s *Server) HandleProduce() http.HandlerFunc {
 			return
 		}
 
-		err = s.q.Produce(topic, sizes, r.Body)
+		err = s.q.Produce(topic, sizes, timestamp, r.Body)
 		if err != nil {
 			headers.SetError(w, err)
 			return
