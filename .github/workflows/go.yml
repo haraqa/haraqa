@@ -27,7 +27,7 @@ jobs:
         $(go env GOPATH)/bin/goveralls -coverprofile=cover.out -service=github-actions -repotoken ${{ secrets.COVERALLS_TOKEN }}
 
     - name: Benchmark
-      run: go test -bench=. -benchtime=10000x -run=XXX -trace profiles/trace.out -cpuprofile profiles/cpu.out -memprofile profiles/mem.out ./internal/benchmarks
+      run: mkdir -p profiles && go test -bench=. -benchtime=10000x -run=XXX -trace profiles/trace.out -cpuprofile profiles/cpu.out -memprofile profiles/mem.out ./internal/benchmarks
 
     - name: Upload profiles
       uses: actions/upload-artifact@v2
