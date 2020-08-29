@@ -19,8 +19,8 @@ func TestErrors(t *testing.T) {
 
 	// bad request
 	testError(t, ErrInvalidHeaderSizes, http.StatusBadRequest)
-	testError(t, ErrInvalidHeaderLimit, http.StatusBadRequest)
 	testError(t, ErrInvalidMessageID, http.StatusBadRequest)
+	testError(t, ErrInvalidMessageLimit, http.StatusBadRequest)
 	testError(t, ErrInvalidTopic, http.StatusBadRequest)
 	testError(t, ErrInvalidBodyMissing, http.StatusBadRequest)
 	testError(t, ErrInvalidBodyJSON, http.StatusBadRequest)

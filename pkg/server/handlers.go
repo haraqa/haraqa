@@ -160,19 +160,20 @@ func (s *Server) HandleConsume() http.HandlerFunc {
 			return
 		}
 
-		var n int64
-		limitHeader, ok := r.Header[headers.HeaderLimit]
-		if !ok {
-			n = s.defaultLimit
-		} else {
-			n, err = strconv.ParseInt(limitHeader[0], 10, 64)
-			if err != nil || n == 0 {
-				headers.SetError(w, headers.ErrInvalidHeaderLimit)
+		limit := s.defaultLimit
+		queryLimit := r.URL.Query().Get("limit")
+		if queryLimit != "" && queryLimit[0] != '-' {
+			limit, err = strconv.ParseInt(queryLimit, 10, 64)
+			if err != nil {
+				headers.SetError(w, headers.ErrInvalidMessageLimit)
 				return
+			}
+			if limit <= 0 {
+				limit = s.defaultLimit
 			}
 		}
 
-		count, err := s.q.Consume(topic, id, n, w)
+		count, err := s.q.Consume(topic, id, limit, w)
 		if err != nil {
 			headers.SetError(w, err)
 			return

@@ -24,5 +24,5 @@ type Queue interface {
 	ModifyTopic(topic string, request headers.ModifyRequest) (*headers.TopicInfo, error)
 
 	Produce(topic string, msgSizes []int64, r io.Reader) error
-	Consume(topic string, id int64, n int64, w http.ResponseWriter) (int, error)
+	Consume(topic string, id int64, limit int64, w http.ResponseWriter) (int, error)
 }

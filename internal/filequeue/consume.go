@@ -13,7 +13,7 @@ import (
 	"github.com/haraqa/haraqa/internal/headers"
 )
 
-func (q *FileQueue) Consume(topic string, id int64, N int64, w http.ResponseWriter) (int, error) {
+func (q *FileQueue) Consume(topic string, id int64, limit int64, w http.ResponseWriter) (int, error) {
 	datName, err := getConsumeDat(q.consumeCache, filepath.Join(q.rootDirNames[len(q.rootDirNames)-1], topic), id)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -40,18 +40,18 @@ func (q *FileQueue) Consume(topic string, id int64, N int64, w http.ResponseWrit
 		return 0, nil
 	}
 
-	if N < 0 {
-		N = (stat.Size() - id*32) / 32
+	if limit < 0 {
+		limit = (stat.Size() - id*32) / 32
 	}
 
-	data := make([]byte, N*32)
+	data := make([]byte, limit*32)
 	length, err := dat.ReadAt(data, id*32)
 	if err != nil && length == 0 {
 		return 0, err
 	}
-	N = int64(length) / 32
+	limit = int64(length) / 32
 
-	info.Sizes = make([]int64, N)
+	info.Sizes = make([]int64, limit)
 	info.StartTime = time.Unix(0, int64(binary.LittleEndian.Uint64(data[8:])))
 	info.StartAt = binary.LittleEndian.Uint64(data[16:])
 	info.EndAt = info.StartAt

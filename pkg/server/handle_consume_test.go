@@ -92,11 +92,10 @@ func TestServer_HandleConsume(t *testing.T) {
 	// valid topic, valid id, invalid limit
 	{
 		w := httptest.NewRecorder()
-		r, err := http.NewRequest(http.MethodGet, "/topics/"+topic+"?id=123", bytes.NewBuffer([]byte("test body")))
+		r, err := http.NewRequest(http.MethodGet, "/topics/"+topic+"?id=123&limit=invalid", bytes.NewBuffer([]byte("test body")))
 		if err != nil {
 			t.Fatal(err)
 		}
-		r.Header.Set(headers.HeaderLimit, "invalid")
 		s.ServeHTTP(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
@@ -104,7 +103,7 @@ func TestServer_HandleConsume(t *testing.T) {
 			t.Fatal(resp.Status)
 		}
 		err = headers.ReadErrors(resp.Header)
-		if err != headers.ErrInvalidHeaderLimit {
+		if err != headers.ErrInvalidMessageLimit {
 			t.Fatal(err)
 		}
 	}

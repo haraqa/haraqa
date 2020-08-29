@@ -91,7 +91,7 @@ func (c *Client) Consume(topic string, id uint64, limit int) (io.ReadCloser, []i
 		return nil, nil, err
 	}
 	if limit > 0 {
-		req.Header[headers.HeaderLimit] = []string{strconv.Itoa(limit)}
+		req.URL.RawQuery += "&limit=" + strconv.Itoa(limit)
 	}
 
 	resp, err := c.c.Do(req)
