@@ -23,6 +23,7 @@ func TestServer_HandleConsume(t *testing.T) {
 			w.WriteHeader(http.StatusPartialContent)
 			return 10, nil
 		}).Times(1),
+		q.EXPECT().Consume(topic, int64(123), int64(-1), gomock.Any()).Return(10, nil).Times(1),
 		q.EXPECT().Consume(topic, int64(123), int64(-1), gomock.Any()).Return(0, nil).Times(1),
 		q.EXPECT().Consume(topic, int64(123), int64(-1), gomock.Any()).Return(0, headers.ErrTopicDoesNotExist).Times(1),
 		q.EXPECT().Consume(topic, int64(123), int64(-1), gomock.Any()).Return(0, errors.New("test consume error")).Times(1),
@@ -121,6 +122,25 @@ func TestServer_HandleConsume(t *testing.T) {
 		resp := w.Result()
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusPartialContent {
+			t.Fatal(resp.Status)
+		}
+		err = headers.ReadErrors(resp.Header)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// valid topic, valid id, happy path, limit == 0
+	{
+		w := httptest.NewRecorder()
+		r, err := http.NewRequest(http.MethodGet, "/topics/"+topic+"?id=123&limit=0", bytes.NewBuffer([]byte("Hello World")))
+		if err != nil {
+			t.Fatal(err)
+		}
+		s.ServeHTTP(w, r)
+		resp := w.Result()
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
 			t.Fatal(resp.Status)
 		}
 		err = headers.ReadErrors(resp.Header)

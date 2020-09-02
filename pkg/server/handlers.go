@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -116,16 +115,6 @@ func (s *Server) HandleDeleteTopic() http.HandlerFunc {
 }
 
 func (s *Server) HandleProduce() http.HandlerFunc {
-	timestamp := uint64(time.Now().Unix())
-	go func() {
-		ticker := time.NewTicker(time.Second)
-		for ts := range ticker.C {
-			atomic.SwapUint64(&timestamp, uint64(ts.Unix()))
-			if s.isClosed {
-				ticker.Stop()
-			}
-		}
-	}()
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Body == nil {
 			headers.SetError(w, headers.ErrInvalidBodyMissing)
@@ -148,7 +137,7 @@ func (s *Server) HandleProduce() http.HandlerFunc {
 			return
 		}
 
-		err = s.q.Produce(topic, sizes, timestamp, r.Body)
+		err = s.q.Produce(topic, sizes, uint64(time.Now().Unix()), r.Body)
 		if err != nil {
 			headers.SetError(w, err)
 			return

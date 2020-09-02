@@ -2,10 +2,10 @@ package filequeue
 
 import (
 	"encoding/binary"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -35,7 +35,6 @@ func (q *FileQueue) Consume(topic string, id int64, limit int64, w http.Response
 	if err != nil {
 		return 0, err
 	}
-	var info consumeInfo
 	if stat.Size() < id*32 {
 		return 0, nil
 	}
@@ -51,44 +50,37 @@ func (q *FileQueue) Consume(topic string, id int64, limit int64, w http.Response
 	}
 	limit = int64(length) / 32
 
-	info.Sizes = make([]int64, limit)
-	info.StartTime = time.Unix(0, int64(binary.LittleEndian.Uint64(data[8:])))
-	info.StartAt = binary.LittleEndian.Uint64(data[16:])
-	info.EndAt = info.StartAt
-	for i := range info.Sizes {
-		size := binary.LittleEndian.Uint64(data[i*32+24:])
-		info.Sizes[i] = int64(size)
-		info.EndAt += size
-		if i == len(info.Sizes)-1 {
-			info.EndTime = time.Unix(0, int64(binary.LittleEndian.Uint64(data[i*32+8:])))
-		}
-	}
-	info.EndAt--
-	info.Exists = true
-	info.Filename = path + ".log"
-	f, err := os.Open(info.Filename)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return 0, headers.ErrTopicDoesNotExist
-		}
-		return 0, err
-	}
-	defer f.Close()
-	info.File = f
-	q.consumeResponse(w, &info)
-
-	return len(info.Sizes), nil
+	return q.consumeResponse(w, data, limit, path+".log")
 }
 
-type consumeInfo struct {
-	Filename  string
-	File      io.ReadSeeker
-	Exists    bool
-	StartAt   uint64
-	EndAt     uint64
-	StartTime time.Time
-	EndTime   time.Time
-	Sizes     []int64
+func getConsumeDat(consumeCache cache, path string, id int64) (string, error) {
+	exact := formatName(id)
+	value, ok := consumeCache.Load(path)
+	if ok {
+		names := value.([]string)
+		for i := range names {
+			if len(names[i]) == len(exact) && names[i] <= exact {
+				return names[i], nil
+			}
+		}
+	}
+
+	dir, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	names, err := dir.Readdirnames(-1)
+	if err != nil {
+		return "", err
+	}
+	sort.Sort(sortableDirNames(names))
+	consumeCache.Store(path, names)
+	for i := range names {
+		if len(names[i]) == len(exact) && names[i] <= exact {
+			return names[i], nil
+		}
+	}
+	return formatName(0), nil
 }
 
 var reqPool = sync.Pool{
@@ -97,19 +89,42 @@ var reqPool = sync.Pool{
 	},
 }
 
-func (q *FileQueue) consumeResponse(w http.ResponseWriter, info *consumeInfo) {
+func (q *FileQueue) consumeResponse(w http.ResponseWriter, data []byte, limit int64, filename string) (int, error) {
+	sizes := make([]int64, limit)
+	startTime := time.Unix(0, int64(binary.LittleEndian.Uint64(data[8:])))
+	endTime := startTime
+	startAt := binary.LittleEndian.Uint64(data[16:])
+	endAt := startAt
+	for i := range sizes {
+		size := binary.LittleEndian.Uint64(data[i*32+24:])
+		sizes[i] = int64(size)
+		endAt += size
+		if i == len(sizes)-1 {
+			endTime = time.Unix(0, int64(binary.LittleEndian.Uint64(data[i*32+8:])))
+		}
+	}
+	endAt--
+	f, err := os.Open(filename)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return 0, headers.ErrTopicDoesNotExist
+		}
+		return 0, err
+	}
+	defer f.Close()
 
 	wHeader := w.Header()
-	wHeader[headers.HeaderStartTime] = []string{info.StartTime.Format(time.ANSIC)}
-	wHeader[headers.HeaderEndTime] = []string{info.EndTime.Format(time.ANSIC)}
-	wHeader[headers.HeaderFileName] = []string{info.Filename}
-	wHeader["Content-Type"] = []string{"application/octet-stream"}
-	headers.SetSizes(info.Sizes, wHeader)
-	rangeHeader := "bytes=" + strconv.FormatUint(info.StartAt, 10) + "-" + strconv.FormatUint(info.EndAt, 10)
+	wHeader[headers.HeaderStartTime] = []string{startTime.Format(time.ANSIC)}
+	wHeader[headers.HeaderEndTime] = []string{endTime.Format(time.ANSIC)}
+	wHeader[headers.HeaderFileName] = []string{filename}
+	wHeader[headers.ContentType] = []string{"application/octet-stream"}
+	headers.SetSizes(sizes, wHeader)
+	rangeHeader := "bytes=" + strconv.FormatUint(startAt, 10) + "-" + strconv.FormatUint(endAt, 10)
 	wHeader["Range"] = []string{rangeHeader}
 
 	req := reqPool.Get().(*http.Request)
 	req.Header = wHeader
-	http.ServeContent(w, req, info.Filename, info.EndTime, info.File)
+	http.ServeContent(w, req, filename, endTime, f)
 	reqPool.Put(req)
+	return len(sizes), nil
 }

@@ -48,3 +48,28 @@ func (q *FileQueue) Produce(topic string, msgSizes []int64, timestamp uint64, r 
 
 	return fs.WriteDats(data)
 }
+
+func (q *FileQueue) loadLatest(topic string) (*LogFiles, error) {
+	var fs *LogFiles
+	if q.produceCache == nil {
+		fs = &LogFiles{}
+		return fs, fs.Open(q.rootDirNames, topic, q.max)
+	}
+
+	value, ok := q.produceCache.Load(topic)
+	if ok {
+		if value.(*LogFiles).Entries < q.max {
+			return value.(*LogFiles), nil
+		}
+		value.(*LogFiles).Close()
+	}
+
+	fs = &LogFiles{}
+	err := fs.Open(q.rootDirNames, topic, q.max)
+	if err != nil {
+		return nil, err
+	}
+	q.produceCache.Store(topic, fs)
+
+	return fs, nil
+}
