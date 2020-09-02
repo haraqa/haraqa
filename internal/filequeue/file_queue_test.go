@@ -1,6 +1,145 @@
 package filequeue
 
-import "io"
+import (
+	"io"
+	"os"
+	"strings"
+	"testing"
+
+	"github.com/haraqa/haraqa/internal/headers"
+
+	"github.com/pkg/errors"
+)
+
+func TestNewFileQueue(t *testing.T) {
+	_, err := New()
+	if err == nil {
+		t.Error("expected error for missing directories")
+	}
+
+	// mkdir fails
+	errTest := errors.New("test error")
+	osMkdir = func(name string, perm os.FileMode) error { return errTest }
+	_, err = New(".haraqa-newfq")
+	if !errors.Is(err, errTest) {
+		t.Error(err)
+	}
+
+	// mkdir succeeds but open fails
+	osMkdir = func(name string, perm os.FileMode) error { return nil }
+	_, err = New(".haraqa-newfq")
+	if !os.IsNotExist(errors.Cause(err)) {
+		t.Error(err)
+	}
+	osMkdir = os.Mkdir
+
+	// file stat fails
+	osOpen = func(name string) (*os.File, error) { return nil, nil }
+	_, err = New(".haraqa-newfq")
+	if !errors.Is(err, os.ErrInvalid) {
+		t.Error(err)
+	}
+	osOpen = os.Open
+
+	// file is not a directory
+	_, err = New("file_queue.go")
+	if err == nil || !strings.HasSuffix(err.Error(), "is not a directory") {
+		t.Error(err)
+	}
+
+	// mkdir succeeds
+	q, err := New(".haraqa-newfq")
+	if err != nil {
+		t.Error(err)
+	}
+	if q.RootDir() != ".haraqa-newfq" {
+		t.Error(q.RootDir())
+	}
+	err = q.Close()
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestFileQueue_Topics(t *testing.T) {
+	q, err := New(".haraqa-fqtopics")
+	if err != nil {
+		t.Error(err)
+	}
+
+	// create topics
+	{
+		err = q.CreateTopic("newtopic")
+		if err != nil {
+			t.Error(err)
+		}
+		err = q.CreateTopic("newtopic")
+		if !errors.Is(err, headers.ErrTopicAlreadyExists) {
+			t.Error(err)
+		}
+		err = q.CreateTopic("newtopic/nested/topic")
+		if err != nil {
+			t.Error(err)
+		}
+
+		// mkdir error
+		errTest := errors.New("mkdir error")
+		osMkdir = func(name string, perm os.FileMode) error { return errTest }
+		err = q.CreateTopic("newtopic")
+		if !errors.Is(err, errTest) {
+			t.Error(err)
+		}
+		osMkdir = os.Mkdir
+
+		// mkdirall error
+		osMkdirAll = func(name string, perm os.FileMode) error { return errTest }
+		err = q.CreateTopic("newtopic/nested/topic")
+		if !errors.Is(err, errTest) {
+			t.Error(err)
+		}
+		osMkdirAll = os.MkdirAll
+
+	}
+
+	// list topics
+	{
+		names, err := q.ListTopics()
+		if err != nil {
+			t.Error(err)
+		}
+		if len(names) != 3 || names[0] != "newtopic" || names[1] != "newtopic/nested" || names[2] != "newtopic/nested/topic" {
+			t.Error(names)
+		}
+	}
+
+	// delete topics
+	{
+		err = q.DeleteTopic("newtopic/nested/topic")
+		if err != nil {
+			t.Error(err)
+		}
+		err = q.DeleteTopic("newtopic")
+		if err != nil {
+			t.Error(err)
+		}
+	}
+
+	// list topics
+	{
+		names, err := q.ListTopics()
+		if err != nil {
+			t.Error(err)
+		}
+		if len(names) != 0 {
+			t.Error(names)
+		}
+	}
+
+	err = q.Close()
+	if err != nil {
+		t.Error(err)
+	}
+}
 
 // go:generate mockgen -package queue -destination handle_consume_mocks_test.go io ReadSeeker
 // go:generate goimports -w handle_consume_mocks_test.go

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/haraqa/haraqa/internal/headers"
@@ -35,13 +36,13 @@ func New(dirs ...string) (*FileQueue, error) {
 	for _, dir := range dirs {
 		dir = filepath.Clean(dir)
 
-		f, err := os.Open(dir)
+		f, err := osOpen(dir)
 		if os.IsNotExist(err) {
-			err = os.Mkdir(dir, os.ModePerm)
+			err = osMkdir(dir, os.ModePerm)
 			if err != nil {
 				return nil, errors.Wrapf(err, "unable to create queue directory %q", dir)
 			}
-			f, err = os.Open(dir)
+			f, err = osOpen(dir)
 		}
 		if err != nil {
 			return nil, errors.Wrapf(err, "invalid queue directory %q", dir)
@@ -79,12 +80,37 @@ func (q *FileQueue) RootDir() string {
 }
 
 func (q *FileQueue) ListTopics() ([]string, error) {
-	return q.rootDirs[len(q.rootDirs)-1].Readdirnames(-1)
+	var names []string
+	rootDir := q.rootDirNames[len(q.rootDirNames)-1]
+	err := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
+		if !info.IsDir() {
+			return nil
+		}
+		if path == rootDir {
+			return nil
+		}
+		path = filepath.ToSlash(strings.TrimPrefix(path, rootDir+string(filepath.Separator)))
+		names = append(names, path)
+		return nil
+	})
+	return names, err
 }
 
 func (q *FileQueue) CreateTopic(topic string) error {
+	topic = strings.TrimSpace(topic)
+	topic = strings.TrimSuffix(topic, "/")
+	splitTopic := strings.Split(topic, "/")
 	for _, name := range q.rootDirNames {
-		err := os.Mkdir(filepath.Join(name, topic), os.ModePerm)
+		var err error
+		if len(splitTopic) == 1 {
+			err = osMkdir(filepath.Join(name, topic), os.ModePerm)
+		} else {
+			err = osMkdirAll(filepath.Join(name, filepath.Join(splitTopic[:len(splitTopic)-1]...)), os.ModePerm)
+			if err != nil {
+				return err
+			}
+			err = osMkdir(filepath.Join(name, filepath.Join(splitTopic...)), os.ModePerm)
+		}
 		if os.IsExist(err) {
 			return headers.ErrTopicAlreadyExists
 		}
