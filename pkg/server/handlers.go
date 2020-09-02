@@ -24,13 +24,14 @@ func (s *Server) HandleGetAllTopics() http.HandlerFunc {
 		var response []byte
 		switch r.Header.Get("Accept") {
 		case "application/json":
+			w.Header()[headers.ContentType] = []string{"application/json"}
 			response, _ = json.Marshal(map[string][]string{
 				"topics": topics,
 			})
 		default:
+			w.Header()[headers.ContentType] = []string{"text/csv"}
 			response = []byte(strings.Join(topics, ","))
 		}
-
 		_, _ = w.Write(response)
 	}
 }
@@ -51,6 +52,7 @@ func (s *Server) HandleCreateTopic() http.HandlerFunc {
 			headers.SetError(w, err)
 			return
 		}
+		w.Header()[headers.ContentType] = []string{"text/plain"}
 		w.WriteHeader(http.StatusCreated)
 	}
 }
@@ -87,6 +89,7 @@ func (s *Server) HandleModifyTopic() http.HandlerFunc {
 			headers.SetError(w, err)
 			return
 		}
+		w.Header()[headers.ContentType] = []string{"application/json"}
 		w.WriteHeader(http.StatusOK)
 		_ = json.NewEncoder(w).Encode(&info)
 	}
@@ -108,6 +111,7 @@ func (s *Server) HandleDeleteTopic() http.HandlerFunc {
 			headers.SetError(w, err)
 			return
 		}
+		w.Header()[headers.ContentType] = []string{"text/plain"}
 	}
 }
 
@@ -150,6 +154,7 @@ func (s *Server) HandleProduce() http.HandlerFunc {
 			return
 		}
 		s.metrics.ProduceMsgs(len(sizes))
+		w.Header()[headers.ContentType] = []string{"text/plain"}
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	urlpkg "net/url"
 	"strconv"
 	"sync"
 	"time"
@@ -13,13 +14,36 @@ import (
 	"github.com/pkg/errors"
 )
 
+type Option func(*Client) error
+
+func WithURL(url string) Option {
+	return func(c *Client) error {
+		_, err := urlpkg.Parse(url)
+		if err != nil {
+			return err
+		}
+		c.url = url
+		return nil
+	}
+}
+
+func WithHTTPClient(client *http.Client) Option {
+	return func(c *Client) error {
+		if client == nil {
+			return errors.New("invalid http client: client cannot be nil")
+		}
+		c.c = client
+		return nil
+	}
+}
+
 type Client struct {
 	c   *http.Client
 	url string
 }
 
-func NewClient(url string) *Client {
-	return &Client{
+func NewClient(opts ...Option) (*Client, error) {
+	c := &Client{
 		c: &http.Client{
 			Transport: &http.Transport{
 				Proxy: http.ProxyFromEnvironment,
@@ -36,8 +60,16 @@ func NewClient(url string) *Client {
 				MaxIdleConnsPerHost:   1000,
 			},
 		},
-		url: url,
+		url: "http://127.0.0.1:4353",
 	}
+
+	for _, opt := range opts {
+		if err := opt(c); err != nil {
+			return nil, err
+		}
+	}
+
+	return c, nil
 }
 
 func (c *Client) CreateTopic(topic string) error {
@@ -98,7 +130,7 @@ func (c *Client) Consume(topic string, id uint64, limit int) (io.ReadCloser, []i
 	if err != nil {
 		return nil, nil, err
 	}
-	if resp.StatusCode != http.StatusPartialContent {
+	if resp.StatusCode != http.StatusPartialContent && resp.StatusCode != http.StatusOK {
 		err = headers.ReadErrors(resp.Header)
 		return nil, nil, errors.Wrap(err, "error consuming")
 	}

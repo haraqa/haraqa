@@ -14,6 +14,7 @@ const (
 	HeaderStartTime = "X-Start-Time"
 	HeaderEndTime   = "X-End-Time"
 	HeaderFileName  = "X-File-Name"
+	ContentType     = "Content-Type"
 )
 
 const (

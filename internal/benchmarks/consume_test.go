@@ -39,7 +39,10 @@ func BenchmarkConsume(b *testing.B) {
 	s := httptest.NewServer(haraqaServer)
 	defer s.Close()
 
-	c := haraqa.NewClient(s.URL)
+	c, err := haraqa.NewClient(haraqa.WithURL(s.URL))
+	if err != nil {
+		b.Fatal(err)
+	}
 
 	err = c.CreateTopic("benchtopic")
 	if err != nil {
