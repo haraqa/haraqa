@@ -35,32 +35,34 @@ func (q *FileQueue) Consume(topic string, id int64, limit int64, w http.Response
 	if err != nil {
 		return 0, err
 	}
-	if stat.Size() < id*32 {
+	if stat.Size() < id*datEntryLength {
 		return 0, nil
 	}
 
 	if limit < 0 {
-		limit = (stat.Size() - id*32) / 32
+		limit = (stat.Size() - id*datEntryLength) / datEntryLength
 	}
 
-	data := make([]byte, limit*32)
-	length, err := dat.ReadAt(data, id*32)
+	data := make([]byte, limit*datEntryLength)
+	length, err := dat.ReadAt(data, id*datEntryLength)
 	if err != nil && length == 0 {
 		return 0, err
 	}
-	limit = int64(length) / 32
+	limit = int64(length) / datEntryLength
 
 	return q.consumeResponse(w, data, limit, path+".log")
 }
 
 func getConsumeDat(consumeCache cache, path string, id int64) (string, error) {
 	exact := formatName(id)
-	value, ok := consumeCache.Load(path)
-	if ok {
-		names := value.([]string)
-		for i := range names {
-			if len(names[i]) == len(exact) && names[i] <= exact {
-				return names[i], nil
+	if consumeCache != nil {
+		value, ok := consumeCache.Load(path)
+		if ok {
+			names := value.([]string)
+			for i := range names {
+				if len(names[i]) == len(exact) && names[i] <= exact {
+					return names[i], nil
+				}
 			}
 		}
 	}
@@ -69,12 +71,16 @@ func getConsumeDat(consumeCache cache, path string, id int64) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	defer dir.Close()
+
 	names, err := dir.Readdirnames(-1)
 	if err != nil {
 		return "", err
 	}
 	sort.Sort(sortableDirNames(names))
-	consumeCache.Store(path, names)
+	if consumeCache != nil {
+		consumeCache.Store(path, names)
+	}
 	for i := range names {
 		if len(names[i]) == len(exact) && names[i] <= exact {
 			return names[i], nil
@@ -96,11 +102,11 @@ func (q *FileQueue) consumeResponse(w http.ResponseWriter, data []byte, limit in
 	startAt := binary.LittleEndian.Uint64(data[16:])
 	endAt := startAt
 	for i := range sizes {
-		size := binary.LittleEndian.Uint64(data[i*32+24:])
+		size := binary.LittleEndian.Uint64(data[i*datEntryLength+24:])
 		sizes[i] = int64(size)
 		endAt += size
 		if i == len(sizes)-1 {
-			endTime = time.Unix(0, int64(binary.LittleEndian.Uint64(data[i*32+8:])))
+			endTime = time.Unix(0, int64(binary.LittleEndian.Uint64(data[i*datEntryLength+8:])))
 		}
 	}
 	endAt--
