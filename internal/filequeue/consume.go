@@ -24,9 +24,6 @@ func (q *FileQueue) Consume(topic string, id int64, limit int64, w http.Response
 	path := filepath.Join(q.rootDirNames[len(q.rootDirNames)-1], topic, datName)
 	dat, err := os.Open(path)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return 0, headers.ErrTopicDoesNotExist
-		}
 		return 0, err
 	}
 	defer dat.Close()
@@ -112,9 +109,6 @@ func (q *FileQueue) consumeResponse(w http.ResponseWriter, data []byte, limit in
 	endAt--
 	f, err := os.Open(filename)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return 0, headers.ErrTopicDoesNotExist
-		}
 		return 0, err
 	}
 	defer f.Close()

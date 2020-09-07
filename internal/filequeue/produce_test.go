@@ -42,6 +42,11 @@ func TestFileQueue_Produce(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	defer func() {
+		if err := q.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
 
 	// no messages
 	err = q.Produce(topic, nil, 0, nil)
