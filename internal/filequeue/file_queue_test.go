@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/haraqa/haraqa/internal/headers"
-
 	"github.com/pkg/errors"
 )
 
@@ -18,6 +17,7 @@ func TestNewFileQueue(t *testing.T) {
 	}
 
 	_ = os.RemoveAll(".haraqa-newfq")
+	defer os.RemoveAll(".haraqa-newfq")
 
 	// mkdir fails
 	errTest := errors.New("test error")
@@ -65,6 +65,7 @@ func TestNewFileQueue(t *testing.T) {
 
 func TestFileQueue_Topics(t *testing.T) {
 	_ = os.RemoveAll(".haraqa-fqtopics")
+	defer os.RemoveAll(".haraqa-fqtopics")
 
 	q, err := New(".haraqa-fqtopics")
 	if err != nil {

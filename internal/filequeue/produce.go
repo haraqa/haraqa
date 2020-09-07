@@ -20,6 +20,10 @@ func (q *FileQueue) Produce(topic string, msgSizes []int64, timestamp uint64, r 
 		return nil
 	}
 
+	if r == nil {
+		return headers.ErrInvalidBodyMissing
+	}
+
 	// lock actions on the topic
 	mux, ok := q.produceLocks.Load(topic)
 	if !ok {
@@ -32,7 +36,7 @@ func (q *FileQueue) Produce(topic string, msgSizes []int64, timestamp uint64, r 
 	pf, err := q.OpenProduceFile(topic)
 	if err != nil {
 		if os.IsNotExist(errors.Cause(err)) {
-			return headers.ErrTopicDoesNotExist
+			err = headers.ErrTopicDoesNotExist
 		}
 		return errors.Wrap(err, "open producer file error")
 	}
@@ -110,13 +114,13 @@ func (q *FileQueue) OpenProduceFile(topic string) (*ProduceFile, error) {
 OpenFileSet:
 	for _, dir := range q.rootDirNames {
 		datPath := filepath.Join(dir, topic, datName)
-		dat, err := os.OpenFile(datPath, os.O_RDWR|os.O_CREATE, 0666)
+		dat, err := osOpenFile(datPath, os.O_RDWR|os.O_CREATE, 0666)
 		if err != nil {
 			closeFiles()
 			return nil, errors.Wrapf(err, "unable to open/create file %q", datPath)
 		}
 		logPath := filepath.Join(dir, topic, datName+".log")
-		log, err := os.OpenFile(logPath, os.O_RDWR|os.O_CREATE, 0666)
+		log, err := osOpenFile(logPath, os.O_RDWR|os.O_CREATE, 0666)
 		if err != nil {
 			closeFiles()
 			return nil, errors.Wrapf(err, "unable to open/create file %q", logPath)
@@ -147,6 +151,7 @@ OpenFileSet:
 			pf.NextID = int64(binary.LittleEndian.Uint64(data[0:8])) + 1
 			pf.CurrentDatOffset = datEntryLength * (size / datEntryLength)
 			pf.CurrentLogOffset = int64(binary.LittleEndian.Uint64(data[16:24]) + binary.LittleEndian.Uint64(data[24:32]))
+			datName = formatName(pf.NextID)
 
 			// check if this file has been filled
 			if size/datEntryLength >= q.max {
@@ -210,7 +215,7 @@ func (pf *ProduceFile) Write(msgSizes []int64, timestamp uint64, r io.Reader) er
 }
 
 func getLatestDat(path string) (string, error) {
-	dir, err := os.Open(path)
+	dir, err := osOpen(path)
 	if err != nil {
 		return "", err
 	}
