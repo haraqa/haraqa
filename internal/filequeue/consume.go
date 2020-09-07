@@ -14,7 +14,7 @@ import (
 )
 
 func (q *FileQueue) Consume(topic string, id int64, limit int64, w http.ResponseWriter) (int, error) {
-	datName, err := getConsumeDat(q.consumeCache, filepath.Join(q.rootDirNames[len(q.rootDirNames)-1], topic), id)
+	datName, err := getConsumeDat(q.consumeCache, filepath.Join(q.rootDirNames[len(q.rootDirNames)-1], topic), topic, id)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return 0, headers.ErrTopicDoesNotExist
@@ -32,8 +32,24 @@ func (q *FileQueue) Consume(topic string, id int64, limit int64, w http.Response
 	if err != nil {
 		return 0, err
 	}
-	if stat.Size() < id*datEntryLength {
-		return 0, nil
+
+	// check if id was less than 0
+	if id < 0 {
+		id = stat.Size()/datEntryLength - 1
+		if id < 0 {
+			return 0, nil
+		}
+	}
+
+	if id > stat.Size()/datEntryLength-1 {
+		base, err := strconv.ParseInt(stat.Name(), 10, 64)
+		if err != nil {
+			return 0, err
+		}
+		id = id - base
+		if id > stat.Size()/datEntryLength-1 {
+			return 0, nil
+		}
 	}
 
 	if limit < 0 {
@@ -50,10 +66,10 @@ func (q *FileQueue) Consume(topic string, id int64, limit int64, w http.Response
 	return q.consumeResponse(w, data, limit, path+".log")
 }
 
-func getConsumeDat(consumeCache cache, path string, id int64) (string, error) {
+func getConsumeDat(consumeCache cache, path string, topic string, id int64) (string, error) {
 	exact := formatName(id)
 	if consumeCache != nil {
-		value, ok := consumeCache.Load(path)
+		value, ok := consumeCache.Load(topic)
 		if ok {
 			names := value.([]string)
 			for i := range names {
@@ -76,8 +92,12 @@ func getConsumeDat(consumeCache cache, path string, id int64) (string, error) {
 	}
 	sort.Sort(sortableDirNames(names))
 	if consumeCache != nil {
-		consumeCache.Store(path, names)
+		consumeCache.Store(topic, names)
 	}
+	if id < 0 && len(names) > 0 {
+		return names[0], nil
+	}
+
 	for i := range names {
 		if len(names[i]) == len(exact) && names[i] <= exact {
 			return names[i], nil

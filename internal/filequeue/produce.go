@@ -40,6 +40,7 @@ func (q *FileQueue) Produce(topic string, msgSizes []int64, timestamp uint64, r 
 		}
 		return errors.Wrap(err, "open producer file error")
 	}
+	isNewFile := pf.CurrentDatOffset == 0
 
 	// Write logs & dats
 	err = pf.Write(msgSizes, timestamp, r)
@@ -50,6 +51,9 @@ func (q *FileQueue) Produce(topic string, msgSizes []int64, timestamp uint64, r 
 	// Add back to pool
 	if q.produceCache != nil {
 		q.produceCache.Store(topic, pf)
+	}
+	if q.consumeCache != nil && isNewFile {
+		q.consumeCache.Delete(topic)
 	}
 	return nil
 }
@@ -151,11 +155,11 @@ OpenFileSet:
 			pf.NextID = int64(binary.LittleEndian.Uint64(data[0:8])) + 1
 			pf.CurrentDatOffset = datEntryLength * (size / datEntryLength)
 			pf.CurrentLogOffset = int64(binary.LittleEndian.Uint64(data[16:24]) + binary.LittleEndian.Uint64(data[24:32]))
-			datName = formatName(pf.NextID)
 
 			// check if this file has been filled
 			if size/datEntryLength >= q.max {
 				closeFiles()
+				datName = formatName(pf.NextID)
 				goto OpenFileSet
 			}
 		}

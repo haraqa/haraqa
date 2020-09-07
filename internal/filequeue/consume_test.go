@@ -2,6 +2,7 @@ package filequeue
 
 import (
 	"bytes"
+	"io/ioutil"
 	"net/http/httptest"
 	"os"
 	"reflect"
@@ -75,6 +76,14 @@ func TestFileQueue_Consume(t *testing.T) {
 		if !reflect.DeepEqual(sizes, msgSizes) {
 			t.Error(sizes, msgSizes)
 		}
+
+		b, err := ioutil.ReadAll(w.Body)
+		if err != nil {
+			t.Error(err)
+		}
+		if !reflect.DeepEqual(b, bytes.Join(inputs, nil)) {
+			t.Error(len(b), string(b))
+		}
 	}
 
 	// consume again w/cache
@@ -98,6 +107,13 @@ func TestFileQueue_Consume(t *testing.T) {
 		if !reflect.DeepEqual(sizes, msgSizes[:2]) {
 			t.Error(sizes, msgSizes)
 		}
+		b, err := ioutil.ReadAll(w.Body)
+		if err != nil {
+			t.Error(err)
+		}
+		if !reflect.DeepEqual(b, bytes.Join(inputs[:2], nil)) {
+			t.Error(len(b), string(b))
+		}
 	}
 
 	// consume again w/offset
@@ -120,6 +136,81 @@ func TestFileQueue_Consume(t *testing.T) {
 		}
 		if !reflect.DeepEqual(sizes, msgSizes[2:]) {
 			t.Error(sizes, msgSizes)
+		}
+		b, err := ioutil.ReadAll(w.Body)
+		if err != nil {
+			t.Error(err)
+		}
+		if !reflect.DeepEqual(b, bytes.Join(inputs[2:], nil)) {
+			t.Error(len(b), string(b))
+		}
+	}
+
+	// consume just the last
+	{
+		w := httptest.NewRecorder()
+		n, err := q.Consume(topic, -1, -1, w)
+		if err != nil {
+			t.Error(err)
+		}
+		if n != 1 {
+			t.Error(n)
+		}
+		err = headers.ReadErrors(w.Header())
+		if err != nil {
+			t.Error(err)
+		}
+		sizes, err := headers.ReadSizes(w.Header())
+		if err != nil {
+			t.Error(err)
+		}
+		if !reflect.DeepEqual(sizes, []int64{msgSizes[len(msgSizes)-1]}) {
+			t.Error(sizes, msgSizes)
+		}
+		b, err := ioutil.ReadAll(w.Body)
+		if err != nil {
+			t.Error(err)
+		}
+		if !reflect.DeepEqual(b, inputs[len(inputs)-1]) {
+			t.Error(len(b), string(b))
+		}
+	}
+	// consume w/ multiple files
+	{
+		q.max = int64(len(inputs) - 1)
+		newInput := []byte("additional file input")
+		if _, err = r.Write(newInput); err != nil {
+			t.Error(err)
+		}
+		err = q.Produce(topic, []int64{int64(len(newInput))}, 0, r)
+		if err != nil {
+			t.Error(err)
+		}
+		w := httptest.NewRecorder()
+		n, err := q.Consume(topic, int64(len(inputs)), -1, w)
+		if err != nil {
+			t.Error(err)
+		}
+		if n != 1 {
+			t.Error(n)
+		}
+		err = headers.ReadErrors(w.Header())
+		if err != nil {
+			t.Error(err)
+		}
+		sizes, err := headers.ReadSizes(w.Header())
+		if err != nil {
+			t.Error(err)
+		}
+		if !reflect.DeepEqual(sizes, []int64{int64(len(newInput))}) {
+			t.Error(sizes, msgSizes)
+		}
+		b, err := ioutil.ReadAll(w.Body)
+		if err != nil {
+			t.Error(err)
+		}
+		if !reflect.DeepEqual(b, newInput) {
+			t.Error(len(b), string(b))
 		}
 	}
 }

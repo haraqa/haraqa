@@ -23,6 +23,7 @@ type FileQueue struct {
 type cache interface {
 	Load(key interface{}) (interface{}, bool)
 	Store(key, value interface{})
+	Delete(key interface{})
 }
 
 func New(dirs ...string) (*FileQueue, error) {
