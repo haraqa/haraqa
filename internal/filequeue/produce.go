@@ -191,23 +191,8 @@ func (pf *ProduceFile) Write(msgSizes []int64, timestamp uint64, r io.Reader) er
 		nextID++
 	}
 
-	// get log buffer
-	buf := bufPool.Get().([]byte)
-	if offset-pf.CurrentLogOffset > int64(cap(buf)) {
-		buf = make([]byte, offset-pf.CurrentLogOffset)
-	} else {
-		buf = buf[:offset-pf.CurrentLogOffset]
-	}
-	defer bufPool.Put(buf)
-
-	// read to buffer
-	_, err := io.ReadAtLeast(r, buf, len(buf))
-	if err != nil {
-		return errors.Wrap(err, "unable to read input")
-	}
-
-	// write buffer to logs
-	err = pf.Logs.WriteAt(buf, pf.CurrentLogOffset)
+	// write logs
+	err := pf.Logs.CopyNAt(r, offset-pf.CurrentLogOffset, pf.CurrentLogOffset)
 	if err != nil {
 		return errors.Wrap(err, "unable to copy to log file")
 	}

@@ -17,6 +17,8 @@ func TestNewFileQueue(t *testing.T) {
 		t.Error("expected error for missing directories")
 	}
 
+	_ = os.RemoveAll(".haraqa-newfq")
+
 	// mkdir fails
 	errTest := errors.New("test error")
 	osMkdir = func(name string, perm os.FileMode) error { return errTest }
@@ -62,6 +64,8 @@ func TestNewFileQueue(t *testing.T) {
 }
 
 func TestFileQueue_Topics(t *testing.T) {
+	_ = os.RemoveAll(".haraqa-fqtopics")
+
 	q, err := New(".haraqa-fqtopics")
 	if err != nil {
 		t.Error(err)
