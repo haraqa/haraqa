@@ -1,8 +1,11 @@
 package server
 
 import (
+	"net/http"
 	"reflect"
 	"testing"
+
+	"github.com/gorilla/mux"
 )
 
 func TestServerOptions(t *testing.T) {
@@ -86,6 +89,21 @@ func TestServerOptions(t *testing.T) {
 		}
 		if s.defaultLimit != 1024 {
 			t.Fatal(s.defaultLimit)
+		}
+	}
+
+	// WithMiddleware
+	{
+		s := &Server{}
+		mw := mux.MiddlewareFunc(func(next http.Handler) http.Handler {
+			return next
+		})
+		err := WithMiddleware(mw)(s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(s.middlewares) != 1 && !reflect.DeepEqual(s.middlewares[0], mw) {
+			t.Error(s.middlewares)
 		}
 	}
 }

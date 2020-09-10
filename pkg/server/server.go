@@ -50,6 +50,13 @@ func WithDefaultConsumeLimit(n int64) Option {
 	}
 }
 
+func WithMiddleware(middleware ...mux.MiddlewareFunc) Option {
+	return func(s *Server) error {
+		s.middlewares = append(s.middlewares, middleware...)
+		return nil
+	}
+}
+
 type Server struct {
 	*mux.Router
 	q            Queue
@@ -57,6 +64,7 @@ type Server struct {
 	dirs         []string
 	metrics      Metrics
 	isClosed     bool
+	middlewares  []mux.MiddlewareFunc
 }
 
 func NewServer(options ...Option) (*Server, error) {
@@ -82,13 +90,16 @@ func NewServer(options ...Option) (*Server, error) {
 		}
 	}
 
+	if len(s.middlewares) > 0 {
+		s.Router.Use(s.middlewares...)
+	}
+
 	s.Router.PathPrefix("/raw/").Handler(http.StripPrefix("/raw/", http.FileServer(http.Dir(s.q.RootDir()))))
 	r := s.Router.PathPrefix("/topics").Subrouter()
 	r.Path("").Methods(http.MethodGet).Handler(s.HandleGetAllTopics())
 	r.Path("/{topic:.*}").Methods(http.MethodPut).Handler(s.HandleCreateTopic())
 	r.Path("/{topic:.*}").Methods(http.MethodPatch).Handler(s.HandleModifyTopic())
 	r.Path("/{topic:.*}").Methods(http.MethodDelete).Handler(s.HandleDeleteTopic())
-	//r.Path("/{topic:.*}").Methods(http.MethodGet).Handler(s.HandleInspectTopic())
 	r.Path("/{topic:.*}").Methods(http.MethodPost).Handler(s.HandleProduce())
 	r.Path("/{topic:.*}").Methods(http.MethodGet).Handler(s.HandleConsume())
 

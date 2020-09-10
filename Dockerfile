@@ -36,8 +36,8 @@ FROM busybox:1.31.1
 # Setup Default Behavior
 ENTRYPOINT ["/haraqa"]
 
-# Ports - grpc port:4353, data port:14353, pprof port: 6060
-EXPOSE 4353 14353 6060
+# HTTP Port
+EXPOSE 4353
 
 # Get binary from compiler
 COPY --from=compiler /haraqa-build /haraqa

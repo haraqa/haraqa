@@ -114,7 +114,7 @@ var reqPool = sync.Pool{
 
 func (q *FileQueue) consumeResponse(w http.ResponseWriter, data []byte, limit int64, filename string) (int, error) {
 	sizes := make([]int64, limit)
-	startTime := time.Unix(0, int64(binary.LittleEndian.Uint64(data[8:])))
+	startTime := time.Unix(int64(binary.LittleEndian.Uint64(data[8:])), 0)
 	endTime := startTime
 	startAt := binary.LittleEndian.Uint64(data[16:])
 	endAt := startAt
@@ -123,7 +123,7 @@ func (q *FileQueue) consumeResponse(w http.ResponseWriter, data []byte, limit in
 		sizes[i] = int64(size)
 		endAt += size
 		if i == len(sizes)-1 {
-			endTime = time.Unix(0, int64(binary.LittleEndian.Uint64(data[i*datEntryLength+8:])))
+			endTime = time.Unix(int64(binary.LittleEndian.Uint64(data[i*datEntryLength+8:])), 0)
 		}
 	}
 	endAt--

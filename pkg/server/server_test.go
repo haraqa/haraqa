@@ -1,8 +1,12 @@
 package server
 
 import (
+	"net/http"
 	"os"
+	"reflect"
 	"testing"
+
+	"github.com/gorilla/mux"
 
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
@@ -42,6 +46,26 @@ func TestNewServer(t *testing.T) {
 		if _, ok := errors.Cause(err).(*os.PathError); !ok {
 			t.Fatal(errors.Cause(err))
 		}
+	}
+
+	// with middleware
+	{
+		q := NewMockQueue(ctrl)
+		gomock.InOrder(
+			q.EXPECT().RootDir().Return("./.haraqa").Times(1),
+			q.EXPECT().Close().Times(1),
+		)
+		mw := mux.MiddlewareFunc(func(next http.Handler) http.Handler {
+			return next
+		})
+		s, err := NewServer(WithQueue(q), WithMiddleware(mw))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(s.middlewares) != 1 && !reflect.DeepEqual(s.middlewares[0], mw) {
+			t.Error(s.middlewares)
+		}
+		s.Close()
 	}
 }
 
