@@ -26,7 +26,7 @@ type cache interface {
 	Delete(key interface{})
 }
 
-func New(dirs ...string) (*FileQueue, error) {
+func New(cacheFiles bool, maxEntries int64, dirs ...string) (*FileQueue, error) {
 	if len(dirs) == 0 {
 		return nil, errors.New("at least one directory must be given")
 	}
@@ -60,13 +60,16 @@ func New(dirs ...string) (*FileQueue, error) {
 		dirNames = append(dirNames, dir)
 	}
 
-	return &FileQueue{
+	q := &FileQueue{
 		rootDirNames: dirNames,
 		rootDirs:     dirFiles,
-		max:          5000,
-		produceCache: &sync.Map{},
-		consumeCache: &sync.Map{},
-	}, nil
+		max:          maxEntries,
+	}
+	if cacheFiles {
+		q.produceCache = &sync.Map{}
+		q.consumeCache = &sync.Map{}
+	}
+	return q, nil
 }
 
 func (q *FileQueue) Close() error {
@@ -127,10 +130,6 @@ func (q *FileQueue) DeleteTopic(topic string) error {
 		os.RemoveAll(filepath.Join(name, topic))
 	}
 	return nil
-}
-
-func (q *FileQueue) ModifyTopic(topic string, request headers.ModifyRequest) (*headers.TopicInfo, error) {
-	return nil, nil
 }
 
 func formatName(baseID int64) string {

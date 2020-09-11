@@ -57,9 +57,28 @@ func WithMiddleware(middleware ...mux.MiddlewareFunc) Option {
 	}
 }
 
+func WithFileCaching(cache bool) Option {
+	return func(s *Server) error {
+		s.qFileCache = cache
+		return nil
+	}
+}
+
+func WithFileEntries(entries int64) Option {
+	return func(s *Server) error {
+		if entries < 0 {
+			return errors.New("invalid FileEntries, value must not be negative")
+		}
+		s.qFileEntries = entries
+		return nil
+	}
+}
+
 type Server struct {
 	*mux.Router
 	q            Queue
+	qFileCache   bool
+	qFileEntries int64
 	defaultLimit int64
 	dirs         []string
 	metrics      Metrics
@@ -73,6 +92,8 @@ func NewServer(options ...Option) (*Server, error) {
 		metrics:      noOpMetrics{},
 		dirs:         []string{".haraqa"},
 		defaultLimit: -1,
+		qFileCache:   true,
+		qFileEntries: 5000,
 	}
 
 	for _, option := range options {
@@ -84,7 +105,7 @@ func NewServer(options ...Option) (*Server, error) {
 	if s.q == nil {
 		// default queue
 		var err error
-		s.q, err = filequeue.New(s.dirs...)
+		s.q, err = filequeue.New(s.qFileCache, s.qFileEntries, s.dirs...)
 		if err != nil {
 			return nil, err
 		}

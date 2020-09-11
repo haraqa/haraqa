@@ -38,7 +38,7 @@ func TestFileQueue_Produce(t *testing.T) {
 	_ = os.RemoveAll(".haraqa-producer")
 	defer os.RemoveAll(".haraqa-producer")
 
-	q, err := New(".haraqa-producer")
+	q, err := New(true, 5000, ".haraqa-producer")
 	if err != nil {
 		t.Error(err)
 	}

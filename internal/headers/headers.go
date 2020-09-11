@@ -3,6 +3,7 @@ package headers
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/pkg/errors"
 )
@@ -123,7 +124,8 @@ func SetSizes(msgSizes []int64, h http.Header) http.Header {
 }
 
 type ModifyRequest struct {
-	Truncate int64 `json:"truncate,omitempty"`
+	Truncate int64     `json:"truncate,omitempty"`
+	Before   time.Time `json:"before,omitempty"`
 }
 
 type TopicInfo struct {

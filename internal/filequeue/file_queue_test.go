@@ -11,7 +11,7 @@ import (
 )
 
 func TestNewFileQueue(t *testing.T) {
-	_, err := New()
+	_, err := New(true, 5000)
 	if err == nil {
 		t.Error("expected error for missing directories")
 	}
@@ -22,14 +22,14 @@ func TestNewFileQueue(t *testing.T) {
 	// mkdir fails
 	errTest := errors.New("test error")
 	osMkdir = func(name string, perm os.FileMode) error { return errTest }
-	_, err = New(".haraqa-newfq")
+	_, err = New(true, 5000, ".haraqa-newfq")
 	if !errors.Is(err, errTest) {
 		t.Error(err)
 	}
 
 	// mkdir succeeds but open fails
 	osMkdir = func(name string, perm os.FileMode) error { return nil }
-	_, err = New(".haraqa-newfq")
+	_, err = New(true, 5000, ".haraqa-newfq")
 	if !os.IsNotExist(errors.Cause(err)) {
 		t.Error(err)
 	}
@@ -37,20 +37,20 @@ func TestNewFileQueue(t *testing.T) {
 
 	// file stat fails
 	osOpen = func(name string) (*os.File, error) { return nil, nil }
-	_, err = New(".haraqa-newfq")
+	_, err = New(true, 5000, ".haraqa-newfq")
 	if !errors.Is(err, os.ErrInvalid) {
 		t.Error(err)
 	}
 	osOpen = os.Open
 
 	// file is not a directory
-	_, err = New("file_queue.go")
+	_, err = New(true, 5000, "file_queue.go")
 	if err == nil || !strings.HasSuffix(err.Error(), "is not a directory") {
 		t.Error(err)
 	}
 
 	// mkdir succeeds
-	q, err := New(".haraqa-newfq")
+	q, err := New(true, 5000, ".haraqa-newfq")
 	if err != nil {
 		t.Error(err)
 	}
@@ -67,7 +67,7 @@ func TestFileQueue_Topics(t *testing.T) {
 	_ = os.RemoveAll(".haraqa-fqtopics")
 	defer os.RemoveAll(".haraqa-fqtopics")
 
-	q, err := New(".haraqa-fqtopics")
+	q, err := New(true, 5000, ".haraqa-fqtopics")
 	if err != nil {
 		t.Error(err)
 	}

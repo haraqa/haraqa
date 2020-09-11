@@ -17,7 +17,7 @@ func TestFileQueue_Consume(t *testing.T) {
 	topic := "consume-topic"
 	_ = os.RemoveAll(".haraqa-consumer")
 	defer os.RemoveAll(".haraqa-consumer")
-	q, err := New(".haraqa-consumer")
+	q, err := New(true, 5000, ".haraqa-consumer")
 	if err != nil {
 		t.Error(err)
 	}
