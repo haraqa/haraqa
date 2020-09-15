@@ -13,7 +13,6 @@ import (
 
 type FileQueue struct {
 	rootDirNames []string
-	rootDirs     []*os.File
 	max          int64
 	produceLocks sync.Map
 	produceCache cache
@@ -32,8 +31,6 @@ func New(cacheFiles bool, maxEntries int64, dirs ...string) (*FileQueue, error) 
 	}
 
 	dirNames := make([]string, 0, len(dirs))
-	dirFiles := make([]*os.File, 0, len(dirs))
-
 	for _, dir := range dirs {
 		dir = filepath.Clean(dir)
 
@@ -49,6 +46,7 @@ func New(cacheFiles bool, maxEntries int64, dirs ...string) (*FileQueue, error) 
 			return nil, errors.Wrapf(err, "invalid queue directory %q", dir)
 		}
 		info, err := f.Stat()
+		_ = f.Close()
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to read queue directory %q", dir)
 		}
@@ -56,13 +54,11 @@ func New(cacheFiles bool, maxEntries int64, dirs ...string) (*FileQueue, error) 
 			return nil, errors.Errorf("path %q is not a directory", dir)
 		}
 
-		dirFiles = append(dirFiles, f)
 		dirNames = append(dirNames, dir)
 	}
 
 	q := &FileQueue{
 		rootDirNames: dirNames,
-		rootDirs:     dirFiles,
 		max:          maxEntries,
 	}
 	if cacheFiles {
@@ -73,9 +69,6 @@ func New(cacheFiles bool, maxEntries int64, dirs ...string) (*FileQueue, error) 
 }
 
 func (q *FileQueue) Close() error {
-	for i := range q.rootDirs {
-		q.rootDirs[i].Close()
-	}
 	return nil
 }
 
