@@ -1,0 +1,183 @@
+swagger: "2.0"
+host: "localhost:4353"
+basePath: "/"
+info:
+  title: "Haraqa API"
+  version: "0.0.0"
+  description: "Haraqa [http://github.com/haraqa/haraqa](http://github.com/haraqa/haraqa)."
+  license:
+    name: "MIT License"
+    url: "https://github.com/haraqa/haraqa/blob/master/LICENSE"
+externalDocs:
+  description: "Find out more about swagger codegen"
+  url: "https://swagger.io/docs/open-source-tools/swagger-codegen/"
+schemes:
+  - "http"
+tags:
+  - name: "topics"
+    description: "Topics for queuing different messages"
+paths:
+  /topics:
+    get:
+      tags:
+        - "topics"
+      summary: "List all available topics"
+      description: "Returns all the topics that have been created on the broker"
+      operationId: "listTopics"
+      produces:
+        - "application/json"
+        - "text/csv"
+      responses:
+        "200":
+          description: "successful operation"
+          schema:
+            $ref: "#/definitions/ListTopics"
+  /topics/{topic}:
+    put:
+      tags:
+        - "topics"
+      summary: "Create a topic"
+      description: "Creates a new topic"
+      operationId: "create"
+      produces:
+        - "text/plain"
+      parameters:
+        - name: "topic"
+          in: "path"
+          description: "Topic to create"
+          required: true
+          type: "string"
+      responses:
+        "201":
+          description: "successfully created topic"
+    delete:
+      tags:
+        - "topics"
+      summary: "Delete a topic"
+      description: "deletes a topic"
+      operationId: "delete"
+      parameters:
+        - name: "topic"
+          in: "path"
+          description: "Topic to delete"
+          required: true
+          type: "string"
+      responses:
+        "204":
+          description: "successfully deleted topic"
+    patch:
+      tags:
+        - "topics"
+      summary: "Modify a topic"
+      description: "Modifies a topic"
+      operationId: "modify"
+      consumes:
+        - "application/json"
+      parameters:
+        - name: "topic"
+          in: "path"
+          description: "Topic to modify"
+          required: true
+          type: "string"
+        - name: "body"
+          in: "body"
+          description: "modification parameters"
+          required: true
+          schema:
+            $ref: "#/definitions/ModifyTopic"
+      responses:
+        "200":
+          description: "request successful"
+          schema:
+            $ref: "#/definitions/TopicInfo"
+    get:
+      tags:
+        - "topics"
+      summary: "Consume messages from a topic"
+      description: "Returns messages in an octet stream. Messages sizes in header"
+      operationId: "consume"
+      produces:
+        - "octet/stream"
+      parameters:
+        - name: "topic"
+          in: "path"
+          description: "Topic to consume from"
+          required: true
+          type: "string"
+        - name: "id"
+          in: "query"
+          description: "Message id to start consuming from"
+          required: true
+          type: "integer"
+          format: "int64"
+        - name: "limit"
+          in: "query"
+          description: "Max number of messages to consume"
+          required: false
+          type: "integer"
+          format: "int64"
+      responses:
+        "200":
+          description: "consumed messages"
+        "206":
+          description: "consumed messages"
+    post:
+      tags:
+        - "topics"
+      summary: "Produce messages to a topic"
+      description: ""
+      operationId: "produce"
+      consumes:
+        - "text/plain"
+      parameters:
+        - name: "topic"
+          in: "path"
+          description: "Topic to produce to"
+          required: true
+          type: "string"
+        - name: "X-Sizes"
+          in: "header"
+          description: "Sizes of each message in the body"
+          required: true
+          type: "array"
+          items:
+            type: "integer"
+            format: "int64"
+        - name: "body"
+          in: "body"
+          required: true
+          schema:
+            type: "string"
+      responses:
+        "204":
+          description: "Messages received"
+
+definitions:
+  ListTopics:
+    type: "object"
+    properties:
+      topics:
+        type: "array"
+        items:
+          type: "string"
+          example:
+            'topic-name'
+  ModifyTopic:
+    type: "object"
+    properties:
+      truncate:
+        type: "integer"
+        description: "truncate messages before this message id"
+      before:
+        type: "string"
+        format: "date-time"
+        description: "truncate messages written before this time (UTC)"
+  TopicInfo:
+    type: "object"
+    properties:
+      minOffset:
+        type: "integer"
+        description: "minimum available message id"
+      maxOffset:
+        type: "integer"
+        description: "maximum available message id"
