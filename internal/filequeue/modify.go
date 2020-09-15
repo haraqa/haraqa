@@ -24,7 +24,7 @@ func (q *FileQueue) ModifyTopic(topic string, request headers.ModifyRequest) (*h
 	err = filepath.Walk(topicPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			if os.IsNotExist(err) {
-				return nil
+				err = nil
 			}
 			return err
 		}
@@ -52,7 +52,7 @@ func (q *FileQueue) ModifyTopic(topic string, request headers.ModifyRequest) (*h
 		// remove if file is completely before the truncate point
 		base, err := strconv.ParseInt(info.Name(), 10, 64)
 		if err != nil {
-			return errors.Wrapf(os.Remove(path), "unable to parse file %s", path)
+			return errors.Wrapf(os.Remove(path), "unable to remove unparsable file %s", path)
 		}
 		datSize := info.Size() / datEntryLength
 		if request.Truncate > 0 && base+datSize < request.Truncate {

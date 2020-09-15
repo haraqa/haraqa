@@ -33,22 +33,16 @@ func New(cacheFiles bool, maxEntries int64, dirs ...string) (*FileQueue, error) 
 	dirNames := make([]string, 0, len(dirs))
 	for _, dir := range dirs {
 		dir = filepath.Clean(dir)
-
-		f, err := osOpen(dir)
+		info, err := os.Stat(dir)
 		if os.IsNotExist(err) {
 			err = osMkdir(dir, os.ModePerm)
 			if err != nil {
 				return nil, errors.Wrapf(err, "unable to create queue directory %q", dir)
 			}
-			f, err = osOpen(dir)
+			info, err = os.Stat(dir)
 		}
 		if err != nil {
-			return nil, errors.Wrapf(err, "invalid queue directory %q", dir)
-		}
-		info, err := f.Stat()
-		_ = f.Close()
-		if err != nil {
-			return nil, errors.Wrapf(err, "unable to read queue directory %q", dir)
+			return nil, errors.Wrapf(err, "unable to stat queue directory %q", dir)
 		}
 		if !info.IsDir() {
 			return nil, errors.Errorf("path %q is not a directory", dir)

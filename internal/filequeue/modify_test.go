@@ -3,6 +3,7 @@ package filequeue
 import (
 	"bytes"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -32,6 +33,11 @@ func TestFileQueue_ModifyTopic(t *testing.T) {
 	}
 	if err = q.Produce(topic, []int64{5, 5}, uint64(time.Now().Unix()), bytes.NewBuffer([]byte("helloagain"))); err != nil {
 		t.Error(err)
+	}
+	if tmp, err := os.Create(filepath.Join(dir, topic, "invalid-file")); err != nil {
+		t.Error(err)
+	} else {
+		_ = tmp.Close()
 	}
 
 	// empty request

@@ -3,6 +3,7 @@ package filequeue
 import (
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -35,14 +36,6 @@ func TestNewFileQueue(t *testing.T) {
 	}
 	osMkdir = os.Mkdir
 
-	// file stat fails
-	osOpen = func(name string) (*os.File, error) { return nil, nil }
-	_, err = New(true, 5000, ".haraqa-newfq")
-	if !errors.Is(err, os.ErrInvalid) {
-		t.Error(err)
-	}
-	osOpen = os.Open
-
 	// file is not a directory
 	_, err = New(true, 5000, "file_queue.go")
 	if err == nil || !strings.HasSuffix(err.Error(), "is not a directory") {
@@ -64,13 +57,21 @@ func TestNewFileQueue(t *testing.T) {
 }
 
 func TestFileQueue_Topics(t *testing.T) {
-	_ = os.RemoveAll(".haraqa-fqtopics")
-	defer os.RemoveAll(".haraqa-fqtopics")
+	dir := ".haraqa-fqtopics"
+	_ = os.RemoveAll(dir)
+	defer os.RemoveAll(dir)
 
-	q, err := New(true, 5000, ".haraqa-fqtopics")
+	q, err := New(true, 5000, dir)
 	if err != nil {
 		t.Error(err)
 	}
+
+	// create non-directory file
+	tmp, err := os.Create(filepath.Join(dir, "thing.txt"))
+	if err != nil {
+		t.Error(err)
+	}
+	defer tmp.Close()
 
 	// create topics
 	{
