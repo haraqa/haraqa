@@ -23,6 +23,7 @@ func TestServer_HandleGetAllTopics(t *testing.T) {
 	gomock.InOrder(
 		q.EXPECT().RootDir().Times(1).Return(""),
 		q.EXPECT().ListTopics().Return(topics, nil).Times(2),
+		q.EXPECT().ListTopics().Return(nil, nil).Times(1),
 		q.EXPECT().ListTopics().Return(nil, errors.New("test get topics error")).Times(1),
 		q.EXPECT().Close().Return(nil).Times(1),
 	)
@@ -83,6 +84,39 @@ func TestServer_HandleGetAllTopics(t *testing.T) {
 		j, err := json.Marshal(struct {
 			Topics []string `json:"topics"`
 		}{Topics: topics})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(body, j) {
+			t.Fatal(string(body))
+		}
+	}
+
+	// valid request, nil path, json output
+	{
+		w := httptest.NewRecorder()
+		r, err := http.NewRequest(http.MethodGet, "/topics", bytes.NewBuffer([]byte("test body")))
+		if err != nil {
+			t.Fatal(err)
+		}
+		r.Header["Accept"] = []string{"application/json"}
+		s.ServeHTTP(w, r)
+		resp := w.Result()
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatal(resp.Status)
+		}
+		err = headers.ReadErrors(resp.Header)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		j, err := json.Marshal(struct {
+			Topics []string `json:"topics"`
+		}{Topics: []string{}})
 		if err != nil {
 			t.Fatal(err)
 		}

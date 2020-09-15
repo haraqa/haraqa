@@ -106,4 +106,32 @@ func TestServerOptions(t *testing.T) {
 			t.Error(s.middlewares)
 		}
 	}
+
+	// WithFileCaching
+	{
+		s := &Server{}
+		err := WithFileCaching(true)(s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !s.qFileCache {
+			t.Fatal(s)
+		}
+	}
+
+	// WithFileEntries
+	{
+		s := &Server{}
+		err := WithFileEntries(-1)(s)
+		if err == nil || err.Error() != "invalid FileEntries, value must not be negative" {
+			t.Error(err)
+		}
+		err = WithFileEntries(200)(s)
+		if err != nil {
+			t.Error(err)
+		}
+		if s.qFileEntries != 200 {
+			t.Error(s.qFileEntries)
+		}
+	}
 }

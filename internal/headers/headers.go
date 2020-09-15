@@ -43,12 +43,12 @@ var (
 	ErrNoContent           = errors.New(errNoContent)
 )
 
-func SetError(w http.ResponseWriter, err error) {
-	if err == nil {
+func SetError(w http.ResponseWriter, errOriginal error) {
+	if errOriginal == nil {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	err = errors.Cause(err)
+	err := errors.Cause(errOriginal)
 	h := w.Header()
 	h[HeaderErrors] = []string{err.Error()}
 	switch err {
@@ -61,6 +61,7 @@ func SetError(w http.ResponseWriter, err error) {
 	default:
 		w.WriteHeader(http.StatusInternalServerError)
 	}
+	w.Write([]byte(errOriginal.Error()))
 	return
 }
 

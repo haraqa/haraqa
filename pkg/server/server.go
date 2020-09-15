@@ -123,6 +123,7 @@ func NewServer(options ...Option) (*Server, error) {
 	r.Path("/{topic:.*}").Methods(http.MethodDelete).Handler(s.HandleDeleteTopic())
 	r.Path("/{topic:.*}").Methods(http.MethodPost).Handler(s.HandleProduce())
 	r.Path("/{topic:.*}").Methods(http.MethodGet).Handler(s.HandleConsume())
+	r.Path("/{topic:.*}").Methods(http.MethodOptions).Handler(s.HandleOptions())
 
 	return s, nil
 }

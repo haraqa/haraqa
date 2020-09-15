@@ -39,5 +39,10 @@ ENTRYPOINT ["/haraqa"]
 # HTTP Port
 EXPOSE 4353
 
+# Copy static files
+COPY cmd/server/swagger.yaml .
+COPY cmd/server/swagger.html .
+COPY cmd/server/redocs.html .
+
 # Get binary from compiler
 COPY --from=compiler /haraqa-build /haraqa

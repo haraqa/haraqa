@@ -21,6 +21,8 @@ func main() {
 		fileEntries  int64
 		promEnabled  bool
 		consumeLimit int64
+		cors         bool
+		docs         bool
 	)
 	flag.Int64Var(&ballastSize, "ballast", 1<<30, "Garbage collection ballast")
 	flag.UintVar(&httpPort, "http", 4353, "Port to listen on")
@@ -28,6 +30,8 @@ func main() {
 	flag.Int64Var(&fileEntries, "entries", 5000, "The number of msg entries per queue file")
 	flag.Int64Var(&consumeLimit, "limit", -1, "Default batch limit for consumers")
 	flag.BoolVar(&promEnabled, "prometheus", true, "Enable prometheus metrics")
+	flag.BoolVar(&cors, "cors", true, "Enable CORS")
+	flag.BoolVar(&docs, "docs", true, "Enable Docs pages")
 	flag.Parse()
 
 	// set a ballast
@@ -52,15 +56,34 @@ func main() {
 		http.Handle("/metrics", promhttp.Handler())
 		opts = append(opts, server.WithMiddleware(middleware), server.WithMetrics(metrics))
 	}
+	if cors {
+		opts = append(opts, server.WithMiddleware(func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Access-Control-Allow-Origin", "*")
+				next.ServeHTTP(w, r)
+			})
+		}))
+	}
+	if docs {
+		http.Handle("/docs/swagger.yaml", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.ServeFile(w, r, "swagger.yaml")
+		}))
+		http.Handle("/docs/swagger", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.ServeFile(w, r, "swagger.html")
+		}))
+		http.Handle("/docs", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.ServeFile(w, r, "redocs.html")
+		}))
+	}
 
 	// create a server
 	s, err := server.NewServer(opts...)
 	if err != nil {
 		log.Fatal(err)
 	}
+	http.Handle("/", s)
 
 	// listen
-	http.Handle("/", s)
 	log.Println("Listening on port", httpPort)
 	log.Fatal(http.ListenAndServe(":"+strconv.FormatUint(uint64(httpPort), 10), nil))
 }

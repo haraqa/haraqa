@@ -12,12 +12,39 @@ import (
 	"github.com/haraqa/haraqa/internal/headers"
 )
 
+func (s *Server) HandleOptions() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Body != nil {
+			_ = r.Body.Close()
+		}
+		requestHeaders := r.Header.Values("Access-Control-Request-Headers")
+		allowedHeaders := make([]string, 0, len(requestHeaders))
+		for _, v := range requestHeaders {
+			canonicalHeader := http.CanonicalHeaderKey(strings.TrimSpace(v))
+			if canonicalHeader == "" {
+				continue
+			}
+			allowedHeaders = append(allowedHeaders, canonicalHeader)
+		}
+		if len(allowedHeaders) > 0 {
+			w.Header()["Access-Control-Allow-Headers"] = allowedHeaders
+		}
+		method := r.Header.Get("Access-Control-Request-Method")
+		w.Header().Set("Access-Control-Allow-Methods", method)
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+}
+
 func (s *Server) HandleGetAllTopics() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		topics, err := s.q.ListTopics()
 		if err != nil {
 			headers.SetError(w, err)
 			return
+		}
+		if topics == nil {
+			topics = []string{}
 		}
 
 		var response []byte
@@ -111,6 +138,7 @@ func (s *Server) HandleDeleteTopic() http.HandlerFunc {
 			return
 		}
 		w.Header()[headers.ContentType] = []string{"text/plain"}
+		w.WriteHeader(http.StatusNoContent)
 	}
 }
 
@@ -144,6 +172,7 @@ func (s *Server) HandleProduce() http.HandlerFunc {
 		}
 		s.metrics.ProduceMsgs(len(sizes))
 		w.Header()[headers.ContentType] = []string{"text/plain"}
+		w.WriteHeader(http.StatusNoContent)
 	}
 }
 

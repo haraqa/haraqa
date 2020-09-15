@@ -62,7 +62,7 @@ func TestServer_HandleDeleteTopic(t *testing.T) {
 		s.ServeHTTP(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode != http.StatusNoContent {
 			t.Fatal(resp.Status)
 		}
 		err = headers.ReadErrors(resp.Header)

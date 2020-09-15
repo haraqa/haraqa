@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/exec"
 	"strconv"
@@ -16,7 +17,8 @@ import (
 func TestDocker(t *testing.T) {
 	check := func(err error) {
 		if err != nil {
-			panic(err)
+			log.Println(err)
+			os.Exit(1)
 		}
 	}
 
