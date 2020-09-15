@@ -84,15 +84,15 @@ func WithFileEntries(entries int64) Option {
 
 // Server is an http server on top of the given queue (defaults to a file based queue)
 type Server struct {
+	dirs        []string
+	middlewares []mux.MiddlewareFunc
+	q           Queue
+	metrics     Metrics
 	*mux.Router
-	q            Queue
-	qFileCache   bool
 	qFileEntries int64
 	defaultLimit int64
-	dirs         []string
-	metrics      Metrics
+	qFileCache   bool
 	isClosed     bool
-	middlewares  []mux.MiddlewareFunc
 }
 
 // NewServer creates a new server with the given options

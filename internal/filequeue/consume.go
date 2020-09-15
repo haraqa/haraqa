@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/haraqa/haraqa/internal/headers"
+	"github.com/pkg/errors"
 )
 
 // Consume copies messages from a log to the writer
@@ -20,7 +21,7 @@ func (q *FileQueue) Consume(topic string, id int64, limit int64, w http.Response
 		if os.IsNotExist(err) {
 			return 0, headers.ErrTopicDoesNotExist
 		}
-		return 0, err
+		return 0, errors.Wrap(err, "unable to get consume dat filename")
 	}
 	path := filepath.Join(q.rootDirNames[len(q.rootDirNames)-1], topic, datName)
 	dat, err := os.Open(path)
@@ -98,7 +99,7 @@ func getConsumeDat(consumeCache *sync.Map, path string, topic string, id int64) 
 	if consumeCache != nil {
 		consumeCache.Store(topic, names)
 	}
-	if id < 0 && len(names) > 0 {
+	if id < 0 && len(names) > 0 && len(names[0]) == len(exact) {
 		return names[0], nil
 	}
 

@@ -33,7 +33,6 @@ func (s *Server) HandleOptions() http.HandlerFunc {
 		method := r.Header.Get("Access-Control-Request-Method")
 		w.Header().Set("Access-Control-Allow-Methods", method)
 		w.WriteHeader(http.StatusOK)
-		return
 	}
 }
 
@@ -237,8 +236,7 @@ func (s *Server) HandleConsume() http.HandlerFunc {
 }
 
 func getTopic(vars map[string]string) (string, error) {
-	topic, _ := vars["topic"]
-	topic = filepath.Clean(strings.ToLower(topic))
+	topic := filepath.Clean(strings.ToLower(vars["topic"]))
 	if topic == "" || topic == "." {
 		return "", headers.ErrInvalidTopic
 	}

@@ -63,7 +63,6 @@ func SetError(w http.ResponseWriter, errOriginal error) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 	_, _ = w.Write([]byte(errOriginal.Error()))
-	return
 }
 
 // ReadErrors reads any errors from the response header and returns as an error type
