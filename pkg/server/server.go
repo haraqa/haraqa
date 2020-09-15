@@ -8,8 +8,10 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Option represents a optional function argument to NewServer
 type Option func(*Server) error
 
+// WithQueue overrides the default file queue
 func WithQueue(q Queue) Option {
 	return func(s *Server) error {
 		if q == nil {
@@ -20,6 +22,7 @@ func WithQueue(q Queue) Option {
 	}
 }
 
+// WithDirs sets the directories, in order, for the default file queue to use
 func WithDirs(dirs ...string) Option {
 	return func(s *Server) error {
 		if len(dirs) == 0 {
@@ -30,6 +33,7 @@ func WithDirs(dirs ...string) Option {
 	}
 }
 
+// WithMetrics sets the handler for produce and consume metrics
 func WithMetrics(metrics Metrics) Option {
 	return func(s *Server) error {
 		if metrics == nil {
@@ -40,6 +44,7 @@ func WithMetrics(metrics Metrics) Option {
 	}
 }
 
+// WithDefaultConsumeLimit sets the default consume limit for clients that consume with limit < 0
 func WithDefaultConsumeLimit(n int64) Option {
 	return func(s *Server) error {
 		if n <= 0 {
@@ -50,6 +55,7 @@ func WithDefaultConsumeLimit(n int64) Option {
 	}
 }
 
+// WithMiddleware adds the given middleware to the endpoints defined in the http router
 func WithMiddleware(middleware ...mux.MiddlewareFunc) Option {
 	return func(s *Server) error {
 		s.middlewares = append(s.middlewares, middleware...)
@@ -57,6 +63,7 @@ func WithMiddleware(middleware ...mux.MiddlewareFunc) Option {
 	}
 }
 
+// WithFileCaching causes the default file queue to use caching
 func WithFileCaching(cache bool) Option {
 	return func(s *Server) error {
 		s.qFileCache = cache
@@ -64,6 +71,7 @@ func WithFileCaching(cache bool) Option {
 	}
 }
 
+// WithFileEntries sets the number of entries in the default file queue before creating a new one
 func WithFileEntries(entries int64) Option {
 	return func(s *Server) error {
 		if entries < 0 {
@@ -74,6 +82,7 @@ func WithFileEntries(entries int64) Option {
 	}
 }
 
+// Server is an http server on top of the given queue (defaults to a file based queue)
 type Server struct {
 	*mux.Router
 	q            Queue
@@ -86,6 +95,7 @@ type Server struct {
 	middlewares  []mux.MiddlewareFunc
 }
 
+// NewServer creates a new server with the given options
 func NewServer(options ...Option) (*Server, error) {
 	s := &Server{
 		Router:       mux.NewRouter(),
@@ -128,6 +138,7 @@ func NewServer(options ...Option) (*Server, error) {
 	return s, nil
 }
 
+// Close closes the server and returns any associated errors
 func (s *Server) Close() error {
 	s.isClosed = true
 	return s.q.Close()

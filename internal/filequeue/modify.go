@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+// ModifyTopic updates the topic to truncate/remove messages and return the topic offset info
 func (q *FileQueue) ModifyTopic(topic string, request headers.ModifyRequest) (*headers.TopicInfo, error) {
 	if topic == "" {
 		return nil, nil

@@ -43,6 +43,7 @@ var (
 	ErrNoContent           = errors.New(errNoContent)
 )
 
+// SetError adds the error to the response header and body and sets the status code as needed
 func SetError(w http.ResponseWriter, errOriginal error) {
 	if errOriginal == nil {
 		w.WriteHeader(http.StatusOK)
@@ -61,10 +62,11 @@ func SetError(w http.ResponseWriter, errOriginal error) {
 	default:
 		w.WriteHeader(http.StatusInternalServerError)
 	}
-	w.Write([]byte(errOriginal.Error()))
+	_, _ = w.Write([]byte(errOriginal.Error()))
 	return
 }
 
+// ReadErrors reads any errors from the response header and returns as an error type
 func ReadErrors(header http.Header) error {
 	errs := header[HeaderErrors]
 	if len(errs) == 0 {
@@ -99,6 +101,7 @@ func ReadErrors(header http.Header) error {
 	return nil
 }
 
+// ReadSizes reads the message sizes from the header
 func ReadSizes(header http.Header) ([]int64, error) {
 	sizes := header[HeaderSizes]
 	if len(sizes) == 0 {
@@ -115,6 +118,7 @@ func ReadSizes(header http.Header) ([]int64, error) {
 	return msgSizes, nil
 }
 
+// SetSizes sets the sizes of the messages in the header
 func SetSizes(msgSizes []int64, h http.Header) http.Header {
 	sizes := make([]string, len(msgSizes))
 	for i := range msgSizes {
@@ -124,11 +128,13 @@ func SetSizes(msgSizes []int64, h http.Header) http.Header {
 	return h
 }
 
+// ModifyRequest is the request structure required by the modify endpoints
 type ModifyRequest struct {
 	Truncate int64     `json:"truncate,omitempty"`
 	Before   time.Time `json:"before,omitempty"`
 }
 
+// TopicInfo is the response structure returned by the modify endpoints
 type TopicInfo struct {
 	MinOffset int64 `json:"minOffset"`
 	MaxOffset int64 `json:"maxOffset"`

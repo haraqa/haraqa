@@ -1,6 +1,7 @@
 package haraqa
 
 import (
+	"bytes"
 	"io"
 	"net"
 	"net/http"
@@ -14,8 +15,10 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Option represents a optional function argument to NewClient
 type Option func(*Client) error
 
+// WithURL replaces the default URL when calling NewClient
 func WithURL(url string) Option {
 	return func(c *Client) error {
 		_, err := urlpkg.Parse(url)
@@ -27,6 +30,7 @@ func WithURL(url string) Option {
 	}
 }
 
+// WithHTTPClient replaces the default http client config when calling NewClient
 func WithHTTPClient(client *http.Client) Option {
 	return func(c *Client) error {
 		if client == nil {
@@ -37,11 +41,13 @@ func WithHTTPClient(client *http.Client) Option {
 	}
 }
 
+// Client is a lightweight client around the haraqa http api, use NewClient() to create a new client
 type Client struct {
 	c   *http.Client
 	url string
 }
 
+// NewClient creates a new client instance. Any options given override the local defaults
 func NewClient(opts ...Option) (*Client, error) {
 	c := &Client{
 		c: &http.Client{
@@ -72,6 +78,7 @@ func NewClient(opts ...Option) (*Client, error) {
 	return c, nil
 }
 
+// CreateTopic Creates a new topic. It returns an error if the topic already exists
 func (c *Client) CreateTopic(topic string) error {
 	req, err := http.NewRequest(http.MethodPut, c.url+"/topics/"+topic, nil)
 	if err != nil {
@@ -89,6 +96,7 @@ func (c *Client) CreateTopic(topic string) error {
 	return nil
 }
 
+// Produce sends messages from a reader to the designated topic
 func (c *Client) Produce(topic string, sizes []int64, r io.Reader) error {
 	req, err := http.NewRequest(http.MethodPost, c.url+"/topics/"+topic, r)
 	if err != nil {
@@ -107,6 +115,18 @@ func (c *Client) Produce(topic string, sizes []int64, r io.Reader) error {
 	return nil
 }
 
+// ProduceMsgs sends the messages to the designated topic
+func (c *Client) ProduceMsgs(topic string, msgs ...[]byte) error {
+	if len(msgs) == 0 {
+		return nil
+	}
+	sizes := make([]int64, len(msgs))
+	for i := range msgs {
+		sizes[i] = int64(len(msgs))
+	}
+	return c.Produce(topic, sizes, bytes.NewBuffer(bytes.Join(msgs, nil)))
+}
+
 var getRequestPool = &sync.Pool{
 	New: func() interface{} {
 		req, _ := http.NewRequest(http.MethodGet, "*", nil)
@@ -114,6 +134,8 @@ var getRequestPool = &sync.Pool{
 	},
 }
 
+// Consume reads messages off of a topic starting from id, no more than the given limit is returned.
+// If limit is less than 1, the server sets the limit.
 func (c *Client) Consume(topic string, id uint64, limit int) (io.ReadCloser, []int64, error) {
 	var err error
 	req := getRequestPool.Get().(*http.Request)
@@ -141,4 +163,23 @@ func (c *Client) Consume(topic string, id uint64, limit int) (io.ReadCloser, []i
 	}
 
 	return resp.Body, sizes, nil
+}
+
+// ConsumeMsgs reads messages off of a topic starting from id, no more than the given limit is returned.
+// If limit is less than 1, the server sets the limit.
+func (c *Client) ConsumeMsgs(topic string, id uint64, limit int) ([][]byte, error) {
+	r, sizes, err := c.Consume(topic, id, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+	msgs := make([][]byte, len(sizes))
+	for i := range sizes {
+		msgs[i] = make([]byte, sizes[i])
+		_, err = io.ReadAtLeast(r, msgs[i], len(msgs[i]))
+		if err != nil {
+			return nil, err
+		}
+	}
+	return msgs, nil
 }

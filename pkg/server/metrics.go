@@ -1,5 +1,6 @@
 package server
 
+// Metrics allows for custom metric handlers for counting the number of messages and/or batch size
 type Metrics interface {
 	ProduceMsgs(int)
 	ConsumeMsgs(int)

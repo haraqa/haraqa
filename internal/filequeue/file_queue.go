@@ -11,20 +11,16 @@ import (
 	"github.com/pkg/errors"
 )
 
+// FileQueue implements the haraqa queue by storing messages in log files, under topic based directories
 type FileQueue struct {
 	rootDirNames []string
 	max          int64
-	produceLocks sync.Map
-	produceCache cache
-	consumeCache cache
+	produceLocks *sync.Map
+	produceCache *sync.Map
+	consumeCache *sync.Map
 }
 
-type cache interface {
-	Load(key interface{}) (interface{}, bool)
-	Store(key, value interface{})
-	Delete(key interface{})
-}
-
+// New creates a new FileQueue
 func New(cacheFiles bool, maxEntries int64, dirs ...string) (*FileQueue, error) {
 	if len(dirs) == 0 {
 		return nil, errors.New("at least one directory must be given")
@@ -54,6 +50,7 @@ func New(cacheFiles bool, maxEntries int64, dirs ...string) (*FileQueue, error) 
 	q := &FileQueue{
 		rootDirNames: dirNames,
 		max:          maxEntries,
+		produceLocks: &sync.Map{},
 	}
 	if cacheFiles {
 		q.produceCache = &sync.Map{}
@@ -62,14 +59,36 @@ func New(cacheFiles bool, maxEntries int64, dirs ...string) (*FileQueue, error) 
 	return q, nil
 }
 
+// Close closes the queue cached files
 func (q *FileQueue) Close() error {
+	if q.produceCache != nil {
+		q.produceCache.Range(func(key, value interface{}) bool {
+			lock, _ := q.produceLocks.Load(key)
+			if l, ok := lock.(*sync.Mutex); ok {
+				l.Lock()
+				defer l.Unlock()
+			}
+			v, ok := value.(*ProduceFile)
+			if ok {
+				for _, f := range v.Logs {
+					_ = f.Close()
+				}
+				for _, f := range v.Dats {
+					_ = f.Close()
+				}
+			}
+			return true
+		})
+	}
 	return nil
 }
 
+// RootDir returns the path to the haraqa queue root directory. This is used to serve the raw files
 func (q *FileQueue) RootDir() string {
 	return q.rootDirNames[len(q.rootDirNames)-1]
 }
 
+// ListTopics returns all of the topic names in the queue
 func (q *FileQueue) ListTopics() ([]string, error) {
 	var names []string
 	rootDir := q.rootDirNames[len(q.rootDirNames)-1]
@@ -87,6 +106,7 @@ func (q *FileQueue) ListTopics() ([]string, error) {
 	return names, err
 }
 
+// CreateTopic creates a new topic if it does not already exist
 func (q *FileQueue) CreateTopic(topic string) error {
 	topic = strings.TrimSpace(topic)
 	topic = strings.TrimSuffix(topic, "/")
@@ -112,6 +132,7 @@ func (q *FileQueue) CreateTopic(topic string) error {
 	return nil
 }
 
+// Delete topic deletes the topic and any nested topic within
 func (q *FileQueue) DeleteTopic(topic string) error {
 	for _, name := range q.rootDirNames {
 		os.RemoveAll(filepath.Join(name, topic))

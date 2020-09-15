@@ -15,6 +15,7 @@ import (
 
 const datEntryLength = 32
 
+// Produce copies messages from the reader into the queue log
 func (q *FileQueue) Produce(topic string, msgSizes []int64, timestamp uint64, r io.Reader) error {
 	if len(msgSizes) == 0 {
 		return nil
@@ -33,7 +34,7 @@ func (q *FileQueue) Produce(topic string, msgSizes []int64, timestamp uint64, r 
 	defer mux.(*sync.Mutex).Unlock()
 
 	// Open files
-	pf, err := q.OpenProduceFile(topic)
+	pf, err := q.openProduceFile(topic)
 	if err != nil {
 		if os.IsNotExist(errors.Cause(err)) {
 			err = headers.ErrTopicDoesNotExist
@@ -65,7 +66,7 @@ type ProduceFile struct {
 	CurrentLogOffset int64
 }
 
-func (q *FileQueue) OpenProduceFile(topic string) (*ProduceFile, error) {
+func (q *FileQueue) openProduceFile(topic string) (*ProduceFile, error) {
 	var pf *ProduceFile
 	var datName string
 	var loaded bool

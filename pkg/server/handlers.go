@@ -12,6 +12,7 @@ import (
 	"github.com/haraqa/haraqa/internal/headers"
 )
 
+// HandleOptions handles requests to the /topics/... endpoints with method == OPTIONS
 func (s *Server) HandleOptions() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Body != nil {
@@ -36,6 +37,9 @@ func (s *Server) HandleOptions() http.HandlerFunc {
 	}
 }
 
+// HandleGetAllTopics handles requests to the /topics endpoints with method == GET.
+// It returns all topics currently defined in the queue as either a json or csv depending on the
+// request content-type header
 func (s *Server) HandleGetAllTopics() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		topics, err := s.q.ListTopics()
@@ -62,6 +66,8 @@ func (s *Server) HandleGetAllTopics() http.HandlerFunc {
 	}
 }
 
+// HandleCreateTopic handles requests to the /topics/... endpoints with method == PUT.
+// It will create a topic if the topic does not exist.
 func (s *Server) HandleCreateTopic() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Body != nil {
@@ -83,6 +89,9 @@ func (s *Server) HandleCreateTopic() http.HandlerFunc {
 	}
 }
 
+// HandleModifyTopic handles requests to the /topics/... endpoints with method == PATCH.
+// It will modify the topic if the topic exists. This is used to truncate topics by message
+// offset or mod time.
 func (s *Server) HandleModifyTopic() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Body == nil {
@@ -121,6 +130,8 @@ func (s *Server) HandleModifyTopic() http.HandlerFunc {
 	}
 }
 
+// HandleDeleteTopic handles requests to the /topics/... endpoints with method == DELETE.
+// It will delete a topic if the topic exists.
 func (s *Server) HandleDeleteTopic() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Body != nil {
@@ -142,6 +153,8 @@ func (s *Server) HandleDeleteTopic() http.HandlerFunc {
 	}
 }
 
+// HandleProduce handles requests to the /topics/... endpoints with method == POST.
+// It will add the given messages to the queue topic
 func (s *Server) HandleProduce() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Body == nil {
@@ -176,6 +189,8 @@ func (s *Server) HandleProduce() http.HandlerFunc {
 	}
 }
 
+// HandleConsume handles requests to the /topics/... endpoints with method == GET.
+// It will retrieve messages from the queue topic
 func (s *Server) HandleConsume() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Body != nil {

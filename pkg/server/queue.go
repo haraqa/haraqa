@@ -14,6 +14,7 @@ import (
 
 var _ Queue = &filequeue.FileQueue{}
 
+// Queue is the interface used by the server to produce and consume messages from different distinct categories called topics
 type Queue interface {
 	RootDir() string
 	Close() error

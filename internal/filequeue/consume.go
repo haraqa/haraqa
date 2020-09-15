@@ -13,6 +13,7 @@ import (
 	"github.com/haraqa/haraqa/internal/headers"
 )
 
+// Consume copies messages from a log to the writer
 func (q *FileQueue) Consume(topic string, id int64, limit int64, w http.ResponseWriter) (int, error) {
 	datName, err := getConsumeDat(q.consumeCache, filepath.Join(q.rootDirNames[len(q.rootDirNames)-1], topic), topic, id)
 	if err != nil {
@@ -69,7 +70,7 @@ func (q *FileQueue) Consume(topic string, id int64, limit int64, w http.Response
 	return q.consumeResponse(w, data, limit, path+".log")
 }
 
-func getConsumeDat(consumeCache cache, path string, topic string, id int64) (string, error) {
+func getConsumeDat(consumeCache *sync.Map, path string, topic string, id int64) (string, error) {
 	exact := formatName(id)
 	if consumeCache != nil {
 		value, ok := consumeCache.Load(topic)

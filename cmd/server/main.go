@@ -160,14 +160,18 @@ func promMetrics() (mux.MiddlewareFunc, *Metrics) {
 		}
 }
 
+// Metrics is a prometheus based implementation of the haraqa Metrics interface
 type Metrics struct {
 	produceHist prometheus.Histogram
 	consumeHist prometheus.Histogram
 }
 
+// ProduceMsgs updates the produce histogram with the batch size
 func (m *Metrics) ProduceMsgs(n int) {
 	m.produceHist.Observe(float64(n))
 }
+
+// ConsumeMsgs updates the consume histogram with the batch size
 func (m *Metrics) ConsumeMsgs(n int) {
 	m.consumeHist.Observe(float64(n))
 }
