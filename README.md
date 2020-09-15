@@ -27,7 +27,7 @@ low-latency, fault-tolerant pipelines for architectures of any size.
   * [Persistence and Replication](#persistence-and-replication)
   * [Usecases](#usecases)
 * [Getting Started](#getting-started)
-  * [Broker](#broker)
+  * [Server](#server)
   * [Client](#client)
 * [Contributing](#contributing)
 * [License](#license)
@@ -36,10 +36,10 @@ low-latency, fault-tolerant pipelines for architectures of any size.
 
 ### Overview
 Haraqa is meant for handling and persisting data in a distributed system. One or more
-brokers can be used to send and receive messages. Each broker has a set of 'topics',
+servers can be used to send and receive messages. Each server has a set of 'topics',
 a set of messages stored in the order received.
 
-A Haraqa client can produce and/or consume from a broker's topics. These messages
+A Haraqa client can produce and/or consume from a server's topics. These messages
 can be produced one at a time or in batches. Messages are consumed by making a request
 for a specific offset and limit. The messages can be consumed one at a
 time or in batches.
@@ -51,10 +51,10 @@ time or in batches.
 </div>
 
 ### Persistence and Replication
-Each broker, after receiving a message from a producer, can save the message to multiple
+Each server, after receiving a message from a producer, can save the message to multiple
 volumes. These volumes are meant to be distributed in the architecture, such as having
 multiple PersistentVolumes in a Kubernetes cluster, EBS in AWS, or Persistent Disks in
-Google Cloud. The broker reads messages from the last volume when sending to consumer clients.
+Google Cloud. The server reads messages from the last volume when sending to consumer clients.
 
 When retrieving information about a topic (list topics, find a topic's offsets, watching a topic
 for changes, etc) a client makes requests to a gRPC server which returns topic information based
@@ -85,7 +85,7 @@ to a simple REST server. These messages are stored in haraqa in a topic unique t
 
 <h2 align="center">Getting started</h2>
 
-### Broker
+### Server
 The recommended deployment strategy is to use [Docker](hub.docker.com/r/haraqa/haraqa)
 ```
 docker run -it -p 4353:4353 -p 14353:14353 -v $PWD/v1:/v1 haraqa/haraqa /v1
@@ -100,13 +100,14 @@ docker run -it [port mapping] [volume mounts] haraqa/haraqa [flags] [volumes]
 
 ##### Flags:
 ```
-  -grpc         Port to listen on for grpc connections (default 4353)
-  -data         Port to listen on for data connections (default 14353)
-  -http         Port to listen on for metrics and file serving (default 6060)
-  -fileserver   If true, serve topic files on http://[broker address]:[http port]/topics (default true)
-  -max_entries  The maximum number of messages per file before creating a new file (default 10000)
-  -max_size     Maximum message size the broker will accept, if -1 any message size is accepted (default -1)
-  -ballast      Memory ballast size in bytes, the minimum memory footprint before garbage collection is done (default 1073741824)
+  -http    uint    Port to listen on (default 4353)
+  -cache   boolean Enable queue file caching (default true)
+  -cors    boolean Enable CORS (default true)
+  -docs    boolean Enable Docs pages (default true)
+  -entries integer The number of msg entries per queue file before creating a new file (default 5000)
+  -limit   integer Default batch limit for consumers (default -1)
+  -ballast integer Garbage collection memory ballast size in bytes (default 1073741824)
+  -prometheus boolean Enable prometheus metrics (default true)
 ```
 
 ##### Volumes:
