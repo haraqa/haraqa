@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/gorilla/mux"
 	"github.com/haraqa/haraqa/internal/headers"
 	"github.com/pkg/errors"
 )
@@ -58,7 +57,6 @@ func TestServer_HandleCreateTopic(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		r = mux.SetURLVars(r, map[string]string{"topic": topic})
 		s.ServeHTTP(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
@@ -78,7 +76,6 @@ func TestServer_HandleCreateTopic(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		r = mux.SetURLVars(r, map[string]string{"topic": topic})
 		s.ServeHTTP(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
@@ -98,7 +95,6 @@ func TestServer_HandleCreateTopic(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		r = mux.SetURLVars(r, map[string]string{"topic": topic})
 		s.ServeHTTP(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()

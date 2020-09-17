@@ -7,7 +7,6 @@ import (
 	_ "net/http/pprof"
 	"strconv"
 
-	"github.com/gorilla/mux"
 	"github.com/haraqa/haraqa/pkg/server"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -88,7 +87,7 @@ func main() {
 	log.Fatal(http.ListenAndServe(":"+strconv.FormatUint(uint64(httpPort), 10), nil))
 }
 
-func promMetrics() (mux.MiddlewareFunc, *Metrics) {
+func promMetrics() (func(http.Handler) http.Handler, *Metrics) {
 	inFlightGauge := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "in_flight_requests",
 		Help: "A gauge of requests currently being served by the wrapped handler.",

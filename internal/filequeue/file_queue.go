@@ -1,10 +1,10 @@
 package filequeue
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -158,5 +158,14 @@ func (q *FileQueue) DeleteTopic(topic string) error {
 }
 
 func formatName(baseID int64) string {
-	return fmt.Sprintf("%016d", baseID)
+	const defaultName = "0000000000000000"
+
+	if baseID == 0 {
+		return defaultName
+	}
+	v := strconv.FormatInt(baseID, 10)
+	if len(v) > 16 {
+		return v
+	}
+	return defaultName[len(v):] + v
 }

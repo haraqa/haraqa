@@ -6,8 +6,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/gorilla/mux"
-
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 )
@@ -55,9 +53,9 @@ func TestNewServer(t *testing.T) {
 			q.EXPECT().RootDir().Return("./.haraqa").Times(1),
 			q.EXPECT().Close().Times(1),
 		)
-		mw := mux.MiddlewareFunc(func(next http.Handler) http.Handler {
+		mw := func(next http.Handler) http.Handler {
 			return next
-		})
+		}
 		s, err := NewServer(WithQueue(q), WithMiddleware(mw))
 		if err != nil {
 			t.Fatal(err)

@@ -4,8 +4,6 @@ import (
 	"net/http"
 	"reflect"
 	"testing"
-
-	"github.com/gorilla/mux"
 )
 
 func TestServerOptions(t *testing.T) {
@@ -41,8 +39,8 @@ func TestServerOptions(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if !reflect.DeepEqual(s.dirs, d) {
-			t.Fatal(s.dirs, d)
+		if !reflect.DeepEqual(s.qDirs, d) {
+			t.Fatal(s.qDirs, d)
 		}
 	}
 
@@ -95,9 +93,9 @@ func TestServerOptions(t *testing.T) {
 	// WithMiddleware
 	{
 		s := &Server{}
-		mw := mux.MiddlewareFunc(func(next http.Handler) http.Handler {
+		mw := func(next http.Handler) http.Handler {
 			return next
-		})
+		}
 		err := WithMiddleware(mw)(s)
 		if err != nil {
 			t.Fatal(err)

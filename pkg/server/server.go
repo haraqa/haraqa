@@ -2,8 +2,8 @@ package server
 
 import (
 	"net/http"
+	"strings"
 
-	"github.com/gorilla/mux"
 	"github.com/haraqa/haraqa/internal/filequeue"
 	"github.com/pkg/errors"
 )
@@ -22,13 +22,28 @@ func WithQueue(q Queue) Option {
 	}
 }
 
+// WithFileQueue sets the queue
+func WithFileQueue(dirs []string, cache bool, FileEntries int64) Option {
+	return func(s *Server) error {
+		if len(dirs) == 0 {
+			return errors.New("at least one directory must be given")
+		}
+		if FileEntries < 0 {
+			return errors.New("invalid FileEntries, value must not be negative")
+		}
+		var err error
+		s.q, err = filequeue.New(cache, FileEntries, dirs...)
+		return err
+	}
+}
+
 // WithDirs sets the directories, in order, for the default file queue to use
 func WithDirs(dirs ...string) Option {
 	return func(s *Server) error {
 		if len(dirs) == 0 {
 			return errors.New("at least one directory must be given")
 		}
-		s.dirs = dirs
+		s.qDirs = dirs
 		return nil
 	}
 }
@@ -56,7 +71,7 @@ func WithDefaultConsumeLimit(n int64) Option {
 }
 
 // WithMiddleware adds the given middleware to the endpoints defined in the http router
-func WithMiddleware(middleware ...mux.MiddlewareFunc) Option {
+func WithMiddleware(middleware ...func(http.Handler) http.Handler) Option {
 	return func(s *Server) error {
 		s.middlewares = append(s.middlewares, middleware...)
 		return nil
@@ -84,23 +99,22 @@ func WithFileEntries(entries int64) Option {
 
 // Server is an http server on top of the given queue (defaults to a file based queue)
 type Server struct {
-	dirs        []string
-	middlewares []mux.MiddlewareFunc
-	q           Queue
-	metrics     Metrics
-	*mux.Router
-	qFileEntries int64
+	middlewares  []func(http.Handler) http.Handler
+	handlers     [8]http.Handler
+	metrics      Metrics
 	defaultLimit int64
+	q            Queue
+	qDirs        []string
 	qFileCache   bool
+	qFileEntries int64
 	isClosed     bool
 }
 
 // NewServer creates a new server with the given options
 func NewServer(options ...Option) (*Server, error) {
 	s := &Server{
-		Router:       mux.NewRouter(),
 		metrics:      noOpMetrics{},
-		dirs:         []string{".haraqa"},
+		qDirs:        []string{".haraqa"},
 		defaultLimit: -1,
 		qFileCache:   true,
 		qFileEntries: 5000,
@@ -115,27 +129,61 @@ func NewServer(options ...Option) (*Server, error) {
 	if s.q == nil {
 		// default queue
 		var err error
-		s.q, err = filequeue.New(s.qFileCache, s.qFileEntries, s.dirs...)
+		s.q, err = filequeue.New(s.qFileCache, s.qFileEntries, s.qDirs...)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	if len(s.middlewares) > 0 {
-		s.Router.Use(s.middlewares...)
+	s.handlers = [8]http.Handler{
+		s.HandleGetAllTopics(),
+		s.HandleConsume(),
+		s.HandleProduce(),
+		s.HandleOptions(),
+		s.HandleCreateTopic(),
+		s.HandleDeleteTopic(),
+		s.HandleModifyTopic(),
+		http.StripPrefix("/raw/", http.FileServer(http.Dir(s.q.RootDir()))),
 	}
 
-	s.Router.PathPrefix("/raw/").Handler(http.StripPrefix("/raw/", http.FileServer(http.Dir(s.q.RootDir()))))
-	r := s.Router.PathPrefix("/topics").Subrouter()
-	r.Path("").Methods(http.MethodGet).Handler(s.HandleGetAllTopics())
-	r.Path("/{topic:.*}").Methods(http.MethodPut).Handler(s.HandleCreateTopic())
-	r.Path("/{topic:.*}").Methods(http.MethodPatch).Handler(s.HandleModifyTopic())
-	r.Path("/{topic:.*}").Methods(http.MethodDelete).Handler(s.HandleDeleteTopic())
-	r.Path("/{topic:.*}").Methods(http.MethodPost).Handler(s.HandleProduce())
-	r.Path("/{topic:.*}").Methods(http.MethodGet).Handler(s.HandleConsume())
-	r.Path("/{topic:.*}").Methods(http.MethodOptions).Handler(s.HandleOptions())
+	// add middlewares
+	for i := range s.handlers {
+		// iterate over middlewares in reverse order
+		for j := len(s.middlewares) - 1; j >= 0; j-- {
+			s.handlers[i] = s.middlewares[j](s.handlers[i])
+		}
+	}
 
 	return s, nil
+}
+
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	switch {
+	case strings.HasPrefix(r.URL.Path, "/topics"):
+		if len(r.URL.Path) <= len("/topics/") {
+			s.handlers[0].ServeHTTP(w, r)
+			return
+		}
+		switch r.Method {
+		case http.MethodGet:
+			s.handlers[1].ServeHTTP(w, r)
+		case http.MethodPost:
+			s.handlers[2].ServeHTTP(w, r)
+		case http.MethodOptions:
+			s.handlers[3].ServeHTTP(w, r)
+		case http.MethodPut:
+			s.handlers[4].ServeHTTP(w, r)
+		case http.MethodDelete:
+			s.handlers[5].ServeHTTP(w, r)
+		case http.MethodPatch:
+			s.handlers[6].ServeHTTP(w, r)
+		}
+	case strings.HasPrefix(r.URL.Path, "/raw"):
+		s.handlers[7].ServeHTTP(w, r)
+	default:
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte("page not found"))
+	}
 }
 
 // Close closes the server and returns any associated errors

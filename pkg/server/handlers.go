@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/haraqa/haraqa/internal/headers"
 )
 
@@ -74,7 +73,7 @@ func (s *Server) HandleCreateTopic() http.HandlerFunc {
 			_ = r.Body.Close()
 		}
 
-		topic, err := getTopic(mux.Vars(r))
+		topic, err := getTopic(r)
 		if err != nil {
 			headers.SetError(w, err)
 			return
@@ -102,7 +101,7 @@ func (s *Server) HandleModifyTopic() http.HandlerFunc {
 			_ = r.Body.Close()
 		}()
 
-		topic, err := getTopic(mux.Vars(r))
+		topic, err := getTopic(r)
 		if err != nil {
 			headers.SetError(w, err)
 			return
@@ -138,7 +137,7 @@ func (s *Server) HandleDeleteTopic() http.HandlerFunc {
 			_ = r.Body.Close()
 		}
 
-		topic, err := getTopic(mux.Vars(r))
+		topic, err := getTopic(r)
 		if err != nil {
 			headers.SetError(w, err)
 			return
@@ -165,8 +164,7 @@ func (s *Server) HandleProduce() http.HandlerFunc {
 			_ = r.Body.Close()
 		}()
 
-		vars := mux.Vars(r)
-		topic, err := getTopic(vars)
+		topic, err := getTopic(r)
 		if err != nil {
 			headers.SetError(w, err)
 			return
@@ -197,8 +195,7 @@ func (s *Server) HandleConsume() http.HandlerFunc {
 			_ = r.Body.Close()
 		}
 
-		vars := mux.Vars(r)
-		topic, err := getTopic(vars)
+		topic, err := getTopic(r)
 		if err != nil {
 			headers.SetError(w, err)
 			return
@@ -236,8 +233,8 @@ func (s *Server) HandleConsume() http.HandlerFunc {
 	}
 }
 
-func getTopic(vars map[string]string) (string, error) {
-	topic := filepath.Clean(strings.ToLower(vars["topic"]))
+func getTopic(r *http.Request) (string, error) {
+	topic := filepath.Clean(strings.ToLower(strings.TrimPrefix(r.URL.Path, "/topics/")))
 	if topic == "" || topic == "." {
 		return "", headers.ErrInvalidTopic
 	}
