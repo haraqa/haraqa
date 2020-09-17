@@ -65,18 +65,18 @@ func (mr *MockQueueMockRecorder) Close() *gomock.Call {
 }
 
 // ListTopics mocks base method
-func (m *MockQueue) ListTopics() ([]string, error) {
+func (m *MockQueue) ListTopics(prefix, suffix, regex string) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListTopics")
+	ret := m.ctrl.Call(m, "ListTopics", prefix, suffix, regex)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ListTopics indicates an expected call of ListTopics
-func (mr *MockQueueMockRecorder) ListTopics() *gomock.Call {
+func (mr *MockQueueMockRecorder) ListTopics(prefix, suffix, regex interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTopics", reflect.TypeOf((*MockQueue)(nil).ListTopics))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTopics", reflect.TypeOf((*MockQueue)(nil).ListTopics), prefix, suffix, regex)
 }
 
 // CreateTopic mocks base method

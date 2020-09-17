@@ -22,9 +22,9 @@ func TestServer_HandleGetAllTopics(t *testing.T) {
 	q := NewMockQueue(ctrl)
 	gomock.InOrder(
 		q.EXPECT().RootDir().Times(1).Return(""),
-		q.EXPECT().ListTopics().Return(topics, nil).Times(2),
-		q.EXPECT().ListTopics().Return(nil, nil).Times(1),
-		q.EXPECT().ListTopics().Return(nil, errors.New("test get topics error")).Times(1),
+		q.EXPECT().ListTopics("", "", "").Return(topics, nil).Times(2),
+		q.EXPECT().ListTopics("p", "s", "r").Return(nil, nil).Times(1),
+		q.EXPECT().ListTopics("", "", "").Return(nil, errors.New("test get topics error")).Times(1),
 		q.EXPECT().Close().Return(nil).Times(1),
 	)
 	s, err := NewServer(WithQueue(q))
@@ -95,7 +95,7 @@ func TestServer_HandleGetAllTopics(t *testing.T) {
 	// valid request, nil path, json output
 	{
 		w := httptest.NewRecorder()
-		r, err := http.NewRequest(http.MethodGet, "/topics", bytes.NewBuffer([]byte("test body")))
+		r, err := http.NewRequest(http.MethodGet, "/topics?prefix=p&suffix=s&regex=r", bytes.NewBuffer([]byte("test body")))
 		if err != nil {
 			t.Fatal(err)
 		}

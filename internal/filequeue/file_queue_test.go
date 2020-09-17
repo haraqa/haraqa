@@ -82,7 +82,7 @@ func TestFileQueue_Topics(t *testing.T) {
 		if !errors.Is(err, headers.ErrTopicAlreadyExists) {
 			t.Error(err)
 		}
-		err = q.CreateTopic("newtopic/nested/topic")
+		err = q.CreateTopic("newtopic/nested-topic/topic")
 		if err != nil {
 			t.Error(err)
 		}
@@ -98,7 +98,7 @@ func TestFileQueue_Topics(t *testing.T) {
 
 		// mkdirall error
 		osMkdirAll = func(name string, perm os.FileMode) error { return errTest }
-		err = q.CreateTopic("newtopic/nested/topic")
+		err = q.CreateTopic("newtopic/nested-topic/topic")
 		if !errors.Is(err, errTest) {
 			t.Error(err)
 		}
@@ -108,18 +108,35 @@ func TestFileQueue_Topics(t *testing.T) {
 
 	// list topics
 	{
-		names, err := q.ListTopics()
+		names, err := q.ListTopics("new", "topic", `[a-z\\]*`)
 		if err != nil {
 			t.Error(err)
 		}
-		if len(names) != 3 || names[0] != "newtopic" || names[1] != "newtopic/nested" || names[2] != "newtopic/nested/topic" {
+		if len(names) != 3 || names[0] != "newtopic" || names[1] != "newtopic/nested-topic" || names[2] != "newtopic/nested-topic/topic" {
 			t.Error(names)
+		}
+
+		names, err = q.ListTopics("invalid", "", "")
+		if err != nil || len(names) != 0 {
+			t.Error(err, names)
+		}
+		names, err = q.ListTopics("", "invalid", "")
+		if err != nil || len(names) != 0 {
+			t.Error(err, names)
+		}
+		names, err = q.ListTopics("", "", "[0-9]")
+		if err != nil || len(names) != 0 {
+			t.Error(err, names)
+		}
+		names, err = q.ListTopics("", "", "[")
+		if err == nil || err.Error() != "invalid regex: error parsing regexp: missing closing ]: `[`" {
+			t.Errorf("%q", err)
 		}
 	}
 
 	// delete topics
 	{
-		err = q.DeleteTopic("newtopic/nested/topic")
+		err = q.DeleteTopic("newtopic/nested-topic/topic")
 		if err != nil {
 			t.Error(err)
 		}
@@ -131,7 +148,7 @@ func TestFileQueue_Topics(t *testing.T) {
 
 	// list topics
 	{
-		names, err := q.ListTopics()
+		names, err := q.ListTopics("", "", "")
 		if err != nil {
 			t.Error(err)
 		}

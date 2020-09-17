@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -89,7 +90,7 @@ func (q *FileQueue) RootDir() string {
 }
 
 // ListTopics returns all of the topic names in the queue
-func (q *FileQueue) ListTopics() ([]string, error) {
+func (q *FileQueue) ListTopics(prefix, suffix, regex string) ([]string, error) {
 	var names []string
 	rootDir := q.rootDirNames[len(q.rootDirNames)-1]
 	err := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
@@ -100,6 +101,22 @@ func (q *FileQueue) ListTopics() ([]string, error) {
 			return nil
 		}
 		path = filepath.ToSlash(strings.TrimPrefix(path, rootDir+string(filepath.Separator)))
+
+		if prefix != "" && !strings.HasPrefix(path, prefix) {
+			return nil
+		}
+		if suffix != "" && !strings.HasSuffix(path, suffix) {
+			return nil
+		}
+		if regex != "" && regex != ".*" {
+			rx, err := regexp.Compile(regex)
+			if err != nil {
+				return errors.Wrap(err, "invalid regex")
+			}
+			if !rx.MatchString(path) {
+				return nil
+			}
+		}
 		names = append(names, path)
 		return nil
 	})

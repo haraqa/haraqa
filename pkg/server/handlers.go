@@ -41,7 +41,8 @@ func (s *Server) HandleOptions() http.HandlerFunc {
 // request content-type header
 func (s *Server) HandleGetAllTopics() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		topics, err := s.q.ListTopics()
+		query := r.URL.Query()
+		topics, err := s.q.ListTopics(query.Get("prefix"), query.Get("suffix"), query.Get("regex"))
 		if err != nil {
 			headers.SetError(w, err)
 			return

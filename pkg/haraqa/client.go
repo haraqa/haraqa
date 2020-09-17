@@ -120,9 +120,14 @@ func (c *Client) ProduceMsgs(topic string, msgs ...[]byte) error {
 	if len(msgs) == 0 {
 		return nil
 	}
-	sizes := make([]int64, len(msgs))
+	sizes := make([]int64, 0, len(msgs))
 	for i := range msgs {
-		sizes[i] = int64(len(msgs))
+		if len(msgs[i]) > 0 {
+			sizes = append(sizes, int64(len(msgs[i])))
+		}
+	}
+	if len(sizes) == 0 {
+		return nil
 	}
 	return c.Produce(topic, sizes, bytes.NewBuffer(bytes.Join(msgs, nil)))
 }

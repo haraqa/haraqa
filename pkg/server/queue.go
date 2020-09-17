@@ -19,7 +19,7 @@ type Queue interface {
 	RootDir() string
 	Close() error
 
-	ListTopics() ([]string, error)
+	ListTopics(prefix, suffix, regex string) ([]string, error)
 	CreateTopic(topic string) error
 	DeleteTopic(topic string) error
 	ModifyTopic(topic string, request headers.ModifyRequest) (*headers.TopicInfo, error)

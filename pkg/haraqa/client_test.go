@@ -2,6 +2,7 @@ package haraqa
 
 import (
 	"bytes"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -148,11 +149,11 @@ func TestClient_Produce(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		}
-		if len(sizes) != 3 || sizes[0] != 1 || sizes[1] != 2 || sizes[2] != 3 {
+		if len(sizes) != 3 || sizes[0] != 1 || sizes[1] != 3 || sizes[2] != 5 {
 			t.Errorf("invalid sizes %+v", sizes)
 		}
 		switch count {
-		case 0:
+		case 0, 1:
 			b, err := ioutil.ReadAll(r.Body)
 			if err != nil {
 				t.Error(err)
@@ -161,8 +162,8 @@ func TestClient_Produce(t *testing.T) {
 				t.Error(string(b))
 			}
 			w.WriteHeader(http.StatusOK)
-		case 1:
-			headers.SetError(w, headers.ErrTopicAlreadyExists)
+		case 2:
+			headers.SetError(w, headers.ErrInvalidHeaderSizes)
 		}
 		count++
 	}))
@@ -172,12 +173,24 @@ func TestClient_Produce(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	err = c.Produce("produce_topic", []int64{1, 2, 3}, bytes.NewBuffer([]byte("test_body")))
+	err = c.Produce("produce_topic", []int64{1, 3, 5}, bytes.NewBuffer([]byte("test_body")))
 	if err != nil {
 		t.Error(err)
 	}
-	err = c.Produce("produce_topic", []int64{1, 2, 3}, nil)
-	if !errors.Is(err, headers.ErrTopicAlreadyExists) {
+	err = c.ProduceMsgs("produce_topic", []byte("t"), []byte("est"), []byte("_body"))
+	if err != nil {
+		t.Error(err)
+	}
+	err = c.Produce("produce_topic", []int64{1, 3, 5}, nil)
+	if !errors.Is(err, headers.ErrInvalidHeaderSizes) {
+		t.Error(err)
+	}
+	err = c.ProduceMsgs("produce_topic")
+	if err != nil {
+		t.Error(err)
+	}
+	err = c.ProduceMsgs("produce_topic", nil)
+	if err != nil {
 		t.Error(err)
 	}
 }
@@ -192,21 +205,28 @@ func TestClient_Consume(t *testing.T) {
 			t.Errorf("invalid url path %q", r.URL.String())
 		}
 		switch count {
-		case 0:
-			headers.SetSizes([]int64{1, 2, 3}, w.Header())
+		case 0, 3:
+			headers.SetSizes([]int64{1, 3, 5}, w.Header())
 			w.WriteHeader(http.StatusOK)
 			_, err := w.Write([]byte("test_body"))
 			if err != nil {
 				t.Error(err)
 			}
-		case 1:
+		case 1, 4:
 			w.WriteHeader(http.StatusOK)
 			_, err := w.Write([]byte("test_body"))
 			if err != nil {
 				t.Error(err)
 			}
 		case 2:
-			headers.SetError(w, headers.ErrTopicAlreadyExists)
+			headers.SetError(w, headers.ErrInvalidMessageLimit)
+		case 5:
+			headers.SetSizes([]int64{1, 3, 5}, w.Header())
+			w.WriteHeader(http.StatusOK)
+			_, err := w.Write([]byte("test_bod"))
+			if err != nil {
+				t.Error(err)
+			}
 		}
 		count++
 	}))
@@ -222,7 +242,7 @@ func TestClient_Consume(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if len(sizes) != 3 || sizes[0] != 1 || sizes[1] != 2 || sizes[2] != 3 {
+	if len(sizes) != 3 || sizes[0] != 1 || sizes[1] != 3 || sizes[2] != 5 {
 		t.Errorf("invalid sizes %+v", sizes)
 	}
 	b, err := ioutil.ReadAll(body)
@@ -241,7 +261,28 @@ func TestClient_Consume(t *testing.T) {
 
 	// case 2
 	_, _, err = c.Consume("consume_topic", 123, 456)
-	if !errors.Is(err, headers.ErrTopicAlreadyExists) {
+	if !errors.Is(err, headers.ErrInvalidMessageLimit) {
+		t.Error(err)
+	}
+
+	// case 3
+	msgs, err := c.ConsumeMsgs("consume_topic", 123, 456)
+	if err != nil {
+		t.Error(err)
+	}
+	if len(msgs) != 3 || string(bytes.Join(msgs, nil)) != "test_body" {
+		t.Error(msgs)
+	}
+
+	// case 4
+	_, err = c.ConsumeMsgs("consume_topic", 123, 456)
+	if !errors.Is(err, headers.ErrInvalidHeaderSizes) {
+		t.Error(err)
+	}
+
+	// case 5
+	_, err = c.ConsumeMsgs("consume_topic", 123, 456)
+	if !errors.Is(err, io.ErrUnexpectedEOF) {
 		t.Error(err)
 	}
 }
