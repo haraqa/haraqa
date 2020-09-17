@@ -92,6 +92,14 @@ func TestClient_InvalidRequests(t *testing.T) {
 		if err == nil {
 			t.Error(err)
 		}
+		err = c.DeleteTopic("delete_topic")
+		if err == nil {
+			t.Error(err)
+		}
+		err = c.ListTopics("", "", "")
+		if err == nil {
+			t.Error(err)
+		}
 		err = c.Produce("produce_topic", nil, nil)
 		if err == nil {
 			t.Error(err)
@@ -132,6 +140,72 @@ func TestClient_CreateTopic(t *testing.T) {
 	}
 	err = c.CreateTopic("create_topic")
 	if !errors.Is(err, headers.ErrTopicAlreadyExists) {
+		t.Error(err)
+	}
+}
+
+func TestClient_DeleteTopic(t *testing.T) {
+	var count int
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			t.Error("invalid method")
+		}
+		if r.URL.String() != "/topics/delete_topic" {
+			t.Errorf("invalid url path %q", r.URL.String())
+		}
+		switch count {
+		case 0:
+			w.WriteHeader(http.StatusNoContent)
+		case 1:
+			headers.SetError(w, headers.ErrTopicDoesNotExist)
+		}
+		count++
+	}))
+	defer ts.Close()
+
+	c, err := NewClient(WithHTTPClient(ts.Client()), WithURL(ts.URL))
+	if err != nil {
+		t.Error(err)
+	}
+	err = c.DeleteTopic("delete_topic")
+	if err != nil {
+		t.Error(err)
+	}
+	err = c.DeleteTopic("delete_topic")
+	if !errors.Is(err, headers.ErrTopicDoesNotExist) {
+		t.Error(err)
+	}
+}
+
+func TestClient_ListTopics(t *testing.T) {
+	var count int
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Error("invalid method")
+		}
+		if r.URL.String() != "/topics?prefix=p&suffix=s&regex=r" {
+			t.Errorf("invalid url path %q", r.URL.String())
+		}
+		switch count {
+		case 0:
+			w.WriteHeader(http.StatusOK)
+		case 1:
+			headers.SetError(w, headers.ErrTopicDoesNotExist)
+		}
+		count++
+	}))
+	defer ts.Close()
+
+	c, err := NewClient(WithHTTPClient(ts.Client()), WithURL(ts.URL))
+	if err != nil {
+		t.Error(err)
+	}
+	err = c.ListTopics("p", "s", "r")
+	if err != nil {
+		t.Error(err)
+	}
+	err = c.ListTopics("p", "s", "r")
+	if !errors.Is(err, headers.ErrTopicDoesNotExist) {
 		t.Error(err)
 	}
 }

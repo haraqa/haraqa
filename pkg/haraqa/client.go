@@ -96,6 +96,41 @@ func (c *Client) CreateTopic(topic string) error {
 	return nil
 }
 
+// DeleteTopic Delete a topic
+func (c *Client) DeleteTopic(topic string) error {
+	req, err := http.NewRequest(http.MethodDelete, c.url+"/topics/"+topic, nil)
+	if err != nil {
+		return err
+	}
+
+	resp, err := c.c.Do(req)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode != http.StatusNoContent {
+		err = headers.ReadErrors(resp.Header)
+		return errors.Wrap(err, "error deleting topic")
+	}
+	return nil
+}
+
+// ListTopics Lists all topics, filter by prefix, suffix, and/or a regex expression
+func (c *Client) ListTopics(prefix, suffix, regex string) error {
+	prefix = urlpkg.QueryEscape(prefix)
+	suffix = urlpkg.QueryEscape(suffix)
+	regex = urlpkg.QueryEscape(regex)
+	path := c.url + "/topics?prefix=" + prefix + "&suffix=" + suffix + "&regex=" + regex
+	resp, err := http.Get(path)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode != http.StatusOK {
+		err = headers.ReadErrors(resp.Header)
+		return errors.Wrap(err, "error getting topics")
+	}
+	return nil
+}
+
 // Produce sends messages from a reader to the designated topic
 func (c *Client) Produce(topic string, sizes []int64, r io.Reader) error {
 	req, err := http.NewRequest(http.MethodPost, c.url+"/topics/"+topic, r)
