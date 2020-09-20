@@ -59,7 +59,7 @@ func TestServer_HandleProduce(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		s.HandleProduce()(w, r)
+		s.HandleProduce(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusBadRequest {

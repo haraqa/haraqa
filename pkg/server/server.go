@@ -73,7 +73,7 @@ func WithMiddleware(middleware ...func(http.Handler) http.Handler) Option {
 // Server is an http server on top of the given queue (defaults to a file based queue)
 type Server struct {
 	middlewares         []func(http.Handler) http.Handler
-	handlers            [8]http.Handler
+	handler             http.Handler
 	metrics             Metrics
 	defaultConsumeLimit int64
 	q                   Queue
@@ -94,54 +94,49 @@ func NewServer(options ...Option) (*Server, error) {
 		}
 	}
 
-	s.handlers = [8]http.Handler{
-		s.HandleGetAllTopics(),
-		s.HandleConsume(),
-		s.HandleProduce(),
-		s.HandleOptions(),
-		s.HandleCreateTopic(),
-		s.HandleDeleteTopic(),
-		s.HandleModifyTopic(),
-		http.StripPrefix("/raw/", http.FileServer(http.Dir(s.q.RootDir()))),
-	}
+	rawHandler := http.StripPrefix("/raw/", http.FileServer(http.Dir(s.q.RootDir())))
+	s.handler = s.route(rawHandler)
 
-	// add middlewares
-	for i := range s.handlers {
-		// iterate over middlewares in reverse order
-		for j := len(s.middlewares) - 1; j >= 0; j-- {
-			s.handlers[i] = s.middlewares[j](s.handlers[i])
-		}
+	// iterate over middlewares in reverse order
+	for j := len(s.middlewares) - 1; j >= 0; j-- {
+		s.handler = s.middlewares[j](s.handler)
 	}
 
 	return s, nil
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	switch {
-	case strings.HasPrefix(r.URL.Path, "/topics"):
-		if len(r.URL.Path) <= len("/topics/") {
-			s.handlers[0].ServeHTTP(w, r)
-			return
+	s.handler.ServeHTTP(w, r)
+}
+
+func (s *Server) route(raw http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/topics"):
+			if len(r.URL.Path) <= len("/topics/") {
+				s.HandleGetAllTopics(w, r)
+				return
+			}
+			switch r.Method {
+			case http.MethodGet:
+				s.HandleConsume(w, r)
+			case http.MethodPost:
+				s.HandleProduce(w, r)
+			case http.MethodOptions:
+				s.HandleOptions(w, r)
+			case http.MethodPut:
+				s.HandleCreateTopic(w, r)
+			case http.MethodDelete:
+				s.HandleDeleteTopic(w, r)
+			case http.MethodPatch:
+				s.HandleModifyTopic(w, r)
+			}
+		case strings.HasPrefix(r.URL.Path, "/raw"):
+			raw.ServeHTTP(w, r)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte("page not found"))
 		}
-		switch r.Method {
-		case http.MethodGet:
-			s.handlers[1].ServeHTTP(w, r)
-		case http.MethodPost:
-			s.handlers[2].ServeHTTP(w, r)
-		case http.MethodOptions:
-			s.handlers[3].ServeHTTP(w, r)
-		case http.MethodPut:
-			s.handlers[4].ServeHTTP(w, r)
-		case http.MethodDelete:
-			s.handlers[5].ServeHTTP(w, r)
-		case http.MethodPatch:
-			s.handlers[6].ServeHTTP(w, r)
-		}
-	case strings.HasPrefix(r.URL.Path, "/raw"):
-		s.handlers[7].ServeHTTP(w, r)
-	default:
-		w.WriteHeader(http.StatusNotFound)
-		_, _ = w.Write([]byte("page not found"))
 	}
 }
 

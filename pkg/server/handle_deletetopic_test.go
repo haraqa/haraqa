@@ -38,7 +38,7 @@ func TestServer_HandleDeleteTopic(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		s.HandleDeleteTopic()(w, r)
+		s.HandleDeleteTopic(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusBadRequest {

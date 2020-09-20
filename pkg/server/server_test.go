@@ -68,38 +68,24 @@ func TestNewServer(t *testing.T) {
 	}
 }
 
-func TestServer_ServeHTTP(t *testing.T) {
+func TestServer_route(t *testing.T) {
 	s := &Server{}
-	var count int
-	for i := range s.handlers {
-		v := i
-		s.handlers[i] = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if count != v {
-				t.Fatal(count, v)
-			}
-			count++
-		})
+	handler := s.route(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusPartialContent)
+	}))
+
+	// raw endpoint
+	w := httptest.NewRecorder()
+	r, _ := http.NewRequest(http.MethodGet, "/raw/", nil)
+	handler.ServeHTTP(w, r)
+	if w.Code != http.StatusPartialContent {
+		t.Fatal(w.Code)
 	}
 
-	w := httptest.NewRecorder()
-	r, _ := http.NewRequest(http.MethodGet, "/topics", nil)
-	s.ServeHTTP(w, r)
-	r, _ = http.NewRequest(http.MethodGet, "/topics/tmp", nil)
-	s.ServeHTTP(w, r)
-	r, _ = http.NewRequest(http.MethodPost, "/topics/tmp", nil)
-	s.ServeHTTP(w, r)
-	r, _ = http.NewRequest(http.MethodOptions, "/topics/tmp", nil)
-	s.ServeHTTP(w, r)
-	r, _ = http.NewRequest(http.MethodPut, "/topics/tmp", nil)
-	s.ServeHTTP(w, r)
-	r, _ = http.NewRequest(http.MethodDelete, "/topics/tmp", nil)
-	s.ServeHTTP(w, r)
-	r, _ = http.NewRequest(http.MethodPatch, "/topics/tmp", nil)
-	s.ServeHTTP(w, r)
-	r, _ = http.NewRequest(http.MethodGet, "/raw/", nil)
-	s.ServeHTTP(w, r)
+	// 404
+	w = httptest.NewRecorder()
 	r, _ = http.NewRequest(http.MethodGet, "/invalid", nil)
-	s.ServeHTTP(w, r)
+	handler.ServeHTTP(w, r)
 	if w.Code != http.StatusNotFound {
 		t.Fatal(w.Code)
 	}

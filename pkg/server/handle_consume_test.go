@@ -42,7 +42,7 @@ func TestServer_HandleConsume(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		s.HandleConsume()(w, r)
+		s.HandleConsume(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusBadRequest {

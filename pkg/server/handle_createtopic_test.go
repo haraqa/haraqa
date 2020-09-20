@@ -38,7 +38,7 @@ func TestServer_HandleCreateTopic(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		s.HandleCreateTopic()(w, r)
+		s.HandleCreateTopic(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusBadRequest {

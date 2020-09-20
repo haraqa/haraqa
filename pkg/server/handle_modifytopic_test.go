@@ -59,7 +59,7 @@ func TestServer_HandleModifyTopic(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		s.HandleModifyTopic()(w, r)
+		s.HandleModifyTopic(w, r)
 		resp := w.Result()
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusBadRequest {
