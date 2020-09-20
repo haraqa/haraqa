@@ -32,7 +32,7 @@ func BenchmarkProduce(b *testing.B) {
 	}()
 
 	haraqaServer, err := server.NewServer(
-		server.WithDirs(dirNames...),
+		server.WithFileQueue(dirNames, true, 5000),
 	)
 	if err != nil {
 		log.Fatal(err)

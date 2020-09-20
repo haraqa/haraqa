@@ -25,22 +25,17 @@ func TestServerOptions(t *testing.T) {
 		}
 	}
 
-	// WithDirs
+	// WithFileQueue
 	{
 		s := &Server{}
-		err := WithDirs()(s)
+		err := WithFileQueue(nil, true, 5000)(s)
 		if err.Error() != "at least one directory must be given" {
 			t.Fatal(err)
 		}
 
-		d := []string{"a", "b", "c"}
-		err = WithDirs(d...)(s)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if !reflect.DeepEqual(s.qDirs, d) {
-			t.Fatal(s.qDirs, d)
+		err = WithFileQueue([]string{".haraqa_options"}, true, -1)(s)
+		if err == nil || err.Error() != "invalid entries, value must not be negative" {
+			t.Error(err)
 		}
 	}
 
@@ -69,24 +64,24 @@ func TestServerOptions(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if s.defaultLimit != -1 {
-			t.Fatal(s.defaultLimit)
+		if s.defaultConsumeLimit != -1 {
+			t.Fatal(s.defaultConsumeLimit)
 		}
 
 		err = WithDefaultConsumeLimit(-1)(s)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if s.defaultLimit != -1 {
-			t.Fatal(s.defaultLimit)
+		if s.defaultConsumeLimit != -1 {
+			t.Fatal(s.defaultConsumeLimit)
 		}
 
 		err = WithDefaultConsumeLimit(1024)(s)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if s.defaultLimit != 1024 {
-			t.Fatal(s.defaultLimit)
+		if s.defaultConsumeLimit != 1024 {
+			t.Fatal(s.defaultConsumeLimit)
 		}
 	}
 
@@ -102,34 +97,6 @@ func TestServerOptions(t *testing.T) {
 		}
 		if len(s.middlewares) != 1 && !reflect.DeepEqual(s.middlewares[0], mw) {
 			t.Error(s.middlewares)
-		}
-	}
-
-	// WithFileCaching
-	{
-		s := &Server{}
-		err := WithFileCaching(true)(s)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !s.qFileCache {
-			t.Fatal(s)
-		}
-	}
-
-	// WithFileEntries
-	{
-		s := &Server{}
-		err := WithFileEntries(-1)(s)
-		if err == nil || err.Error() != "invalid FileEntries, value must not be negative" {
-			t.Error(err)
-		}
-		err = WithFileEntries(200)(s)
-		if err != nil {
-			t.Error(err)
-		}
-		if s.qFileEntries != 200 {
-			t.Error(s.qFileEntries)
 		}
 	}
 }

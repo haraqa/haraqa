@@ -23,28 +23,20 @@ func WithQueue(q Queue) Option {
 }
 
 // WithFileQueue sets the queue
-func WithFileQueue(dirs []string, cache bool, FileEntries int64) Option {
+func WithFileQueue(dirs []string, cache bool, entries int64) Option {
 	return func(s *Server) error {
+		if s.q != nil {
+			return nil
+		}
 		if len(dirs) == 0 {
 			return errors.New("at least one directory must be given")
 		}
-		if FileEntries < 0 {
-			return errors.New("invalid FileEntries, value must not be negative")
+		if entries < 0 {
+			return errors.New("invalid entries, value must not be negative")
 		}
 		var err error
-		s.q, err = filequeue.New(cache, FileEntries, dirs...)
+		s.q, err = filequeue.New(cache, entries, dirs...)
 		return err
-	}
-}
-
-// WithDirs sets the directories, in order, for the default file queue to use
-func WithDirs(dirs ...string) Option {
-	return func(s *Server) error {
-		if len(dirs) == 0 {
-			return errors.New("at least one directory must be given")
-		}
-		s.qDirs = dirs
-		return nil
 	}
 }
 
@@ -65,7 +57,7 @@ func WithDefaultConsumeLimit(n int64) Option {
 		if n <= 0 {
 			n = -1
 		}
-		s.defaultLimit = n
+		s.defaultConsumeLimit = n
 		return nil
 	}
 }
@@ -78,60 +70,27 @@ func WithMiddleware(middleware ...func(http.Handler) http.Handler) Option {
 	}
 }
 
-// WithFileCaching causes the default file queue to use caching
-func WithFileCaching(cache bool) Option {
-	return func(s *Server) error {
-		s.qFileCache = cache
-		return nil
-	}
-}
-
-// WithFileEntries sets the number of entries in the default file queue before creating a new one
-func WithFileEntries(entries int64) Option {
-	return func(s *Server) error {
-		if entries < 0 {
-			return errors.New("invalid FileEntries, value must not be negative")
-		}
-		s.qFileEntries = entries
-		return nil
-	}
-}
-
 // Server is an http server on top of the given queue (defaults to a file based queue)
 type Server struct {
-	middlewares  []func(http.Handler) http.Handler
-	handlers     [8]http.Handler
-	metrics      Metrics
-	defaultLimit int64
-	q            Queue
-	qDirs        []string
-	qFileCache   bool
-	qFileEntries int64
-	isClosed     bool
+	middlewares         []func(http.Handler) http.Handler
+	handlers            [8]http.Handler
+	metrics             Metrics
+	defaultConsumeLimit int64
+	q                   Queue
+	isClosed            bool
 }
 
 // NewServer creates a new server with the given options
 func NewServer(options ...Option) (*Server, error) {
 	s := &Server{
-		metrics:      noOpMetrics{},
-		qDirs:        []string{".haraqa"},
-		defaultLimit: -1,
-		qFileCache:   true,
-		qFileEntries: 5000,
+		metrics:             noOpMetrics{},
+		defaultConsumeLimit: -1,
 	}
+	options = append(options, WithFileQueue([]string{".haraqa"}, true, 5000))
 
 	for _, option := range options {
 		if err := option(s); err != nil {
 			return nil, errors.Wrap(err, "invalid option")
-		}
-	}
-
-	if s.q == nil {
-		// default queue
-		var err error
-		s.q, err = filequeue.New(s.qFileCache, s.qFileEntries, s.qDirs...)
-		if err != nil {
-			return nil, err
 		}
 	}
 
@@ -182,7 +141,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.handlers[7].ServeHTTP(w, r)
 	default:
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("page not found"))
+		_, _ = w.Write([]byte("page not found"))
 	}
 }
 

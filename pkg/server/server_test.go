@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"reflect"
 	"testing"
@@ -40,7 +41,7 @@ func TestNewServer(t *testing.T) {
 
 	// with invalid dir
 	{
-		_, err := NewServer(WithDirs("invalid/folder/doesnt/exist/..."))
+		_, err := NewServer(WithFileQueue([]string{"invalid/folder/doesnt/exist/..."}, true, 5000))
 		if _, ok := errors.Cause(err).(*os.PathError); !ok {
 			t.Fatal(errors.Cause(err))
 		}
@@ -64,6 +65,43 @@ func TestNewServer(t *testing.T) {
 			t.Error(s.middlewares)
 		}
 		s.Close()
+	}
+}
+
+func TestServer_ServeHTTP(t *testing.T) {
+	s := &Server{}
+	var count int
+	for i := range s.handlers {
+		v := i
+		s.handlers[i] = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if count != v {
+				t.Fatal(count, v)
+			}
+			count++
+		})
+	}
+
+	w := httptest.NewRecorder()
+	r, _ := http.NewRequest(http.MethodGet, "/topics", nil)
+	s.ServeHTTP(w, r)
+	r, _ = http.NewRequest(http.MethodGet, "/topics/tmp", nil)
+	s.ServeHTTP(w, r)
+	r, _ = http.NewRequest(http.MethodPost, "/topics/tmp", nil)
+	s.ServeHTTP(w, r)
+	r, _ = http.NewRequest(http.MethodOptions, "/topics/tmp", nil)
+	s.ServeHTTP(w, r)
+	r, _ = http.NewRequest(http.MethodPut, "/topics/tmp", nil)
+	s.ServeHTTP(w, r)
+	r, _ = http.NewRequest(http.MethodDelete, "/topics/tmp", nil)
+	s.ServeHTTP(w, r)
+	r, _ = http.NewRequest(http.MethodPatch, "/topics/tmp", nil)
+	s.ServeHTTP(w, r)
+	r, _ = http.NewRequest(http.MethodGet, "/raw/", nil)
+	s.ServeHTTP(w, r)
+	r, _ = http.NewRequest(http.MethodGet, "/invalid", nil)
+	s.ServeHTTP(w, r)
+	if w.Code != http.StatusNotFound {
+		t.Fatal(w.Code)
 	}
 }
 

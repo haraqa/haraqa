@@ -38,14 +38,14 @@ func main() {
 		_ = make([]byte, ballastSize)
 	}
 
+	// check args
+	if flag.NArg() == 0 {
+		log.Fatal("Missing directory args")
+	}
+
 	// get options
 	var opts []server.Option
-	if !fileCache {
-		opts = append(opts, server.WithFileCaching(fileCache))
-	}
-	if fileEntries > 0 {
-		opts = append(opts, server.WithFileEntries(fileEntries))
-	}
+	opts = append(opts, server.WithFileQueue(flag.Args(), fileCache, fileEntries))
 	if consumeLimit > 0 {
 		opts = append(opts, server.WithDefaultConsumeLimit(consumeLimit))
 	}

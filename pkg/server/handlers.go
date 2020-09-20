@@ -207,7 +207,7 @@ func (s *Server) HandleConsume() http.HandlerFunc {
 			return
 		}
 
-		limit := s.defaultLimit
+		limit := s.defaultConsumeLimit
 		queryLimit := r.URL.Query().Get("limit")
 		if queryLimit != "" && queryLimit[0] != '-' {
 			limit, err = strconv.ParseInt(queryLimit, 10, 64)
@@ -216,7 +216,7 @@ func (s *Server) HandleConsume() http.HandlerFunc {
 				return
 			}
 			if limit <= 0 {
-				limit = s.defaultLimit
+				limit = s.defaultConsumeLimit
 			}
 		}
 
