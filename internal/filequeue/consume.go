@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -25,17 +24,14 @@ func (q *FileQueue) Consume(topic string, id int64, limit int64, w http.Response
 		return 0, errors.Wrap(err, "unable to get consume dat filename")
 	}
 	path := filepath.Join(q.rootDirNames[len(q.rootDirNames)-1], topic, datName)
-
-	dat, err := openFile(q.consumeDatCache, topic, path)
+	dat, err := os.Open(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return 0, nil
 		}
 		return 0, err
 	}
-	if q.consumeDatCache == nil {
-		defer dat.Close()
-	}
+	defer dat.Close()
 
 	stat, err := dat.Stat()
 	if err != nil {
@@ -72,7 +68,7 @@ func (q *FileQueue) Consume(topic string, id int64, limit int64, w http.Response
 	}
 	limit = int64(length) / datEntryLength
 
-	return q.consumeResponse(w, data, limit, path+".log", topic)
+	return q.consumeResponse(w, data, limit, path+".log")
 }
 
 func getConsumeDat(consumeNameCache *sync.Map, path string, topic string, id int64) (string, error) {
@@ -121,7 +117,7 @@ var reqPool = sync.Pool{
 	},
 }
 
-func (q *FileQueue) consumeResponse(w http.ResponseWriter, data []byte, limit int64, filename, topic string) (int, error) {
+func (q *FileQueue) consumeResponse(w http.ResponseWriter, data []byte, limit int64, filename string) (int, error) {
 	sizes := make([]int64, limit)
 	startTime := time.Unix(int64(binary.LittleEndian.Uint64(data[8:])), 0)
 	endTime := startTime
@@ -137,13 +133,11 @@ func (q *FileQueue) consumeResponse(w http.ResponseWriter, data []byte, limit in
 	}
 	endAt--
 
-	f, err := openFile(q.consumeLogCache, topic, filename)
+	f, err := os.Open(filename)
 	if err != nil {
 		return 0, err
 	}
-	if q.consumeLogCache == nil {
-		defer f.Close()
-	}
+	defer f.Close()
 
 	wHeader := w.Header()
 	wHeader[headers.HeaderStartTime] = []string{startTime.Format(time.ANSIC)}
@@ -159,30 +153,4 @@ func (q *FileQueue) consumeResponse(w http.ResponseWriter, data []byte, limit in
 	http.ServeContent(w, req, filename, endTime, f)
 	reqPool.Put(req)
 	return len(sizes), nil
-}
-
-func openFile(cache *sync.Map, topic, filename string) (*os.File, error) {
-	var f *os.File
-	var err error
-	if cache != nil {
-		var ok bool
-		tmp, _ := cache.Load(topic)
-		f, ok = tmp.(*os.File)
-		if ok && f != nil && !strings.HasSuffix(filename, f.Name()) {
-			cache.Delete(topic)
-			_ = f.Close()
-			f = nil
-		}
-	}
-
-	if f == nil {
-		f, err = os.Open(filename)
-		if err != nil {
-			return nil, err
-		}
-		if cache != nil {
-			cache.Store(topic, f)
-		}
-	}
-	return f, nil
 }
