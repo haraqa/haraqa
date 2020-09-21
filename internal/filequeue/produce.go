@@ -53,8 +53,8 @@ func (q *FileQueue) Produce(topic string, msgSizes []int64, timestamp uint64, r 
 	if q.produceCache != nil {
 		q.produceCache.Store(topic, pf)
 	}
-	if q.consumeCache != nil && isNewFile {
-		q.consumeCache.Delete(topic)
+	if q.consumeNameCache != nil && isNewFile {
+		q.consumeNameCache.Delete(topic)
 	}
 	return nil
 }

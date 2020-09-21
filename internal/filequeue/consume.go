@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,7 +17,7 @@ import (
 
 // Consume copies messages from a log to the writer
 func (q *FileQueue) Consume(topic string, id int64, limit int64, w http.ResponseWriter) (int, error) {
-	datName, err := getConsumeDat(q.consumeCache, filepath.Join(q.rootDirNames[len(q.rootDirNames)-1], topic), topic, id)
+	datName, err := getConsumeDat(q.consumeNameCache, filepath.Join(q.rootDirNames[len(q.rootDirNames)-1], topic), topic, id)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return 0, headers.ErrTopicDoesNotExist
@@ -68,13 +69,13 @@ func (q *FileQueue) Consume(topic string, id int64, limit int64, w http.Response
 	}
 	limit = int64(length) / datEntryLength
 
-	return q.consumeResponse(w, data, limit, path+".log")
+	return q.consumeResponse(w, data, limit, path+".log", topic)
 }
 
-func getConsumeDat(consumeCache *sync.Map, path string, topic string, id int64) (string, error) {
+func getConsumeDat(consumeNameCache *sync.Map, path string, topic string, id int64) (string, error) {
 	exact := formatName(id)
-	if consumeCache != nil {
-		value, ok := consumeCache.Load(topic)
+	if consumeNameCache != nil {
+		value, ok := consumeNameCache.Load(topic)
 		if ok {
 			names := value.([]string)
 			for i := range names {
@@ -96,8 +97,8 @@ func getConsumeDat(consumeCache *sync.Map, path string, topic string, id int64) 
 		return "", err
 	}
 	sort.Sort(sortableDirNames(names))
-	if consumeCache != nil {
-		consumeCache.Store(topic, names)
+	if consumeNameCache != nil {
+		consumeNameCache.Store(topic, names)
 	}
 	if id < 0 && len(names) > 0 && len(names[0]) == len(exact) {
 		return names[0], nil
@@ -117,7 +118,7 @@ var reqPool = sync.Pool{
 	},
 }
 
-func (q *FileQueue) consumeResponse(w http.ResponseWriter, data []byte, limit int64, filename string) (int, error) {
+func (q *FileQueue) consumeResponse(w http.ResponseWriter, data []byte, limit int64, filename, topic string) (int, error) {
 	sizes := make([]int64, limit)
 	startTime := time.Unix(int64(binary.LittleEndian.Uint64(data[8:])), 0)
 	endTime := startTime
@@ -132,11 +133,32 @@ func (q *FileQueue) consumeResponse(w http.ResponseWriter, data []byte, limit in
 		}
 	}
 	endAt--
-	f, err := os.Open(filename)
-	if err != nil {
-		return 0, err
+
+	var f *os.File
+	var err error
+	if q.consumeLogCache != nil {
+		var ok bool
+		tmp, _ := q.consumeLogCache.Load(topic)
+		f, ok = tmp.(*os.File)
+		if ok && f != nil && !strings.HasSuffix(filename, f.Name()) {
+			q.consumeLogCache.Delete(topic)
+			_ = f.Close()
+			f = nil
+		}
 	}
-	defer f.Close()
+
+	if f == nil {
+		f, err = os.Open(filename)
+		if err != nil {
+			return 0, err
+		}
+		if q.consumeLogCache != nil {
+			q.consumeLogCache.Store(topic, f)
+		}
+	}
+	if q.consumeLogCache == nil {
+		defer f.Close()
+	}
 
 	wHeader := w.Header()
 	wHeader[headers.HeaderStartTime] = []string{startTime.Format(time.ANSIC)}

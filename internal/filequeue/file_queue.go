@@ -14,11 +14,12 @@ import (
 
 // FileQueue implements the haraqa queue by storing messages in log files, under topic based directories
 type FileQueue struct {
-	rootDirNames []string
-	max          int64
-	produceLocks *sync.Map
-	produceCache *sync.Map
-	consumeCache *sync.Map
+	rootDirNames     []string
+	max              int64
+	produceLocks     *sync.Map
+	produceCache     *sync.Map
+	consumeNameCache *sync.Map
+	consumeLogCache  *sync.Map
 }
 
 // New creates a new FileQueue
@@ -55,7 +56,8 @@ func New(cacheFiles bool, maxEntries int64, dirs ...string) (*FileQueue, error) 
 	}
 	if cacheFiles {
 		q.produceCache = &sync.Map{}
-		q.consumeCache = &sync.Map{}
+		q.consumeNameCache = &sync.Map{}
+		q.consumeLogCache = &sync.Map{}
 	}
 	return q, nil
 }
@@ -154,6 +156,12 @@ func (q *FileQueue) DeleteTopic(topic string) error {
 	for _, name := range q.rootDirNames {
 		os.RemoveAll(filepath.Join(name, topic))
 	}
+	if q.consumeNameCache != nil {
+		q.consumeNameCache.Delete(topic)
+	}
+	if q.consumeLogCache != nil {
+		q.consumeLogCache.Delete(topic)
+	}
 	return nil
 }
 
@@ -164,8 +172,8 @@ func formatName(baseID int64) string {
 		return defaultName
 	}
 	v := strconv.FormatInt(baseID, 10)
-	if len(v) > 16 {
-		return v
+	if len(v) < 16 {
+		v = defaultName[len(v):] + v
 	}
-	return defaultName[len(v):] + v
+	return v
 }
