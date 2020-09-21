@@ -25,14 +25,17 @@ func (q *FileQueue) Consume(topic string, id int64, limit int64, w http.Response
 		return 0, errors.Wrap(err, "unable to get consume dat filename")
 	}
 	path := filepath.Join(q.rootDirNames[len(q.rootDirNames)-1], topic, datName)
-	dat, err := os.Open(path)
+
+	dat, err := openFile(q.consumeDatCache, topic, path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return 0, nil
 		}
 		return 0, err
 	}
-	defer dat.Close()
+	if q.consumeDatCache == nil {
+		defer dat.Close()
+	}
 
 	stat, err := dat.Stat()
 	if err != nil {
@@ -134,27 +137,9 @@ func (q *FileQueue) consumeResponse(w http.ResponseWriter, data []byte, limit in
 	}
 	endAt--
 
-	var f *os.File
-	var err error
-	if q.consumeLogCache != nil {
-		var ok bool
-		tmp, _ := q.consumeLogCache.Load(topic)
-		f, ok = tmp.(*os.File)
-		if ok && f != nil && !strings.HasSuffix(filename, f.Name()) {
-			q.consumeLogCache.Delete(topic)
-			_ = f.Close()
-			f = nil
-		}
-	}
-
-	if f == nil {
-		f, err = os.Open(filename)
-		if err != nil {
-			return 0, err
-		}
-		if q.consumeLogCache != nil {
-			q.consumeLogCache.Store(topic, f)
-		}
+	f, err := openFile(q.consumeLogCache, topic, filename)
+	if err != nil {
+		return 0, err
 	}
 	if q.consumeLogCache == nil {
 		defer f.Close()
@@ -174,4 +159,30 @@ func (q *FileQueue) consumeResponse(w http.ResponseWriter, data []byte, limit in
 	http.ServeContent(w, req, filename, endTime, f)
 	reqPool.Put(req)
 	return len(sizes), nil
+}
+
+func openFile(cache *sync.Map, topic, filename string) (*os.File, error) {
+	var f *os.File
+	var err error
+	if cache != nil {
+		var ok bool
+		tmp, _ := cache.Load(topic)
+		f, ok = tmp.(*os.File)
+		if ok && f != nil && !strings.HasSuffix(filename, f.Name()) {
+			cache.Delete(topic)
+			_ = f.Close()
+			f = nil
+		}
+	}
+
+	if f == nil {
+		f, err = os.Open(filename)
+		if err != nil {
+			return nil, err
+		}
+		if cache != nil {
+			cache.Store(topic, f)
+		}
+	}
+	return f, nil
 }

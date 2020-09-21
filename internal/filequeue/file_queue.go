@@ -19,6 +19,7 @@ type FileQueue struct {
 	produceLocks     *sync.Map
 	produceCache     *sync.Map
 	consumeNameCache *sync.Map
+	consumeDatCache  *sync.Map
 	consumeLogCache  *sync.Map
 }
 
@@ -58,6 +59,7 @@ func New(cacheFiles bool, maxEntries int64, dirs ...string) (*FileQueue, error) 
 		q.produceCache = &sync.Map{}
 		q.consumeNameCache = &sync.Map{}
 		q.consumeLogCache = &sync.Map{}
+		q.consumeDatCache = &sync.Map{}
 	}
 	return q, nil
 }
@@ -161,6 +163,9 @@ func (q *FileQueue) DeleteTopic(topic string) error {
 	}
 	if q.consumeLogCache != nil {
 		q.consumeLogCache.Delete(topic)
+	}
+	if q.consumeDatCache != nil {
+		q.consumeDatCache.Delete(topic)
 	}
 	return nil
 }
