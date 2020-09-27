@@ -37,6 +37,7 @@ func BenchmarkConsume(b *testing.B) {
 	defer haraqaServer.Close()
 
 	s := httptest.NewServer(haraqaServer)
+	s.EnableHTTP2 = true
 	defer s.Close()
 
 	c, err := haraqa.NewClient(haraqa.WithURL(s.URL))

@@ -3,6 +3,12 @@ package server
 import (
 	"net/http"
 	"strings"
+	"sync"
+	"time"
+
+	"github.com/haraqa/haraqa/internal/headers"
+
+	"github.com/gorilla/websocket"
 
 	"github.com/haraqa/haraqa/internal/filequeue"
 	"github.com/pkg/errors"
@@ -77,7 +83,10 @@ type Server struct {
 	metrics             Metrics
 	defaultConsumeLimit int64
 	q                   Queue
-	isClosed            bool
+	closed              chan struct{}
+	waitGroup           *sync.WaitGroup
+	wsPingInterval      time.Duration
+	wsUpgrader          websocket.Upgrader
 }
 
 // NewServer creates a new server with the given options
@@ -85,6 +94,19 @@ func NewServer(options ...Option) (*Server, error) {
 	s := &Server{
 		metrics:             noOpMetrics{},
 		defaultConsumeLimit: -1,
+		closed:              make(chan struct{}),
+		waitGroup:           &sync.WaitGroup{},
+		wsPingInterval:      time.Second * 60,
+		wsUpgrader: websocket.Upgrader{
+			ReadBufferSize:  1024,
+			WriteBufferSize: 1024,
+			Error: func(w http.ResponseWriter, r *http.Request, status int, err error) {
+				if errors.As(err, &websocket.HandshakeError{}) {
+					err = errors.Wrap(headers.ErrInvalidWebsocket, err.Error())
+				}
+				headers.SetError(w, err)
+			},
+		},
 	}
 	options = append(options, WithFileQueue([]string{".haraqa"}, true, 5000))
 
@@ -111,6 +133,10 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) route(raw http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if s.waitGroup != nil {
+			s.waitGroup.Add(1)
+			defer s.waitGroup.Done()
+		}
 		switch {
 		case strings.HasPrefix(r.URL.Path, "/topics"):
 			if len(r.URL.Path) <= len("/topics/") {
@@ -133,6 +159,8 @@ func (s *Server) route(raw http.Handler) http.HandlerFunc {
 			}
 		case strings.HasPrefix(r.URL.Path, "/raw"):
 			raw.ServeHTTP(w, r)
+		case strings.HasPrefix(r.URL.Path, "/ws/topics"):
+			s.HandleWatchTopic(w, r)
 		default:
 			w.WriteHeader(http.StatusNotFound)
 			_, _ = w.Write([]byte("page not found"))
@@ -142,6 +170,12 @@ func (s *Server) route(raw http.Handler) http.HandlerFunc {
 
 // Close closes the server and returns any associated errors
 func (s *Server) Close() error {
-	s.isClosed = true
+	s.handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		headers.SetError(w, headers.ErrClosed)
+	})
+	close(s.closed)
+	if s.waitGroup != nil {
+		s.waitGroup.Wait()
+	}
 	return s.q.Close()
 }

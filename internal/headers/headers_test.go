@@ -28,6 +28,9 @@ func TestErrors(t *testing.T) {
 	// no content
 	testError(t, ErrNoContent, http.StatusNoContent)
 
+	// websocket error
+	testError(t, ErrInvalidWebsocket, http.StatusBadRequest)
+
 	// undefined error
 	testError(t, errors.New("some new error"), http.StatusInternalServerError)
 

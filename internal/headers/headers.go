@@ -10,12 +10,13 @@ import (
 
 // Headers using Canonical MIME structure
 const (
-	HeaderErrors    = "X-Errors"
-	HeaderSizes     = "X-Sizes"
-	HeaderStartTime = "X-Start-Time"
-	HeaderEndTime   = "X-End-Time"
-	HeaderFileName  = "X-File-Name"
-	ContentType     = "Content-Type"
+	HeaderErrors      = "X-Errors"
+	HeaderSizes       = "X-Sizes"
+	HeaderStartTime   = "X-Start-Time"
+	HeaderEndTime     = "X-End-Time"
+	HeaderFileName    = "X-File-Name"
+	HeaderWatchTopics = "X-Topics"
+	ContentType       = "Content-Type"
 )
 
 const (
@@ -27,7 +28,9 @@ const (
 	errInvalidTopic        = "invalid topic"
 	errInvalidBodyMissing  = "invalid body: body cannot be empty"
 	errInvalidBodyJSON     = "invalid body: invalid json entry"
+	errInvalidWebsocket    = "invalid websocket"
 	errNoContent           = "no content"
+	errClosed              = "server closing"
 )
 
 // Errors returned by the Client/Server
@@ -40,7 +43,9 @@ var (
 	ErrInvalidTopic        = errors.New(errInvalidTopic)
 	ErrInvalidBodyMissing  = errors.New(errInvalidBodyMissing)
 	ErrInvalidBodyJSON     = errors.New(errInvalidBodyJSON)
+	ErrInvalidWebsocket    = errors.New(errInvalidWebsocket)
 	ErrNoContent           = errors.New(errNoContent)
+	ErrClosed              = errors.New(errClosed)
 )
 
 // SetError adds the error to the response header and body and sets the status code as needed
@@ -55,10 +60,19 @@ func SetError(w http.ResponseWriter, errOriginal error) {
 	switch err {
 	case ErrTopicDoesNotExist, ErrTopicAlreadyExists:
 		w.WriteHeader(http.StatusPreconditionFailed)
-	case ErrInvalidHeaderSizes, ErrInvalidMessageID, ErrInvalidMessageLimit, ErrInvalidTopic, ErrInvalidBodyMissing, ErrInvalidBodyJSON:
+	case
+		ErrInvalidHeaderSizes,
+		ErrInvalidMessageID,
+		ErrInvalidMessageLimit,
+		ErrInvalidTopic,
+		ErrInvalidBodyMissing,
+		ErrInvalidBodyJSON,
+		ErrInvalidWebsocket:
 		w.WriteHeader(http.StatusBadRequest)
 	case ErrNoContent:
 		w.WriteHeader(http.StatusNoContent)
+	case ErrClosed:
+		w.WriteHeader(http.StatusServiceUnavailable)
 	default:
 		w.WriteHeader(http.StatusInternalServerError)
 	}
@@ -91,8 +105,12 @@ func ReadErrors(header http.Header) error {
 			return ErrInvalidBodyMissing
 		case errInvalidBodyJSON:
 			return ErrInvalidBodyJSON
+		case errInvalidWebsocket:
+			return ErrInvalidWebsocket
 		case errNoContent:
 			return ErrNoContent
+		case errClosed:
+			return ErrClosed
 		default:
 			return errors.New(err)
 		}

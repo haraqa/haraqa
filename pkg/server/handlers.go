@@ -3,11 +3,14 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
+	"github.com/gorilla/websocket"
 	"github.com/haraqa/haraqa/internal/headers"
 )
 
@@ -219,8 +222,92 @@ func (s *Server) HandleConsume(w http.ResponseWriter, r *http.Request) {
 	s.metrics.ConsumeMsgs(count)
 }
 
+func (s *Server) HandleWatchTopic(w http.ResponseWriter, r *http.Request) {
+	if r.Body != nil {
+		_ = r.Body.Close()
+	}
+
+	// get topic from url & header
+	topics := make(map[string]bool)
+	for _, topic := range r.Header.Values(headers.HeaderWatchTopics) {
+		topics[filepath.Clean(topic)] = true
+	}
+	topic, err := getTopic(r)
+	if err == nil {
+		topics[topic] = true
+	}
+	if len(topics) == 0 {
+		headers.SetError(w, headers.ErrInvalidTopic)
+		return
+	}
+
+	// setup watcher
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		headers.SetError(w, err)
+		return
+	}
+	defer watcher.Close()
+	rootDir := s.q.RootDir()
+	for topic = range topics {
+		err = watcher.Add(filepath.Join(rootDir, topic))
+		if err != nil {
+			if os.IsNotExist(err) {
+				err = headers.ErrTopicDoesNotExist
+			}
+			headers.SetError(w, err)
+			return
+		}
+	}
+
+	// upgrade request to websocket connection
+	conn, err := s.wsUpgrader.Upgrade(w, r, nil)
+	if err != nil {
+		return
+	}
+	defer conn.Close()
+
+	// setup close handler
+	closer := make(chan error)
+	go func() {
+		for {
+			// continuously read until an error occurs
+			_, _, err := conn.ReadMessage()
+			if err != nil {
+				closer <- err
+				return
+			}
+		}
+	}()
+
+	// add ping handler timer
+	t := time.NewTicker(s.wsPingInterval)
+	defer t.Stop()
+
+	// loop waiting for an event or timeout
+	for {
+		select {
+		case err = <-closer:
+		case event := <-watcher.Events:
+			if event.Op == fsnotify.Write && !strings.HasSuffix(event.Name, ".log") {
+				trimmed := strings.TrimPrefix(filepath.Dir(event.Name), rootDir+string(filepath.Separator))
+				err = conn.WriteMessage(websocket.TextMessage, []byte(trimmed))
+			}
+		case <-t.C:
+			err = conn.WriteMessage(websocket.PingMessage, []byte{})
+		}
+		if err != nil {
+			return
+		}
+	}
+}
+
 func getTopic(r *http.Request) (string, error) {
-	topic := filepath.Clean(strings.ToLower(strings.TrimPrefix(r.URL.Path, "/topics/")))
+	split := strings.SplitN(strings.ToLower(r.URL.Path), "/topics/", 2)
+	if len(split) < 2 {
+		return "", headers.ErrInvalidTopic
+	}
+	topic := filepath.Clean(split[1])
 	if topic == "" || topic == "." {
 		return "", headers.ErrInvalidTopic
 	}

@@ -128,6 +128,7 @@ func TestClient_CreateTopic(t *testing.T) {
 		}
 		count++
 	}))
+	ts.EnableHTTP2 = true
 	defer ts.Close()
 
 	c, err := NewClient(WithHTTPClient(ts.Client()), WithURL(ts.URL))
@@ -161,6 +162,7 @@ func TestClient_DeleteTopic(t *testing.T) {
 		}
 		count++
 	}))
+	ts.EnableHTTP2 = true
 	defer ts.Close()
 
 	c, err := NewClient(WithHTTPClient(ts.Client()), WithURL(ts.URL))
@@ -194,6 +196,7 @@ func TestClient_ListTopics(t *testing.T) {
 		}
 		count++
 	}))
+	ts.EnableHTTP2 = true
 	defer ts.Close()
 
 	c, err := NewClient(WithHTTPClient(ts.Client()), WithURL(ts.URL))
@@ -241,6 +244,7 @@ func TestClient_Produce(t *testing.T) {
 		}
 		count++
 	}))
+	ts.EnableHTTP2 = true
 	defer ts.Close()
 
 	c, err := NewClient(WithHTTPClient(ts.Client()), WithURL(ts.URL))
@@ -304,6 +308,7 @@ func TestClient_Consume(t *testing.T) {
 		}
 		count++
 	}))
+	ts.EnableHTTP2 = true
 	defer ts.Close()
 
 	c, err := NewClient(WithHTTPClient(ts.Client()), WithURL(ts.URL))
