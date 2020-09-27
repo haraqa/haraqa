@@ -8,13 +8,16 @@ import (
 
 //go:generate mockgen -source multiwriter.go -package filequeue -destination multiwriter_mocks_test.go
 
+// WriteAtCloser is a combination of io.Writer and io.Closer, similar to io.WriteCloser
 type WriteAtCloser interface {
 	io.Closer
 	io.WriterAt
 }
 
+// MultiWriteAtCloser provides methods for a slice of WriteAtCloser
 type MultiWriteAtCloser []WriteAtCloser
 
+// Close closes all writers in the slice
 func (mw MultiWriteAtCloser) Close() error {
 	var err error
 	for _, w := range mw {
@@ -25,6 +28,7 @@ func (mw MultiWriteAtCloser) Close() error {
 	return err
 }
 
+// WriteAt performs a WriteAt to each of the writers in order
 func (mw MultiWriteAtCloser) WriteAt(p []byte, off int64) error {
 	for _, w := range mw {
 		n, err := w.WriteAt(p, off)
@@ -38,6 +42,7 @@ func (mw MultiWriteAtCloser) WriteAt(p []byte, off int64) error {
 	return nil
 }
 
+// CopyNAt performs a CopyNAt to each of the writers in order
 func (mw MultiWriteAtCloser) CopyNAt(r io.Reader, N, off int64) error {
 	// get log buffer
 	buf := bufPool.Get().([]byte)

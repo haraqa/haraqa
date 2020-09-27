@@ -130,7 +130,7 @@ func TestFileQueue_Topics(t *testing.T) {
 		}
 		names, err = q.ListTopics("", "", "[")
 		if err == nil || err.Error() != "invalid regex: error parsing regexp: missing closing ]: `[`" {
-			t.Errorf("%q", err)
+			t.Errorf("%q:%+v", err, names)
 		}
 	}
 

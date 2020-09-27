@@ -222,7 +222,8 @@ func (s *Server) HandleConsume(w http.ResponseWriter, r *http.Request) {
 	s.metrics.ConsumeMsgs(count)
 }
 
-func (s *Server) HandleWatchTopic(w http.ResponseWriter, r *http.Request) {
+// HandleWatchTopics accepts websocket connections and watches the topic files for writes
+func (s *Server) HandleWatchTopics(w http.ResponseWriter, r *http.Request) {
 	if r.Body != nil {
 		_ = r.Body.Close()
 	}

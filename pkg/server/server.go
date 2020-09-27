@@ -160,7 +160,7 @@ func (s *Server) route(raw http.Handler) http.HandlerFunc {
 		case strings.HasPrefix(r.URL.Path, "/raw"):
 			raw.ServeHTTP(w, r)
 		case strings.HasPrefix(r.URL.Path, "/ws/topics"):
-			s.HandleWatchTopic(w, r)
+			s.HandleWatchTopics(w, r)
 		default:
 			w.WriteHeader(http.StatusNotFound)
 			_, _ = w.Write([]byte("page not found"))

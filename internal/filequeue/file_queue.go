@@ -69,7 +69,7 @@ func (q *FileQueue) Close() error {
 				l.Lock()
 				defer l.Unlock()
 			}
-			v, ok := value.(*ProduceFile)
+			v, ok := value.(*cacheableProduceFile)
 			if ok {
 				for _, f := range v.Logs {
 					_ = f.Close()
@@ -149,7 +149,7 @@ func (q *FileQueue) CreateTopic(topic string) error {
 	return nil
 }
 
-// Delete topic deletes the topic and any nested topic within
+// DeleteTopic deletes the topic and any nested topic within
 func (q *FileQueue) DeleteTopic(topic string) error {
 	for _, name := range q.rootDirNames {
 		os.RemoveAll(filepath.Join(name, topic))

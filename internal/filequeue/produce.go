@@ -59,15 +59,15 @@ func (q *FileQueue) Produce(topic string, msgSizes []int64, timestamp uint64, r 
 	return nil
 }
 
-type ProduceFile struct {
+type cacheableProduceFile struct {
 	Dats, Logs       MultiWriteAtCloser
 	NextID           int64
 	CurrentDatOffset int64
 	CurrentLogOffset int64
 }
 
-func (q *FileQueue) openProduceFile(topic string) (*ProduceFile, error) {
-	var pf *ProduceFile
+func (q *FileQueue) openProduceFile(topic string) (*cacheableProduceFile, error) {
+	var pf *cacheableProduceFile
 	var datName string
 	var loaded bool
 
@@ -91,7 +91,7 @@ func (q *FileQueue) openProduceFile(topic string) (*ProduceFile, error) {
 	// attempt to load from cache
 	if q.produceCache != nil {
 		if tmp, ok := q.produceCache.Load(topic); ok {
-			if pf, ok = tmp.(*ProduceFile); ok {
+			if pf, ok = tmp.(*cacheableProduceFile); ok {
 				// if we haven't reached the max cap, return
 				if pf.CurrentDatOffset/datEntryLength < q.max {
 					return pf, nil
@@ -107,7 +107,7 @@ func (q *FileQueue) openProduceFile(topic string) (*ProduceFile, error) {
 
 	// find nextID based on filesystem
 	if !loaded {
-		pf = &ProduceFile{}
+		pf = &cacheableProduceFile{}
 		var err error
 		datName, err = getLatestDat(filepath.Join(q.rootDirNames[len(q.rootDirNames)-1], topic))
 		if err != nil {
@@ -173,7 +173,7 @@ var bufPool = sync.Pool{New: func() interface{} {
 	return make([]byte, 32*1024)
 }}
 
-func (pf *ProduceFile) Write(msgSizes []int64, timestamp uint64, r io.Reader) error {
+func (pf *cacheableProduceFile) Write(msgSizes []int64, timestamp uint64, r io.Reader) error {
 	var n int
 	offset := pf.CurrentLogOffset
 	nextID := pf.NextID
