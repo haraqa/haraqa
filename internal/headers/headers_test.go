@@ -31,6 +31,9 @@ func TestErrors(t *testing.T) {
 	// websocket error
 	testError(t, ErrInvalidWebsocket, http.StatusBadRequest)
 
+	// closed error
+	testError(t, ErrClosed, http.StatusServiceUnavailable)
+
 	// undefined error
 	testError(t, errors.New("some new error"), http.StatusInternalServerError)
 

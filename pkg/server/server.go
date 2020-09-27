@@ -173,9 +173,14 @@ func (s *Server) Close() error {
 	s.handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		headers.SetError(w, headers.ErrClosed)
 	})
-	close(s.closed)
+	if s.closed != nil {
+		close(s.closed)
+	}
 	if s.waitGroup != nil {
 		s.waitGroup.Wait()
 	}
-	return s.q.Close()
+	if s.q != nil {
+		return s.q.Close()
+	}
+	return nil
 }

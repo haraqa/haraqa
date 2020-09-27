@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/haraqa/haraqa/internal/headers"
+
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 )
@@ -88,6 +90,19 @@ func TestServer_route(t *testing.T) {
 	handler.ServeHTTP(w, r)
 	if w.Code != http.StatusNotFound {
 		t.Fatal(w.Code)
+	}
+
+	// closed handler
+	err := s.Close()
+	if err != nil {
+		t.Error(err)
+	}
+	w = httptest.NewRecorder()
+	r, _ = http.NewRequest(http.MethodGet, "/anything", nil)
+	s.ServeHTTP(w, r)
+	err = headers.ReadErrors(w.Header())
+	if errors.Cause(err) != headers.ErrClosed {
+		t.Error(err)
 	}
 }
 
