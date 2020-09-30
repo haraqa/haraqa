@@ -10,13 +10,14 @@ import (
 
 // Headers using Canonical MIME structure
 const (
-	HeaderErrors      = "X-Errors"
-	HeaderSizes       = "X-Sizes"
-	HeaderStartTime   = "X-Start-Time"
-	HeaderEndTime     = "X-End-Time"
-	HeaderFileName    = "X-File-Name"
-	HeaderWatchTopics = "X-Topics"
-	ContentType       = "Content-Type"
+	HeaderErrors        = "X-Errors"
+	HeaderSizes         = "X-Sizes"
+	HeaderStartTime     = "X-Start-Time"
+	HeaderEndTime       = "X-End-Time"
+	HeaderFileName      = "X-File-Name"
+	HeaderWatchTopics   = "X-Topics"
+	HeaderConsumerGroup = "X-Consumer-Group"
+	ContentType         = "Content-Type"
 )
 
 const (

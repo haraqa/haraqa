@@ -137,16 +137,30 @@ func (mr *MockQueueMockRecorder) Produce(topic, msgSizes, timestamp, r interface
 }
 
 // Consume mocks base method
-func (m *MockQueue) Consume(topic string, id, limit int64, w http.ResponseWriter) (int, error) {
+func (m *MockQueue) Consume(group, topic string, id, limit int64, w http.ResponseWriter) (int, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Consume", topic, id, limit, w)
+	ret := m.ctrl.Call(m, "Consume", group, topic, id, limit, w)
 	ret0, _ := ret[0].(int)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Consume indicates an expected call of Consume
-func (mr *MockQueueMockRecorder) Consume(topic, id, limit, w interface{}) *gomock.Call {
+func (mr *MockQueueMockRecorder) Consume(group, topic, id, limit, w interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Consume", reflect.TypeOf((*MockQueue)(nil).Consume), topic, id, limit, w)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Consume", reflect.TypeOf((*MockQueue)(nil).Consume), group, topic, id, limit, w)
+}
+
+// SetConsumerOffset mocks base method
+func (m *MockQueue) SetConsumerOffset(group, topic string, id int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetConsumerOffset", group, topic, id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetConsumerOffset indicates an expected call of SetConsumerOffset
+func (mr *MockQueueMockRecorder) SetConsumerOffset(group, topic, id interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetConsumerOffset", reflect.TypeOf((*MockQueue)(nil).SetConsumerOffset), group, topic, id)
 }

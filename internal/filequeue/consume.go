@@ -15,7 +15,11 @@ import (
 )
 
 // Consume copies messages from a log to the writer
-func (q *FileQueue) Consume(topic string, id int64, limit int64, w http.ResponseWriter) (int, error) {
+func (q *FileQueue) Consume(group, topic string, id int64, limit int64, w http.ResponseWriter) (int, error) {
+	if group != "" && id < 0 {
+		// TODO: LOOKUP consumer group offset
+	}
+
 	datName, err := getConsumeDat(q.consumeNameCache, filepath.Join(q.rootDirNames[len(q.rootDirNames)-1], topic), topic, id)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -99,8 +103,12 @@ func getConsumeDat(consumeNameCache *sync.Map, path string, topic string, id int
 	if consumeNameCache != nil {
 		consumeNameCache.Store(topic, names)
 	}
-	if id < 0 && len(names) > 0 && len(names[0]) == len(exact) {
-		return names[0], nil
+	if id < 0 {
+		for i := range names {
+			if len(names[i]) == len(exact) {
+				return names[i], nil
+			}
+		}
 	}
 
 	for i := range names {

@@ -15,6 +15,7 @@ import (
 
 func TestFileQueue_Consume(t *testing.T) {
 	topic := "consume-topic"
+	group := "consume-group"
 	_ = os.RemoveAll(".haraqa-consumer")
 	defer os.RemoveAll(".haraqa-consumer")
 	q, err := New(true, 5000, ".haraqa-consumer")
@@ -28,7 +29,7 @@ func TestFileQueue_Consume(t *testing.T) {
 	}()
 
 	// topic doesn't exist
-	_, err = q.Consume(topic, 0, -1, nil)
+	_, err = q.Consume(group, topic, 0, -1, nil)
 	if !errors.Is(err, headers.ErrTopicDoesNotExist) {
 		t.Error(err)
 	}
@@ -58,7 +59,7 @@ func TestFileQueue_Consume(t *testing.T) {
 	// consume
 	{
 		w := httptest.NewRecorder()
-		n, err := q.Consume(topic, 0, -1, w)
+		n, err := q.Consume(group, topic, 0, -1, w)
 		if err != nil {
 			t.Error(err)
 		}
@@ -89,7 +90,7 @@ func TestFileQueue_Consume(t *testing.T) {
 	// consume again w/cache
 	{
 		w := httptest.NewRecorder()
-		n, err := q.Consume(topic, 0, 2, w)
+		n, err := q.Consume(group, topic, 0, 2, w)
 		if err != nil {
 			t.Error(err)
 		}
@@ -119,7 +120,7 @@ func TestFileQueue_Consume(t *testing.T) {
 	// consume again w/offset
 	{
 		w := httptest.NewRecorder()
-		n, err := q.Consume(topic, 2, -1, w)
+		n, err := q.Consume(group, topic, 2, -1, w)
 		if err != nil {
 			t.Error(err)
 		}
@@ -149,7 +150,7 @@ func TestFileQueue_Consume(t *testing.T) {
 	// consume just the last
 	{
 		w := httptest.NewRecorder()
-		n, err := q.Consume(topic, -1, -1, w)
+		n, err := q.Consume(group, topic, -1, -1, w)
 		if err != nil {
 			t.Error(err)
 		}
@@ -187,7 +188,7 @@ func TestFileQueue_Consume(t *testing.T) {
 			t.Error(err)
 		}
 		w := httptest.NewRecorder()
-		n, err := q.Consume(topic, int64(len(inputs)), -1, w)
+		n, err := q.Consume(group, topic, int64(len(inputs)), -1, w)
 		if err != nil {
 			t.Error(err)
 		}

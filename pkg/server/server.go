@@ -82,6 +82,7 @@ type Server struct {
 	handler             http.Handler
 	metrics             Metrics
 	defaultConsumeLimit int64
+	consumerGroupLock   *sync.Map
 	q                   Queue
 	closed              chan struct{}
 	waitGroup           *sync.WaitGroup
@@ -94,6 +95,7 @@ func NewServer(options ...Option) (*Server, error) {
 	s := &Server{
 		metrics:             noOpMetrics{},
 		defaultConsumeLimit: -1,
+		consumerGroupLock:   &sync.Map{},
 		closed:              make(chan struct{}),
 		waitGroup:           &sync.WaitGroup{},
 		wsPingInterval:      time.Second * 60,

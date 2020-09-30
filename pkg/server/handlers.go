@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -191,6 +192,15 @@ func (s *Server) HandleConsume(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	group := r.Header.Get(headers.HeaderConsumerGroup)
+	if group != "" {
+		tmp, _ := s.consumerGroupLock.LoadOrStore(group+"/"+topic, &sync.Mutex{})
+		if lock, ok := tmp.(*sync.Mutex); ok {
+			lock.Lock()
+			defer lock.Unlock()
+		}
+	}
+
 	id, err := strconv.ParseInt(r.URL.Query().Get("id"), 10, 64)
 	if err != nil {
 		headers.SetError(w, headers.ErrInvalidMessageID)
@@ -210,7 +220,7 @@ func (s *Server) HandleConsume(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	count, err := s.q.Consume(topic, id, limit, w)
+	count, err := s.q.Consume(group, topic, id, limit, w)
 	if err != nil {
 		headers.SetError(w, err)
 		return

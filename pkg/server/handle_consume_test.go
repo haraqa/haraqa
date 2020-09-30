@@ -12,200 +12,89 @@ import (
 )
 
 func TestServer_HandleConsume(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	topic := "consumer_topic"
+	group := "group"
+	t.Run("invalid topic",
+		handleConsume(group, http.StatusBadRequest, headers.ErrInvalidTopic, "/topics/", nil))
+	t.Run("missing id",
+		handleConsume(group, http.StatusBadRequest, headers.ErrInvalidMessageID, "/topics/"+topic, nil))
+	t.Run("invalid id",
+		handleConsume(group, http.StatusBadRequest, headers.ErrInvalidMessageID, "/topics/"+topic+"?id=invalid", nil))
+	t.Run("invalid limit",
+		handleConsume(group, http.StatusBadRequest, headers.ErrInvalidMessageLimit, "/topics/"+topic+"?id=123&limit=invalid", nil))
+	t.Run("topic doesn't exist",
+		handleConsume(group, http.StatusPreconditionFailed, headers.ErrTopicDoesNotExist, "/topics/"+topic+"?id=123", func(q *MockQueue) {
+			q.EXPECT().Consume(group, topic, int64(123), int64(-1), gomock.Any()).Return(0, headers.ErrTopicDoesNotExist).Times(1)
+		}))
+	t.Run("happy path: limit == -1",
+		handleConsume(group, http.StatusPartialContent, nil, "/topics/"+topic+"?id=123", func(q *MockQueue) {
+			q.EXPECT().Consume(group, topic, int64(123), int64(-1), gomock.Any()).
+				DoAndReturn(func(group, topic string, offset, limit int64, w http.ResponseWriter) (int, error) {
+					w.WriteHeader(http.StatusPartialContent)
+					return 10, nil
+				}).Times(1)
+		}))
+	t.Run("happy path: limit == 0",
+		handleConsume(group, http.StatusOK, nil, "/topics/"+topic+"?id=123&limit=0", func(q *MockQueue) {
+			q.EXPECT().Consume(group, topic, int64(123), int64(-1), gomock.Any()).Return(10, nil).Times(1)
+		}))
+	t.Run("no content",
+		handleConsume(group, http.StatusNoContent, headers.ErrNoContent, "/topics/"+topic+"?id=123", func(q *MockQueue) {
+			q.EXPECT().Consume(group, topic, int64(123), int64(-1), gomock.Any()).Return(0, nil).Times(1)
+		}))
+	errUnknown := errors.New("some unexpected error")
+	t.Run("unknown error",
+		handleConsume(group, http.StatusInternalServerError, errUnknown, "/topics/"+topic+"?id=123", func(q *MockQueue) {
+			q.EXPECT().Consume(group, topic, int64(123), int64(-1), gomock.Any()).Return(0, errUnknown).Times(1)
+		}))
+}
 
-	topic := "consume_topic"
-	q := NewMockQueue(ctrl)
-	gomock.InOrder(
-		q.EXPECT().RootDir().Times(1).Return(""),
-		q.EXPECT().Consume(topic, int64(123), int64(-1), gomock.Any()).DoAndReturn(func(topic string, offset, limit int64, w http.ResponseWriter) (int, error) {
-			w.WriteHeader(http.StatusPartialContent)
-			return 10, nil
-		}).Times(1),
-		q.EXPECT().Consume(topic, int64(123), int64(-1), gomock.Any()).Return(10, nil).Times(1),
-		q.EXPECT().Consume(topic, int64(123), int64(-1), gomock.Any()).Return(0, nil).Times(1),
-		q.EXPECT().Consume(topic, int64(123), int64(-1), gomock.Any()).Return(0, headers.ErrTopicDoesNotExist).Times(1),
-		q.EXPECT().Consume(topic, int64(123), int64(-1), gomock.Any()).Return(0, errors.New("test consume error")).Times(1),
-		q.EXPECT().Close().Return(nil).Times(1),
-	)
-	s, err := NewServer(WithQueue(q))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer s.Close()
-	// invalid topic
-	{
-		w := httptest.NewRecorder()
-		r, err := http.NewRequest(http.MethodGet, "/topics/", bytes.NewBuffer([]byte("test body")))
+func handleConsume(group string, status int, errExpected error, url string, expect func(q *MockQueue)) func(*testing.T) {
+	return func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		// setup queue
+		q := NewMockQueue(ctrl)
+		q.EXPECT().RootDir().Times(1).Return("")
+		q.EXPECT().Close().Times(1).Return(nil)
+		if expect != nil {
+			expect(q)
+		}
+
+		// setup server
+		s, err := NewServer(WithQueue(q))
 		if err != nil {
 			t.Fatal(err)
 		}
+		defer s.Close()
 
-		s.HandleConsume(w, r)
+		// make request/response
+		w := httptest.NewRecorder()
+		r, err := http.NewRequest(http.MethodGet, url, bytes.NewBuffer([]byte("test body")))
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		r.Header.Set(headers.HeaderConsumerGroup, group)
+
+		// if no topic, handle directly
+		_, err = getTopic(r)
+		if err != nil {
+			s.HandleConsume(w, r)
+		} else {
+			s.ServeHTTP(w, r)
+		}
+
+		// check results
 		resp := w.Result()
 		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusBadRequest {
-			t.Fatal(resp.Status)
+		if resp.StatusCode != status {
+			t.Error(resp.Status, status)
 		}
 		err = headers.ReadErrors(resp.Header)
-		if err != headers.ErrInvalidTopic {
-			t.Fatal(err)
-		}
-	}
-
-	// valid topic, missing id
-	{
-		w := httptest.NewRecorder()
-		r, err := http.NewRequest(http.MethodGet, "/topics/"+topic, bytes.NewBuffer([]byte("test body")))
-		if err != nil {
-			t.Fatal(err)
-		}
-		s.ServeHTTP(w, r)
-		resp := w.Result()
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusBadRequest {
-			t.Fatal(resp.Status)
-		}
-		err = headers.ReadErrors(resp.Header)
-		if err != headers.ErrInvalidMessageID {
-			t.Fatal(err)
-		}
-	}
-
-	// valid topic, invalid id
-	{
-		w := httptest.NewRecorder()
-		r, err := http.NewRequest(http.MethodGet, "/topics/"+topic+"?id=invalid", bytes.NewBuffer([]byte("test body")))
-		if err != nil {
-			t.Fatal(err)
-		}
-		s.ServeHTTP(w, r)
-		resp := w.Result()
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusBadRequest {
-			t.Fatal(resp.Status)
-		}
-		err = headers.ReadErrors(resp.Header)
-		if err != headers.ErrInvalidMessageID {
-			t.Fatal(err)
-		}
-	}
-
-	// valid topic, valid id, invalid limit
-	{
-		w := httptest.NewRecorder()
-		r, err := http.NewRequest(http.MethodGet, "/topics/"+topic+"?id=123&limit=invalid", bytes.NewBuffer([]byte("test body")))
-		if err != nil {
-			t.Fatal(err)
-		}
-		s.ServeHTTP(w, r)
-		resp := w.Result()
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusBadRequest {
-			t.Fatal(resp.Status)
-		}
-		err = headers.ReadErrors(resp.Header)
-		if err != headers.ErrInvalidMessageLimit {
-			t.Fatal(err)
-		}
-	}
-
-	// valid topic, valid id, happy path
-	{
-		w := httptest.NewRecorder()
-		r, err := http.NewRequest(http.MethodGet, "/topics/"+topic+"?id=123", bytes.NewBuffer([]byte("Hello World")))
-		if err != nil {
-			t.Fatal(err)
-		}
-		s.ServeHTTP(w, r)
-		resp := w.Result()
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusPartialContent {
-			t.Fatal(resp.Status)
-		}
-		err = headers.ReadErrors(resp.Header)
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	// valid topic, valid id, happy path, limit == 0
-	{
-		w := httptest.NewRecorder()
-		r, err := http.NewRequest(http.MethodGet, "/topics/"+topic+"?id=123&limit=0", bytes.NewBuffer([]byte("Hello World")))
-		if err != nil {
-			t.Fatal(err)
-		}
-		s.ServeHTTP(w, r)
-		resp := w.Result()
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			t.Fatal(resp.Status)
-		}
-		err = headers.ReadErrors(resp.Header)
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	// valid topic, valid id, no content
-	{
-		w := httptest.NewRecorder()
-		r, err := http.NewRequest(http.MethodGet, "/topics/"+topic+"?id=123", bytes.NewBuffer([]byte("Hello World")))
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		s.ServeHTTP(w, r)
-		resp := w.Result()
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusNoContent {
-			t.Fatal(resp.Status)
-		}
-		err = headers.ReadErrors(resp.Header)
-		if err != headers.ErrNoContent {
-			t.Fatal(err)
-		}
-	}
-
-	// valid topic, queue error: topic does not exist
-	{
-		w := httptest.NewRecorder()
-		r, err := http.NewRequest(http.MethodGet, "/topics/"+topic+"?id=123", bytes.NewBuffer([]byte("Hello World")))
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		s.ServeHTTP(w, r)
-		resp := w.Result()
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusPreconditionFailed {
-			t.Fatal(resp.Status)
-		}
-		err = headers.ReadErrors(resp.Header)
-		if err != headers.ErrTopicDoesNotExist {
-			t.Fatal(err)
-		}
-	}
-
-	// valid topic, queue error: unknown error
-	{
-		w := httptest.NewRecorder()
-		r, err := http.NewRequest(http.MethodGet, "/topics/"+topic+"?id=123", bytes.NewBuffer([]byte("Hello World")))
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		s.ServeHTTP(w, r)
-		resp := w.Result()
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusInternalServerError {
-			t.Fatal(resp.Status)
-		}
-		err = headers.ReadErrors(resp.Header)
-		if err.Error() != "test consume error" {
-			t.Fatal(err)
+		if err != errExpected && err.Error() != errExpected.Error() {
+			t.Error(err)
 		}
 	}
 }

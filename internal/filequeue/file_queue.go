@@ -163,7 +163,7 @@ func (q *FileQueue) DeleteTopic(topic string) error {
 func formatName(baseID int64) string {
 	const defaultName = "0000000000000000"
 
-	if baseID == 0 {
+	if baseID <= 0 {
 		return defaultName
 	}
 	v := strconv.FormatInt(baseID, 10)
