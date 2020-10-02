@@ -239,16 +239,9 @@ func (s *Server) HandleWatchTopics(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// get topic from url & header
-	topics := make(map[string]bool)
-	for _, topic := range r.Header.Values(headers.HeaderWatchTopics) {
-		topics[filepath.Clean(topic)] = true
-	}
-	topic, err := getTopic(r)
-	if err == nil {
-		topics[topic] = true
-	}
-	if len(topics) == 0 {
-		headers.SetError(w, headers.ErrInvalidTopic)
+	topics, err := getWatchTopics(r)
+	if err != nil {
+		headers.SetError(w, err)
 		return
 	}
 
@@ -260,7 +253,7 @@ func (s *Server) HandleWatchTopics(w http.ResponseWriter, r *http.Request) {
 	}
 	defer watcher.Close()
 	rootDir := s.q.RootDir()
-	for topic = range topics {
+	for topic := range topics {
 		err = watcher.Add(filepath.Join(rootDir, topic))
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -280,16 +273,7 @@ func (s *Server) HandleWatchTopics(w http.ResponseWriter, r *http.Request) {
 
 	// setup close handler
 	closer := make(chan error)
-	go func() {
-		for {
-			// continuously read until an error occurs
-			_, _, err := conn.ReadMessage()
-			if err != nil {
-				closer <- err
-				return
-			}
-		}
-	}()
+	go readNoopWebsocket(conn, closer)
 
 	// add ping handler timer
 	t := time.NewTicker(s.wsPingInterval)
@@ -323,4 +307,30 @@ func getTopic(r *http.Request) (string, error) {
 		return "", headers.ErrInvalidTopic
 	}
 	return topic, nil
+}
+
+func getWatchTopics(r *http.Request) (map[string]bool, error) {
+	topics := make(map[string]bool)
+	for _, topic := range r.Header.Values(headers.HeaderWatchTopics) {
+		topics[filepath.Clean(topic)] = true
+	}
+	topic, err := getTopic(r)
+	if err == nil {
+		topics[topic] = true
+	}
+	if len(topics) == 0 {
+		return nil, headers.ErrInvalidTopic
+	}
+	return topics, nil
+}
+
+func readNoopWebsocket(conn *websocket.Conn, ch chan error) {
+	for {
+		// continuously read until an error occurs
+		_, _, err := conn.ReadMessage()
+		if err != nil {
+			ch <- err
+			return
+		}
+	}
 }

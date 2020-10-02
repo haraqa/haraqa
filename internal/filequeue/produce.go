@@ -66,27 +66,26 @@ type cacheableProduceFile struct {
 	CurrentLogOffset int64
 }
 
+func closeCachedFiles(pf *cacheableProduceFile) {
+	if pf == nil {
+		return
+	}
+	if len(pf.Dats) > 0 {
+		_ = pf.Dats.Close()
+		pf.Dats = nil
+	}
+	if len(pf.Logs) > 0 {
+		_ = pf.Logs.Close()
+		pf.Logs = nil
+	}
+	pf.CurrentDatOffset = 0
+	pf.CurrentLogOffset = 0
+}
+
 func (q *FileQueue) openProduceFile(topic string) (*cacheableProduceFile, error) {
 	var pf *cacheableProduceFile
 	var datName string
 	var loaded bool
-
-	// helper to close out files on error
-	closeFiles := func() {
-		if pf == nil {
-			return
-		}
-		if len(pf.Dats) > 0 {
-			_ = pf.Dats.Close()
-			pf.Dats = nil
-		}
-		if len(pf.Logs) > 0 {
-			_ = pf.Logs.Close()
-			pf.Logs = nil
-		}
-		pf.CurrentDatOffset = 0
-		pf.CurrentLogOffset = 0
-	}
 
 	// attempt to load from cache
 	if q.produceCache != nil {
@@ -98,7 +97,7 @@ func (q *FileQueue) openProduceFile(topic string) (*cacheableProduceFile, error)
 				}
 
 				// best effort close, prep to open a new set of files
-				closeFiles()
+				closeCachedFiles(pf)
 				datName = formatName(pf.NextID)
 				loaded = true
 			}
@@ -121,13 +120,13 @@ OpenFileSet:
 		datPath := filepath.Join(dir, topic, datName)
 		dat, err := osOpenFile(datPath, os.O_RDWR|os.O_CREATE, 0666)
 		if err != nil {
-			closeFiles()
+			closeCachedFiles(pf)
 			return nil, errors.Wrapf(err, "unable to open/create file %q", datPath)
 		}
 		logPath := filepath.Join(dir, topic, datName+".log")
 		log, err := osOpenFile(logPath, os.O_RDWR|os.O_CREATE, 0666)
 		if err != nil {
-			closeFiles()
+			closeCachedFiles(pf)
 			return nil, errors.Wrapf(err, "unable to open/create file %q", logPath)
 		}
 		pf.Dats = append(pf.Dats, dat)
@@ -140,7 +139,7 @@ OpenFileSet:
 		dat := pf.Dats[len(pf.Dats)-1].(*os.File)
 		stat, err := dat.Stat()
 		if err != nil {
-			closeFiles()
+			closeCachedFiles(pf)
 			return nil, errors.Wrapf(err, "unable to stat dat file %q", dat.Name())
 		}
 
@@ -150,7 +149,7 @@ OpenFileSet:
 			var data [datEntryLength]byte
 			_, err = dat.ReadAt(data[:], size-datEntryLength-(size%datEntryLength))
 			if err != nil {
-				closeFiles()
+				closeCachedFiles(pf)
 				return nil, errors.Wrap(err, "unable to write dat")
 			}
 			pf.NextID = int64(binary.LittleEndian.Uint64(data[0:8])) + 1
@@ -159,7 +158,7 @@ OpenFileSet:
 
 			// check if this file has been filled
 			if size/datEntryLength >= q.max {
-				closeFiles()
+				closeCachedFiles(pf)
 				datName = formatName(pf.NextID)
 				goto OpenFileSet
 			}

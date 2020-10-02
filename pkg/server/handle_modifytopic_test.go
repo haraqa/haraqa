@@ -3,8 +3,10 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -13,164 +15,91 @@ import (
 )
 
 func TestServer_HandleModifyTopic(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
 	topic := "modified_topic"
-	q := NewMockQueue(ctrl)
-	gomock.InOrder(
-		q.EXPECT().RootDir().Times(1).Return(""),
-		q.EXPECT().ModifyTopic(topic, gomock.Any()).Return(&headers.TopicInfo{MinOffset: 123, MaxOffset: 456}, nil).Times(1),
-		q.EXPECT().ModifyTopic(topic, gomock.Any()).Return(nil, headers.ErrTopicDoesNotExist).Times(1),
-		q.EXPECT().ModifyTopic(topic, gomock.Any()).Return(nil, errors.New("test modify error")).Times(1),
-		q.EXPECT().Close().Return(nil).Times(1),
-	)
-	s, err := NewServer(WithQueue(q))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer s.Close()
+	info := headers.TopicInfo{MinOffset: 123, MaxOffset: 456}
+	t.Run("nil body",
+		handleModifyTopic(http.StatusBadRequest, headers.ErrInvalidBodyMissing, topic, info, nil, nil))
+	t.Run("invalid topic",
+		handleModifyTopic(http.StatusBadRequest, headers.ErrInvalidTopic, "", info, bytes.NewBuffer([]byte("{}")), nil))
+	t.Run("invalid json",
+		handleModifyTopic(http.StatusBadRequest, headers.ErrInvalidBodyJSON, topic, info, bytes.NewBuffer([]byte("hello")), nil))
+	t.Run("empty json",
+		handleModifyTopic(http.StatusNoContent, nil, topic, info, bytes.NewBuffer([]byte("{}")), nil))
+	t.Run("happy path",
+		handleModifyTopic(http.StatusOK, nil, topic, info, bytes.NewBuffer([]byte(`{"truncate":123}`)), func(q *MockQueue) {
+			q.EXPECT().ModifyTopic(topic, gomock.Any()).Return(&headers.TopicInfo{MinOffset: 123, MaxOffset: 456}, nil).Times(1)
+		}))
+	t.Run("topic doesn't exist",
+		handleModifyTopic(http.StatusPreconditionFailed, headers.ErrTopicDoesNotExist, topic, info, bytes.NewBuffer([]byte(`{"truncate":123}`)), func(q *MockQueue) {
+			q.EXPECT().ModifyTopic(topic, gomock.Any()).Return(nil, headers.ErrTopicDoesNotExist).Times(1)
+		}))
+	errUnknown := errors.New("test modify error")
+	t.Run("unknown error",
+		handleModifyTopic(http.StatusInternalServerError, errUnknown, topic, info, bytes.NewBuffer([]byte(`{"truncate":123}`)), func(q *MockQueue) {
+			q.EXPECT().ModifyTopic(topic, gomock.Any()).Return(nil, errUnknown).Times(1)
+		}))
+}
 
-	// nil body
-	{
-		w := httptest.NewRecorder()
-		r, err := http.NewRequest(http.MethodPatch, "/topics/"+topic, nil)
-		if err != nil {
-			t.Fatal(err)
+func handleModifyTopic(status int, errExpected error, topic string, info headers.TopicInfo, body io.Reader, expect func(q *MockQueue)) func(t *testing.T) {
+	return func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		// setup mock queue
+		q := NewMockQueue(ctrl)
+		q.EXPECT().RootDir().Times(1).Return("")
+		q.EXPECT().Close().Return(nil).Times(1)
+		if expect != nil {
+			expect(q)
 		}
 
-		s.ServeHTTP(w, r)
+		// setup server
+		s, err := NewServer(WithQueue(q))
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		defer s.Close()
+
+		// create request
+		w := httptest.NewRecorder()
+		r, err := http.NewRequest(http.MethodPatch, "/topics/"+topic, body)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+
+		// handle
+		_, err = getTopic(r)
+		if err != nil {
+			s.HandleModifyTopic(w, r)
+		} else {
+			s.ServeHTTP(w, r)
+		}
+
+		// check result
 		resp := w.Result()
 		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusBadRequest {
-			t.Fatal(resp.Status)
+		if resp.StatusCode != status {
+			t.Error(resp.Status)
 		}
 		err = headers.ReadErrors(resp.Header)
-		if err != headers.ErrInvalidBodyMissing {
-			t.Fatal(err)
+		if err != errExpected && err.Error() != errExpected.Error() {
+			t.Error(err)
 		}
-	}
-
-	// invalid topic
-	{
-		w := httptest.NewRecorder()
-		r, err := http.NewRequest(http.MethodPatch, "/topics/", bytes.NewBuffer([]byte("test body")))
-		if err != nil {
-			t.Fatal(err)
+		if err != nil || status == http.StatusNoContent {
+			return
 		}
 
-		s.HandleModifyTopic(w, r)
-		resp := w.Result()
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusBadRequest {
-			t.Fatal(resp.Status)
-		}
-		err = headers.ReadErrors(resp.Header)
-		if err != headers.ErrInvalidTopic {
-			t.Fatal(err)
-		}
-	}
-
-	// valid topic, invalid json
-	{
-		w := httptest.NewRecorder()
-		r, err := http.NewRequest(http.MethodPatch, "/topics/"+topic, bytes.NewBuffer([]byte("test body")))
+		// check body
+		var v headers.TopicInfo
+		err = json.NewDecoder(resp.Body).Decode(&v)
 		if err != nil {
-			t.Fatal(err)
+			t.Error(err)
+			return
 		}
-		s.ServeHTTP(w, r)
-		resp := w.Result()
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusBadRequest {
-			t.Fatal(resp.Status)
-		}
-		err = headers.ReadErrors(resp.Header)
-		if err != headers.ErrInvalidBodyJSON {
-			t.Fatal(err)
-		}
-	}
-
-	// valid topic, empty json
-	{
-		w := httptest.NewRecorder()
-		r, err := http.NewRequest(http.MethodPatch, "/topics/"+topic, bytes.NewBuffer([]byte("{}")))
-		if err != nil {
-			t.Fatal(err)
-		}
-		s.ServeHTTP(w, r)
-		resp := w.Result()
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusNoContent {
-			t.Fatal(resp.Status)
-		}
-		err = headers.ReadErrors(resp.Header)
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	// valid topic, happy path
-	{
-		w := httptest.NewRecorder()
-		r, err := http.NewRequest(http.MethodPatch, "/topics/"+topic, bytes.NewBuffer([]byte(`{"truncate":123}`)))
-		if err != nil {
-			t.Fatal(err)
-		}
-		s.ServeHTTP(w, r)
-		resp := w.Result()
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			t.Fatal(resp.Status)
-		}
-		err = headers.ReadErrors(resp.Header)
-		if err != nil {
-			t.Fatal(err)
-		}
-		var info headers.TopicInfo
-		err = json.NewDecoder(resp.Body).Decode(&info)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if info.MinOffset != 123 || info.MaxOffset != 456 {
-			t.Fatal(info)
-		}
-	}
-
-	// valid topic, queue error: topic does not exist
-	{
-		w := httptest.NewRecorder()
-		r, err := http.NewRequest(http.MethodPatch, "/topics/"+topic, bytes.NewBuffer([]byte(`{"truncate":123}`)))
-		if err != nil {
-			t.Fatal(err)
-		}
-		s.ServeHTTP(w, r)
-		resp := w.Result()
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusPreconditionFailed {
-			t.Fatal(resp.Status)
-		}
-		err = headers.ReadErrors(resp.Header)
-		if err != headers.ErrTopicDoesNotExist {
-			t.Fatal(err)
-		}
-	}
-
-	// valid topic, queue error: unknown error
-	{
-		w := httptest.NewRecorder()
-		r, err := http.NewRequest(http.MethodPatch, "/topics/"+topic, bytes.NewBuffer([]byte(`{"truncate":123}`)))
-		if err != nil {
-			t.Fatal(err)
-		}
-		s.ServeHTTP(w, r)
-		resp := w.Result()
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusInternalServerError {
-			t.Fatal(resp.Status)
-		}
-		err = headers.ReadErrors(resp.Header)
-		if err.Error() != "test modify error" {
-			t.Fatal(err)
+		if !reflect.DeepEqual(v, info) {
+			t.Error(v, info)
 		}
 	}
 }

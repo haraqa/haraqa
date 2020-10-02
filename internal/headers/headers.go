@@ -49,6 +49,20 @@ var (
 	ErrClosed              = errors.New(errClosed)
 )
 
+var errMap = map[string]error{
+	errTopicDoesNotExist:   ErrTopicDoesNotExist,
+	errTopicAlreadyExists:  ErrTopicAlreadyExists,
+	errInvalidHeaderSizes:  ErrInvalidHeaderSizes,
+	errInvalidMessageID:    ErrInvalidMessageID,
+	errInvalidMessageLimit: ErrInvalidMessageLimit,
+	errInvalidTopic:        ErrInvalidTopic,
+	errInvalidBodyMissing:  ErrInvalidBodyMissing,
+	errInvalidBodyJSON:     ErrInvalidBodyJSON,
+	errInvalidWebsocket:    ErrInvalidWebsocket,
+	errNoContent:           ErrNoContent,
+	errClosed:              ErrClosed,
+}
+
 // SetError adds the error to the response header and body and sets the status code as needed
 func SetError(w http.ResponseWriter, errOriginal error) {
 	if errOriginal == nil {
@@ -87,34 +101,14 @@ func ReadErrors(header http.Header) error {
 		return nil
 	}
 	for _, err := range errs {
-		switch err {
-		case "":
+		if err == "" {
 			continue
-		case errTopicDoesNotExist:
-			return ErrTopicDoesNotExist
-		case errTopicAlreadyExists:
-			return ErrTopicAlreadyExists
-		case errInvalidHeaderSizes:
-			return ErrInvalidHeaderSizes
-		case errInvalidMessageID:
-			return ErrInvalidMessageID
-		case errInvalidMessageLimit:
-			return ErrInvalidMessageLimit
-		case errInvalidTopic:
-			return ErrInvalidTopic
-		case errInvalidBodyMissing:
-			return ErrInvalidBodyMissing
-		case errInvalidBodyJSON:
-			return ErrInvalidBodyJSON
-		case errInvalidWebsocket:
-			return ErrInvalidWebsocket
-		case errNoContent:
-			return ErrNoContent
-		case errClosed:
-			return ErrClosed
-		default:
+		}
+		e, ok := errMap[err]
+		if !ok {
 			return errors.New(err)
 		}
+		return e
 	}
 	return nil
 }

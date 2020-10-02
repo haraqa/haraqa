@@ -13,7 +13,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/websocket"
 	"github.com/haraqa/haraqa/internal/headers"
-	"github.com/pkg/errors"
 )
 
 func TestServer_HandleWatchTopic(t *testing.T) {
@@ -41,44 +40,9 @@ func TestServer_HandleWatchTopic(t *testing.T) {
 	server.EnableHTTP2 = true
 	defer server.Close()
 
-	// missing topics
-	{
-		resp, err := http.Get(server.URL + "/ws/topics")
-		if err != nil {
-			t.Error(err)
-		}
-		err = headers.ReadErrors(resp.Header)
-		if errors.Cause(err) != headers.ErrInvalidTopic {
-			t.Error(err)
-		}
-	}
-
-	// missing topic
-	{
-		resp, err := http.Get(server.URL + "/ws/topics/invalid_topic")
-		if err != nil {
-			t.Error(err)
-		}
-		err = headers.ReadErrors(resp.Header)
-		if errors.Cause(err) != headers.ErrTopicDoesNotExist {
-			t.Error(err)
-		}
-	}
-
-	// invalid websocket
-	{
-		resp, err := http.Post(server.URL+"/ws/topics/"+topic, "application/json", nil)
-		if err != nil {
-			t.Error(err)
-		}
-		if resp.StatusCode != http.StatusBadRequest {
-			t.Error(resp.StatusCode)
-		}
-		err = headers.ReadErrors(resp.Header)
-		if err == nil {
-			t.Error("expected websocket error")
-		}
-	}
+	t.Run("missing topics", handleWatchTopicErrors(http.StatusBadRequest, server.URL+"/ws/topics", headers.ErrInvalidTopic))
+	t.Run("invalid topic", handleWatchTopicErrors(http.StatusPreconditionFailed, server.URL+"/ws/topics/invalid_topic", headers.ErrTopicDoesNotExist))
+	t.Run("invalid websocket", handleWatchTopicErrors(http.StatusBadRequest, server.URL+"/ws/topics/"+topic, headers.ErrInvalidWebsocket))
 
 	// valid websocket
 	{
@@ -125,5 +89,21 @@ func TestServer_HandleWatchTopic(t *testing.T) {
 			t.Error(string(data))
 		}
 		conn.Close()
+	}
+}
+
+func handleWatchTopicErrors(status int, url string, expectedError error) func(*testing.T) {
+	return func(t *testing.T) {
+		resp, err := http.Post(url, "application/json", nil)
+		if err != nil {
+			t.Error(err)
+		}
+		if resp.StatusCode != status {
+			t.Error(resp.StatusCode)
+		}
+		err = headers.ReadErrors(resp.Header)
+		if err != expectedError {
+			t.Error(err, expectedError)
+		}
 	}
 }
