@@ -83,7 +83,7 @@ to a simple REST server. These messages are stored in haraqa in a topic unique t
 <h2 align="center">Getting started</h2>
 
 ### API Docs
-* [Redocs API Documentation](https://haraqa.github.io/haraqa/cmd/server/swagger.html)
+* [Redocs API Documentation](https://haraqa.github.io/haraqa/cmd/server/redocs.html)
 * [Swagger API Documentation](https://haraqa.github.io/haraqa/cmd/server/swagger.html)
 * [Swagger yaml](https://github.com/haraqa/haraqa/blob/master/cmd/server/swagger.yaml)
 
