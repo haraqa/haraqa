@@ -15,15 +15,14 @@
 [![Release](https://img.shields.io/github/release/haraqa/haraqa.svg)](https://github.com/haraqa/haraqa/releases)
 
 **haraqa** is designed to be a developer friendly, scalable message queue for data
-persistence and real-time data streaming between microservices. Haraqa provides high-throughput,
-low-latency, fault-tolerant pipelines for architectures of any size.
+persistence and real-time data streaming between microservices. 
+Haraqa provides high-throughput, low-latency, fault-tolerant pipelines for architectures of any size.
 
 
 ### Table of Contents
 * [About the Project](#about-the-project)
   * [Overview](#overview)
   * [Persistence and Replication](#persistence-and-replication)
-  * [Usecases](#usecases)
 * [Getting Started](#getting-started)
   * [API Docs](#api-docs)
   * [Server](#server)
@@ -34,14 +33,14 @@ low-latency, fault-tolerant pipelines for architectures of any size.
 <h2 align="center">About the Project</h2>
 
 ### Overview
-Haraqa is meant for handling and persisting data in a distributed system. One or more
-servers can be used to send and receive messages. Each server has a set of 'topics',
-a set of messages stored in the order received.
+Haraqa is meant for handling and persisting data in a distributed system. 
+One or more servers can be used to send and receive messages. 
+Each server has a set of 'topics', a set of messages stored in the order received.
 
-A Haraqa client can produce and/or consume from a server's topics. These messages
-can be produced one at a time or in batches. Messages are consumed by making a request
-for a specific offset and limit. The messages can be consumed one at a
-time or in batches.
+A Haraqa client can produce and/or consume from a server's topics. 
+Clients can produce messages one at a time or in batches.
+Clients consume messages by making a request for a specific offset and limit. 
+The messages can be consumed one at a time or in batches.
 
 <div align="center">
   <a href="https://raw.githubusercontent.com/haraqa/haraqa/media/diagram.jpg">
@@ -50,19 +49,20 @@ time or in batches.
 </div>
 
 ### Persistence and Replication
-Each server, after receiving a message from a producer, can save the message to multiple
-volumes. These volumes are meant to be distributed in the architecture, such as having
-multiple PersistentVolumes in a Kubernetes cluster, EBS in AWS, or Persistent Disks in
-Google Cloud. The server reads messages from the last volume when sending to consumer clients.
+Each server, after receiving a message from a producer, can save the message to multiple volumes.
+These volumes are meant to be distributed in the architecture, such as having
+multiple PersistentVolumes in a Kubernetes cluster, EBS in AWS, or Persistent Disks in Google Cloud. 
+The server reads messages from the last volume when sending to consumer clients.
 
-If a volume is removed or corrupted during a restart the data is repopulated from the other volumes.
+If a volume is removed or corrupted during a restart the server repopulates the data from the other volumes.
 
 <div align="center">
   <a href="https://raw.githubusercontent.com/haraqa/haraqa/media/replication.jpg">
-    <img src="https://raw.githubusercontent.com/haraqa/haraqa/media/replication.jpg"/>
+    <img alt="Data can be replicated to external volumes and volumes local to where the server runs" src="https://raw.githubusercontent.com/haraqa/haraqa/media/replication.jpg"/>
   </a>
 </div>
 
+<!--
 ### Usecases
 * #### Log Aggregation
   * [Example](https://github.com/haraqa/haraqa/tree/master/internal/examples/logs).
@@ -79,6 +79,7 @@ to a simple REST server. These messages are stored in haraqa in a topic unique t
   Notifications can be aggregated and sent out in batches for daily/weekly emails or push notifications.
 
 <h2 align="center">Getting started</h2>
+-->
 
 ### API Docs
 * [Redocs API Documentation](https://haraqa.github.io/haraqa/cmd/server/redocs.html)
@@ -88,7 +89,7 @@ to a simple REST server. These messages are stored in haraqa in a topic unique t
 The docker server also includes local api documentation at the `/docs` and `/docs/swagger` endpoints.
 
 ### Server
-The recommended deployment strategy is to use [Docker](hub.docker.com/r/haraqa/haraqa)
+The recommended deployment strategy is to use [Docker](https://hub.docker.com/r/haraqa/haraqa)
 ```
 docker run -it -p 4353:4353 -v $PWD/vol1:/vol1 haraqa/haraqa /vol1
 ```
@@ -122,8 +123,8 @@ For instance, given
 docker run haraqa/haraqa /vol1 /vol2 /vol3
 ```
 
-When a message is received it will be written to /vol1, then /vol2, then /vol3.
-When a message is consumed it will be read from /vol3.
+When a client produces a message, it will be written to /vol1, then /vol2, then /vol3.
+When a client consumes a message, it will be read from /vol3.
 
 During recovery, if data exists in /vol3 it will be replicated to volumes /vol1 and /vol2.
 If /vol3 is empty, /vol2 will be replicated to /vol1 and /vol3.
@@ -139,8 +140,8 @@ run main.go vol1
 
 ##### Documentation
 When running the server locally, documentation can be found at the /docs endpoint
-* [Redocs documentation](localhost:4353/docs)
-* [Redocs documentation](localhost:4353/docs/swagger)
+* [Redocs documentation](http://localhost:4353/docs)
+* [Swagger documentation](http://localhost:4353/docs/swagger)
 
 ### Client
 ```
