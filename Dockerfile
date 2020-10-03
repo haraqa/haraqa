@@ -44,5 +44,9 @@ COPY cmd/server/swagger.yaml .
 COPY cmd/server/swagger.html .
 COPY cmd/server/redocs.html .
 
+# Update to use local version, not github version
+RUN sed -i 's/https:\/\/raw.githubusercontent.com\/haraqa\/haraqa\/master\/cmd\/server/\/docs/g' swagger.html && \
+    sed -i 's/https:\/\/raw.githubusercontent.com\/haraqa\/haraqa\/master\/cmd\/server/\/docs/g' redocs.html
+
 # Get binary from compiler
 COPY --from=compiler /haraqa-build /haraqa

@@ -1,5 +1,4 @@
 swagger: "2.0"
-host: "localhost:4353"
 basePath: "/"
 info:
   title: "Haraqa API"
@@ -8,9 +7,6 @@ info:
   license:
     name: "MIT License"
     url: "https://github.com/haraqa/haraqa/blob/master/LICENSE"
-externalDocs:
-  description: "Find out more about swagger codegen"
-  url: "https://swagger.io/docs/open-source-tools/swagger-codegen/"
 schemes:
   - "http"
 tags:
