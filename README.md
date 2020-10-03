@@ -43,8 +43,8 @@ Clients consume messages by making a request for a specific offset and limit.
 The messages can be consumed one at a time or in batches.
 
 <div align="center">
-  <a href="https://raw.githubusercontent.com/haraqa/haraqa/media/diagram.jpg">
-    <img src="https://raw.githubusercontent.com/haraqa/haraqa/media/diagram.jpg"/>
+  <a href="https://raw.githubusercontent.com/haraqa/haraqa/media/haraqa_overview.svg">
+    <img src="https://raw.githubusercontent.com/haraqa/haraqa/media/haraqa_overview.svg"/>
   </a>
 </div>
 
@@ -57,8 +57,8 @@ The server reads messages from the last volume when sending to consumer clients.
 If a volume is removed or corrupted during a restart the server repopulates the data from the other volumes.
 
 <div align="center">
-  <a href="https://raw.githubusercontent.com/haraqa/haraqa/media/replication.jpg">
-    <img alt="Data can be replicated to external volumes and volumes local to where the server runs" src="https://raw.githubusercontent.com/haraqa/haraqa/media/replication.jpg"/>
+  <a href="https://raw.githubusercontent.com/haraqa/haraqa/media/haraqa_volumes.svg">
+    <img alt="Data can be replicated to external volumes and volumes local to where the server runs" src="https://raw.githubusercontent.com/haraqa/haraqa/media/haraqa_volumes.svg"/>
   </a>
 </div>
 
@@ -147,6 +147,7 @@ When running the server locally, documentation can be found at the /docs endpoin
 ```
 go get github.com/haraqa/haraqa
 ```
+<!---
 ##### Client Code Examples
 Client examples can be found in the
 [godoc documentation](https://pkg.go.dev/github.com/haraqa/haraqa?tab=doc#pkg-overview)
@@ -209,6 +210,7 @@ See the [hrqa repository](https://github.com/haraqa/hrqa) for more details
 ```
 go get github.com/haraqa/hrqa
 ```
+-->
 
 <h2 align="center">Contributing</h2>
 
