@@ -95,12 +95,6 @@ The recommended deployment strategy is to use [Docker](hub.docker.com/r/haraqa/h
 docker run -it -p 4353:4353 -v $PWD/vol1:/vol1 haraqa/haraqa /vol1
 ```
 
-To run from source, navigate to cmd/server and run the main.go file.
-```
-cd cmd/server
-run main.go vol1
-```
-
 <details><summary>Details</summary>
 <p>
 
@@ -138,6 +132,12 @@ If /vol3 is empty, /vol2 will be replicated to /vol1 and /vol3.
 
 </p>
 </details>
+
+To run from source, navigate to cmd/server and run the main.go file.
+```
+cd cmd/server
+run main.go vol1
+```
 
 ##### Documentation
 When running the server locally, documentation can be found at the /docs endpoint
