@@ -27,6 +27,7 @@ low-latency, fault-tolerant pipelines for architectures of any size.
   * [Persistence and Replication](#persistence-and-replication)
   * [Usecases](#usecases)
 * [Getting Started](#getting-started)
+  * [API Docs](#api-docs)
   * [Server](#server)
   * [Client](#client)
 * [Contributing](#contributing)
@@ -56,10 +57,6 @@ volumes. These volumes are meant to be distributed in the architecture, such as 
 multiple PersistentVolumes in a Kubernetes cluster, EBS in AWS, or Persistent Disks in
 Google Cloud. The server reads messages from the last volume when sending to consumer clients.
 
-When retrieving information about a topic (list topics, find a topic's offsets, watching a topic
-for changes, etc) a client makes requests to a gRPC server which returns topic information based
-on the last volume.
-
 If a volume is removed or corrupted during a restart the data is repopulated from the other volumes.
 
 <div align="center">
@@ -85,10 +82,23 @@ to a simple REST server. These messages are stored in haraqa in a topic unique t
 
 <h2 align="center">Getting started</h2>
 
+### API Docs
+* [Redocs API Documentation](https://haraqa.github.io/haraqa/cmd/server/swagger.html)
+* [Swagger API Documentation](https://haraqa.github.io/haraqa/cmd/server/swagger.html)
+* [Swagger yaml](https://github.com/haraqa/haraqa/blob/master/cmd/server/swagger.yaml)
+
+The docker server also includes local api documentation at the `/docs` and `/docs/swagger` endpoints.
+
 ### Server
 The recommended deployment strategy is to use [Docker](hub.docker.com/r/haraqa/haraqa)
 ```
-docker run -it -p 4353:4353 -p 14353:14353 -v $PWD/v1:/v1 haraqa/haraqa /v1
+docker run -it -p 4353:4353 -v $PWD/vol1:/vol1 haraqa/haraqa /vol1
+```
+
+To run from source, navigate to cmd/server and run the main.go file.
+```
+cd cmd/server
+run main.go vol1
 ```
 
 <details><summary>Details</summary>
@@ -128,6 +138,11 @@ If /vol3 is empty, /vol2 will be replicated to /vol1 and /vol3.
 
 </p>
 </details>
+
+##### Documentation
+When running the server locally, documentation can be found at the /docs endpoint
+* [Redocs documentation](localhost:4353/docs)
+* [Redocs documentation](localhost:4353/docs/swagger)
 
 ### Client
 ```
