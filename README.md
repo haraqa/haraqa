@@ -1,5 +1,11 @@
-Haraqa
-===
+<h1 align="center">
+  <a href="https://github.com/haraqa/haraqa">
+    <img alt="Haraqa" src="https://raw.githubusercontent.com/haraqa/haraqa/media/mascot.png"/>
+  </a>
+</h1>
+
+<h2 align="center"><strong>HARAQA</strong> - High Availability Routing And Queueing Application</h2>
+
 [![GoDoc](https://godoc.org/github.com/haraqa/haraqa?status.svg)](https://pkg.go.dev/github.com/haraqa/haraqa?tab=doc)
 [![Report Card](https://goreportcard.com/badge/github.com/haraqa/haraqa)](https://goreportcard.com/report/haraqa/haraqa)
 [![License](https://img.shields.io/github/license/haraqa/haraqa.svg)](https://github.com/haraqa/haraqa/blob/master/LICENSE)
@@ -7,14 +13,6 @@ Haraqa
 [![Coverage Status](https://coveralls.io/repos/github/haraqa/haraqa/badge.svg)](https://coveralls.io/github/haraqa/haraqa)
 [![Docker Build](https://img.shields.io/docker/cloud/build/haraqa/haraqa.svg)](https://hub.docker.com/r/haraqa/haraqa/)
 [![Release](https://img.shields.io/github/release/haraqa/haraqa.svg)](https://github.com/haraqa/haraqa/releases)
-
-<h2 align="center">High Availability Routing And Queueing Application</h2>
-
-<div align="center">
-  <a href="https://github.com/haraqa/haraqa">
-    <img src="https://raw.githubusercontent.com/haraqa/haraqa/media/mascot.png"/>
-  </a>
-</div>
 
 **haraqa** is designed to be a developer friendly, scalable message queue for data
 persistence and real-time data streaming between microservices. Haraqa provides high-throughput,
