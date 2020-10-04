@@ -1,6 +1,6 @@
 <h1 align="center">
-  <a href="https://github.com/haraqa/haraqa">
-    <img alt="Haraqa" src="https://raw.githubusercontent.com/haraqa/haraqa/media/mascot.png"/>
+  <a href="https://haraqa.github.io">
+    <img alt="HARAQA" src="https://raw.githubusercontent.com/haraqa/haraqa/media/mascot.png"/>
   </a>
 </h1>
 
@@ -30,7 +30,7 @@ Haraqa provides high-throughput, low-latency, fault-tolerant pipelines for archi
 * [Contributing](#contributing)
 * [License](#license)
 
-<h2 align="center">About the Project</h2>
+## About the Project
 
 ### Overview
 Haraqa is meant for handling and persisting data in a distributed system. 
@@ -78,12 +78,13 @@ to a simple REST server. These messages are stored in haraqa in a topic unique t
   * [Example](https://github.com/haraqa/haraqa/tree/master/internal/examples/emails).
   Notifications can be aggregated and sent out in batches for daily/weekly emails or push notifications.
 
-<h2 align="center">Getting started</h2>
 -->
 
+## Getting started
+
 ### API Docs
-* [Redocs API Documentation](https://haraqa.github.io/haraqa/cmd/server/redocs.html)
 * [Swagger API Documentation](https://haraqa.github.io/haraqa/cmd/server/swagger.html)
+* [Redocs API Documentation](https://haraqa.github.io/haraqa/cmd/server/redocs.html)
 * [Swagger yaml](https://github.com/haraqa/haraqa/blob/master/cmd/server/swagger.yaml)
 
 The docker server also includes local api documentation at the `/docs` and `/docs/swagger` endpoints.
@@ -93,12 +94,14 @@ The recommended deployment strategy is to use [Docker](https://hub.docker.com/r/
 ```
 docker run -it -p 4353:4353 -v $PWD/vol1:/vol1 haraqa/haraqa /vol1
 ```
-
-<details><summary>Details</summary>
-<p>
-
 ```
 docker run -it [port mapping] [volume mounts] haraqa/haraqa [flags] [volumes]
+```
+
+To run from source, navigate to cmd/server and run the main.go file.
+```
+cd cmd/server
+run main.go vol1
 ```
 
 ##### Flags:
@@ -128,20 +131,6 @@ When a client consumes a message, it will be read from /vol3.
 
 During recovery, if data exists in /vol3 it will be replicated to volumes /vol1 and /vol2.
 If /vol3 is empty, /vol2 will be replicated to /vol1 and /vol3.
-
-</p>
-</details>
-
-To run from source, navigate to cmd/server and run the main.go file.
-```
-cd cmd/server
-run main.go vol1
-```
-
-##### Documentation
-When running the server locally, documentation can be found at the /docs endpoint
-* [Redocs documentation](http://localhost:4353/docs)
-* [Swagger documentation](http://localhost:4353/docs/swagger)
 
 ### Client
 ```
@@ -212,10 +201,10 @@ go get github.com/haraqa/hrqa
 ```
 -->
 
-<h2 align="center">Contributing</h2>
+## Contributing
 
 We want this project to be the best it can be and all feedback, feature requests or pull requests are welcome.
 
-<h2 align="center">License</h2>
+## License
 
 MIT © 2019 [haraqa](https://github.com/haraqa/) and [contributors](https://github.com/haraqa/haraqa/graphs/contributors). See `LICENSE` for more information.

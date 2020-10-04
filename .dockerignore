@@ -1,3 +1,5 @@
+.idea
+**.DS_Store**
 .git
 .github
 internal/examples
@@ -5,6 +7,7 @@ mock
 profiles
 .dockerignore
 .gitignore
+_config.yml
 docker_test.go
 example*
 Dockerfile

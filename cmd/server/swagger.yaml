@@ -3,7 +3,7 @@ basePath: "/"
 info:
   title: "Haraqa API"
   version: "0.0.0"
-  description: "Haraqa [http://github.com/haraqa/haraqa](http://github.com/haraqa/haraqa)."
+  description: "Haraqa [https://haraqa.github.io/haraqa](https://haraqa.github.io/haraqa)."
   license:
     name: "MIT License"
     url: "https://github.com/haraqa/haraqa/blob/master/LICENSE"
@@ -102,16 +102,22 @@ paths:
           type: "string"
         - name: "id"
           in: "query"
-          description: "Message id to start consuming from"
+          description: "Message id to start consuming from. If negative, the next message(s) for that consumer group is sent. If X-Consumer-Group was not specified, the last message in the topic is consumed."
           required: true
           type: "integer"
           format: "int64"
         - name: "limit"
           in: "query"
-          description: "Max number of messages to consume"
+          description: "(Optional) Max number of messages to consume"
           required: false
           type: "integer"
           format: "int64"
+        - name: "X-Consumer-Group"
+          in: "header"
+          description: "(Optional) Use the X-Consumer-Group header to allow multiple consumers to consume from a single topic, one at a time."
+          required: false
+          type: "string"
+          format: "string"
       responses:
         "200":
           description: "consumed messages"
