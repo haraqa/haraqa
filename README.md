@@ -101,7 +101,7 @@ docker run -it [port mapping] [volume mounts] haraqa/haraqa [flags] [volumes]
 To run from source, navigate to cmd/server and run the main.go file.
 ```
 cd cmd/server
-run main.go vol1
+go run main.go vol1
 ```
 
 ##### Flags:

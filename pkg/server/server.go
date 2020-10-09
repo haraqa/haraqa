@@ -6,12 +6,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/haraqa/haraqa/internal/headers"
-
 	"github.com/gorilla/websocket"
+	"github.com/pkg/errors"
 
 	"github.com/haraqa/haraqa/internal/filequeue"
-	"github.com/pkg/errors"
+	"github.com/haraqa/haraqa/internal/headers"
 )
 
 // Option represents a optional function argument to NewServer
@@ -98,7 +97,7 @@ func NewServer(options ...Option) (*Server, error) {
 		consumerGroupLock:   &sync.Map{},
 		closed:              make(chan struct{}),
 		waitGroup:           &sync.WaitGroup{},
-		wsPingInterval:      time.Second * 60,
+		wsPingInterval:      time.Second * 10,
 		wsUpgrader: websocket.Upgrader{
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,

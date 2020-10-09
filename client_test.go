@@ -8,9 +8,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/haraqa/haraqa/internal/headers"
-
 	"github.com/pkg/errors"
+
+	"github.com/haraqa/haraqa/internal/headers"
 )
 
 func TestOptions(t *testing.T) {
@@ -96,7 +96,7 @@ func TestClient_InvalidRequests(t *testing.T) {
 		if err == nil {
 			t.Error(err)
 		}
-		err = c.ListTopics("", "", "")
+		_, err = c.ListTopics("", "", "")
 		if err == nil {
 			t.Error(err)
 		}
@@ -203,11 +203,11 @@ func TestClient_ListTopics(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	err = c.ListTopics("p", "s", "r")
+	_, err = c.ListTopics("p", "s", "r")
 	if err != nil {
 		t.Error(err)
 	}
-	err = c.ListTopics("p", "s", "r")
+	_, err = c.ListTopics("p", "s", "r")
 	if !errors.Is(err, headers.ErrTopicDoesNotExist) {
 		t.Error(err)
 	}

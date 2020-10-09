@@ -11,7 +11,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/haraqa/haraqa/pkg/haraqa"
+	"github.com/haraqa/haraqa"
 	"github.com/haraqa/haraqa/pkg/server"
 )
 

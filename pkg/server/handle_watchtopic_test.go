@@ -12,6 +12,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/websocket"
+
 	"github.com/haraqa/haraqa/internal/headers"
 )
 
@@ -64,18 +65,20 @@ func TestServer_HandleWatchTopic(t *testing.T) {
 			defer resp.Body.Close()
 		}
 
-		go func() {
-			f, err := os.Create(filepath.Join(dir, topic, "00000"))
-			if err != nil {
-				t.Error(err)
-				return
-			}
-			defer f.Close()
+		err = conn.WriteControl(websocket.PongMessage, nil, time.Now().Add(s.wsPingInterval))
+		if err != nil {
+			t.Error(err)
+			return
+		}
 
-			f.Write([]byte("hello_there"))
-		}()
-
-		time.Sleep(time.Second)
+		f, err := os.Create(filepath.Join(dir, topic, "00000"))
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		defer f.Close()
+		f.Write([]byte("hello_there"))
+		time.Sleep(s.wsPingInterval * 2)
 
 		msgType, data, err := conn.ReadMessage()
 		if err != nil {

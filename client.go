@@ -2,17 +2,22 @@ package haraqa
 
 import (
 	"bytes"
+	"context"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
 	urlpkg "net/url"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
-	"github.com/haraqa/haraqa/internal/headers"
+	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
+
+	"github.com/haraqa/haraqa/internal/headers"
 )
 
 // Option represents a optional function argument to NewClient
@@ -41,10 +46,20 @@ func WithHTTPClient(client *http.Client) Option {
 	}
 }
 
+func WithConsumerGroup(group string) Option {
+	return func(c *Client) error {
+		c.consumerGroup = group
+		return nil
+	}
+}
+
 // Client is a lightweight client around the haraqa http api, use NewClient() to create a new client
 type Client struct {
-	c   *http.Client
-	url string
+	c             *http.Client
+	url           string
+	consumerGroup string
+	dialer        *websocket.Dialer
+	closer        chan struct{}
 }
 
 // NewClient creates a new client instance. Any options given override the local defaults
@@ -66,7 +81,13 @@ func NewClient(opts ...Option) (*Client, error) {
 				MaxIdleConnsPerHost:   1000,
 			},
 		},
-		url: "http://127.0.0.1:4353",
+		url:           "http://127.0.0.1:4353",
+		consumerGroup: "",
+		dialer: &websocket.Dialer{
+			Proxy:            http.ProxyFromEnvironment,
+			HandshakeTimeout: 45 * time.Second,
+		},
+		closer: make(chan struct{}),
 	}
 
 	for _, opt := range opts {
@@ -115,20 +136,24 @@ func (c *Client) DeleteTopic(topic string) error {
 }
 
 // ListTopics Lists all topics, filter by prefix, suffix, and/or a regex expression
-func (c *Client) ListTopics(prefix, suffix, regex string) error {
+func (c *Client) ListTopics(prefix, suffix, regex string) ([]string, error) {
 	prefix = urlpkg.QueryEscape(prefix)
 	suffix = urlpkg.QueryEscape(suffix)
 	regex = urlpkg.QueryEscape(regex)
 	path := c.url + "/topics?prefix=" + prefix + "&suffix=" + suffix + "&regex=" + regex
 	resp, err := http.Get(path)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
 		err = headers.ReadErrors(resp.Header)
-		return errors.Wrap(err, "error getting topics")
+		return nil, errors.Wrap(err, "error getting topics")
 	}
-	return nil
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	return strings.Split(string(body), ","), nil
 }
 
 // Produce sends messages from a reader to the designated topic
@@ -176,16 +201,19 @@ var getRequestPool = &sync.Pool{
 
 // Consume reads messages off of a topic starting from id, no more than the given limit is returned.
 // If limit is less than 1, the server sets the limit.
-func (c *Client) Consume(topic string, id uint64, limit int) (io.ReadCloser, []int64, error) {
+func (c *Client) Consume(topic string, id int64, limit int) (io.ReadCloser, []int64, error) {
 	var err error
 	req := getRequestPool.Get().(*http.Request)
 	defer getRequestPool.Put(req)
-	req.URL, err = url.Parse(c.url + "/topics/" + topic + "?id=" + strconv.FormatUint(id, 10))
+	req.URL, err = url.Parse(c.url + "/topics/" + topic + "?id=" + strconv.FormatInt(id, 10))
 	if err != nil {
 		return nil, nil, err
 	}
 	if limit > 0 {
 		req.URL.RawQuery += "&limit=" + strconv.Itoa(limit)
+	}
+	if c.consumerGroup != "" {
+		req.Header[headers.HeaderConsumerGroup] = []string{c.consumerGroup}
 	}
 
 	resp, err := c.c.Do(req)
@@ -207,7 +235,7 @@ func (c *Client) Consume(topic string, id uint64, limit int) (io.ReadCloser, []i
 
 // ConsumeMsgs reads messages off of a topic starting from id, no more than the given limit is returned.
 // If limit is less than 1, the server sets the limit.
-func (c *Client) ConsumeMsgs(topic string, id uint64, limit int) ([][]byte, error) {
+func (c *Client) ConsumeMsgs(topic string, id int64, limit int) ([][]byte, error) {
 	r, sizes, err := c.Consume(topic, id, limit)
 	if err != nil {
 		return nil, err
@@ -222,4 +250,53 @@ func (c *Client) ConsumeMsgs(topic string, id uint64, limit int) ([][]byte, erro
 		}
 	}
 	return msgs, nil
+}
+
+// WatchTopics opens a websocket to the server to listen for changes to the given topics.
+// It writes the name of any modified topics to the given channel until a context cancellation or an error occurs
+func (c *Client) WatchTopics(ctx context.Context, topics []string, ch chan<- string) error {
+	if len(topics) == 0 {
+		return headers.ErrInvalidTopic
+	}
+	path := strings.Replace(c.url, "http", "ws", 1) + "/ws/topics"
+	conn, resp, err := c.dialer.Dial(path, map[string][]string{
+		headers.HeaderWatchTopics: topics,
+	})
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	err = headers.ReadErrors(resp.Header)
+	if err != nil {
+		return err
+	}
+
+	for ctx.Err() == nil {
+		select {
+		case <-c.closer:
+			return nil
+		default:
+		}
+		msgType, b, err := conn.ReadMessage()
+		if err != nil {
+			return err
+		}
+		if msgType == websocket.TextMessage {
+			select {
+			case ch <- string(b):
+			case <-c.closer:
+				return nil
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
+	}
+	return ctx.Err()
+}
+
+func (c *Client) Close() error {
+	if c.closer != nil {
+		close(c.closer)
+	}
+	return nil
 }

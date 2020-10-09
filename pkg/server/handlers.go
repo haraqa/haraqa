@@ -12,6 +12,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/gorilla/websocket"
+
 	"github.com/haraqa/haraqa/internal/headers"
 )
 
@@ -271,25 +272,37 @@ func (s *Server) HandleWatchTopics(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
-	// setup close handler
-	closer := make(chan error)
-	go readNoopWebsocket(conn, closer)
+	// add ping/pong handler timers
+	pingT := time.NewTicker(s.wsPingInterval)
+	defer pingT.Stop()
+	conn.SetPongHandler(func(appData string) error { return conn.SetReadDeadline(time.Now().Add(2 * s.wsPingInterval)) })
 
-	// add ping handler timer
-	t := time.NewTicker(s.wsPingInterval)
-	defer t.Stop()
+	// add a reader loop to handle ping/pong/close
+	wsClosed := make(chan error, 1)
+	go readNoopWebsocket(conn, wsClosed)
+
+	// send initial ping
+	if err = conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+		return
+	}
+	if err = conn.SetReadDeadline(time.Now().Add(2 * s.wsPingInterval)); err != nil {
+		return
+	}
 
 	// loop waiting for an event or timeout
 	for {
 		select {
-		case err = <-closer:
 		case event := <-watcher.Events:
 			if event.Op == fsnotify.Write && !strings.HasSuffix(event.Name, ".log") {
 				trimmed := strings.TrimPrefix(filepath.Dir(event.Name), rootDir+string(filepath.Separator))
 				err = conn.WriteMessage(websocket.TextMessage, []byte(trimmed))
 			}
-		case <-t.C:
+		case <-pingT.C:
 			err = conn.WriteMessage(websocket.PingMessage, []byte{})
+		case err = <-wsClosed:
+		case <-s.closed:
+			_ = conn.WriteControl(websocket.CloseGoingAway, nil, time.Now().Add(s.wsPingInterval))
+			return
 		}
 		if err != nil {
 			return
@@ -327,8 +340,7 @@ func getWatchTopics(r *http.Request) (map[string]bool, error) {
 func readNoopWebsocket(conn *websocket.Conn, ch chan error) {
 	for {
 		// continuously read until an error occurs
-		_, _, err := conn.ReadMessage()
-		if err != nil {
+		if _, _, err := conn.NextReader(); err != nil {
 			ch <- err
 			return
 		}
