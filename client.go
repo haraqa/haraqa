@@ -20,6 +20,11 @@ import (
 	"github.com/haraqa/haraqa/internal/headers"
 )
 
+var (
+	ErrTopicAlreadyExists = headers.ErrTopicAlreadyExists
+	ErrNoContent          = headers.ErrNoContent
+)
+
 // Option represents a optional function argument to NewClient
 type Option func(*Client) error
 
@@ -258,6 +263,10 @@ func (c *Client) WatchTopics(ctx context.Context, topics []string, ch chan<- str
 	if len(topics) == 0 {
 		return headers.ErrInvalidTopic
 	}
+	for i := range topics {
+		topics[i] = strings.ToLower(topics[i])
+	}
+
 	path := strings.Replace(c.url, "http", "ws", 1) + "/ws/topics"
 	conn, resp, err := c.dialer.Dial(path, map[string][]string{
 		headers.HeaderWatchTopics: topics,
@@ -271,27 +280,30 @@ func (c *Client) WatchTopics(ctx context.Context, topics []string, ch chan<- str
 		return err
 	}
 
-	for ctx.Err() == nil {
+	errs := make(chan error, 1)
+	go func() {
+		for ctx.Err() == nil {
+			msgType, b, err := conn.ReadMessage()
+			if err != nil {
+				errs <- err
+				return
+			}
+			if msgType == websocket.TextMessage {
+				ch <- string(b)
+			}
+		}
+	}()
+
+	for {
 		select {
 		case <-c.closer:
 			return nil
-		default:
-		}
-		msgType, b, err := conn.ReadMessage()
-		if err != nil {
+		case <-ctx.Done():
+			return ctx.Err()
+		case err = <-errs:
 			return err
 		}
-		if msgType == websocket.TextMessage {
-			select {
-			case ch <- string(b):
-			case <-c.closer:
-				return nil
-			case <-ctx.Done():
-				return ctx.Err()
-			}
-		}
 	}
-	return ctx.Err()
 }
 
 func (c *Client) Close() error {

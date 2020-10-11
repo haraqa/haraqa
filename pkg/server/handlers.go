@@ -294,8 +294,16 @@ func (s *Server) HandleWatchTopics(w http.ResponseWriter, r *http.Request) {
 		select {
 		case event := <-watcher.Events:
 			if event.Op == fsnotify.Write && !strings.HasSuffix(event.Name, ".log") {
-				trimmed := strings.TrimPrefix(filepath.Dir(event.Name), rootDir+string(filepath.Separator))
-				err = conn.WriteMessage(websocket.TextMessage, []byte(trimmed))
+				topic := strings.TrimPrefix(filepath.Dir(event.Name), rootDir+string(filepath.Separator))
+				err = conn.WriteMessage(websocket.TextMessage, []byte(topic))
+			} else if event.Op == fsnotify.Remove {
+				topic := strings.TrimPrefix(filepath.Dir(event.Name), rootDir+string(filepath.Separator))
+				err = watcher.Remove(filepath.Dir(event.Name))
+				delete(topics, topic)
+				if len(topics) == 0 {
+					_ = conn.WriteControl(websocket.CloseGoingAway, nil, time.Now().Add(s.wsPingInterval))
+					return
+				}
 			}
 		case <-pingT.C:
 			err = conn.WriteMessage(websocket.PingMessage, []byte{})
@@ -315,7 +323,7 @@ func getTopic(r *http.Request) (string, error) {
 	if len(split) < 2 {
 		return "", headers.ErrInvalidTopic
 	}
-	topic := filepath.Clean(split[1])
+	topic := strings.ToLower(filepath.Clean(split[1]))
 	if topic == "" || topic == "." {
 		return "", headers.ErrInvalidTopic
 	}
@@ -325,7 +333,7 @@ func getTopic(r *http.Request) (string, error) {
 func getWatchTopics(r *http.Request) (map[string]bool, error) {
 	topics := make(map[string]bool)
 	for _, topic := range r.Header.Values(headers.HeaderWatchTopics) {
-		topics[filepath.Clean(topic)] = true
+		topics[strings.ToLower(filepath.Clean(topic))] = true
 	}
 	topic, err := getTopic(r)
 	if err == nil {

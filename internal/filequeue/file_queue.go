@@ -8,8 +8,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/haraqa/haraqa/internal/headers"
 	"github.com/pkg/errors"
+
+	"github.com/haraqa/haraqa/internal/headers"
 )
 
 // FileQueue implements the haraqa queue by storing messages in log files, under topic based directories
@@ -157,6 +158,13 @@ func (q *FileQueue) DeleteTopic(topic string) error {
 	if q.consumeNameCache != nil {
 		q.consumeNameCache.Delete(topic)
 	}
+	if q.produceCache != nil {
+		q.produceCache.Delete(topic)
+	}
+	if q.produceLocks != nil {
+		q.produceLocks.Delete(topic)
+	}
+
 	return nil
 }
 
