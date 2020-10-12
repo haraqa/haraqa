@@ -2,14 +2,15 @@ package main
 
 import (
 	"flag"
-	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"strconv"
 
-	"github.com/haraqa/haraqa/pkg/server"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sirupsen/logrus"
+
+	"github.com/haraqa/haraqa/pkg/server"
 )
 
 func main() {
@@ -33,6 +34,9 @@ func main() {
 	flag.BoolVar(&docs, "docs", true, "Enable Docs pages")
 	flag.Parse()
 
+	// setup logger
+	logger := logrus.New()
+
 	// set a ballast
 	if ballastSize >= 0 {
 		_ = make([]byte, ballastSize)
@@ -40,12 +44,13 @@ func main() {
 
 	// check args
 	if flag.NArg() == 0 {
-		log.Fatal("Missing directory args")
+		logger.Fatal("Missing directory args")
 	}
 
 	// get options
 	var opts []server.Option
 	opts = append(opts, server.WithFileQueue(flag.Args(), fileCache, fileEntries))
+	opts = append(opts, server.WithLogger(logger))
 	if consumeLimit > 0 {
 		opts = append(opts, server.WithDefaultConsumeLimit(consumeLimit))
 	}
@@ -78,13 +83,13 @@ func main() {
 	// create a server
 	s, err := server.NewServer(opts...)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 	http.Handle("/", s)
 
 	// listen
-	log.Println("Listening on port", httpPort)
-	log.Fatal(http.ListenAndServe(":"+strconv.FormatUint(uint64(httpPort), 10), nil))
+	logger.Println("Listening on port", httpPort)
+	logger.Fatal(http.ListenAndServe(":"+strconv.FormatUint(uint64(httpPort), 10), nil))
 }
 
 func promMetrics() (func(http.Handler) http.Handler, *Metrics) {

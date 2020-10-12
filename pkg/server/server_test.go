@@ -71,7 +71,9 @@ func TestNewServer(t *testing.T) {
 }
 
 func TestServer_route(t *testing.T) {
-	s := &Server{}
+	s := &Server{
+		logger: noopLogger{},
+	}
 	handler := s.route(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusPartialContent)
 	}))

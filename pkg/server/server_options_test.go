@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"reflect"
 	"testing"
+	"time"
 )
 
 func TestWithQueue(t *testing.T) {
@@ -91,5 +92,29 @@ func TestWithMiddleware(t *testing.T) {
 	}
 	if len(s.middlewares) != 1 && !reflect.DeepEqual(s.middlewares[0], mw) {
 		t.Error(s.middlewares)
+	}
+}
+
+func TestWithLogger(t *testing.T) {
+	s := &Server{}
+	logger := &noopLogger{}
+	err := WithLogger(*logger)(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.logger != *logger {
+		t.Error(s.logger, *logger)
+	}
+}
+
+func TestWithWebsocketInterval(t *testing.T) {
+	s := &Server{}
+	d := time.Second * 23
+	err := WithWebsocketInterval(d)(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.wsPingInterval != d {
+		t.Error(s.wsPingInterval)
 	}
 }

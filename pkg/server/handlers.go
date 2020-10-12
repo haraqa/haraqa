@@ -12,6 +12,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/gorilla/websocket"
+	"github.com/pkg/errors"
 
 	"github.com/haraqa/haraqa/internal/headers"
 )
@@ -42,9 +43,14 @@ func (s *Server) HandleOptions(w http.ResponseWriter, r *http.Request) {
 // It returns all topics currently defined in the queue as either a json or csv depending on the
 // request content-type header
 func (s *Server) HandleGetAllTopics(w http.ResponseWriter, r *http.Request) {
+	if r.Body != nil {
+		_ = r.Body.Close()
+	}
+
 	query := r.URL.Query()
 	topics, err := s.q.ListTopics(query.Get("prefix"), query.Get("suffix"), query.Get("regex"))
 	if err != nil {
+		s.logger.Warnf("%s:%s:list error: %s", r.Method, r.URL.Path, err.Error())
 		headers.SetError(w, err)
 		return
 	}
@@ -63,7 +69,10 @@ func (s *Server) HandleGetAllTopics(w http.ResponseWriter, r *http.Request) {
 		w.Header()[headers.ContentType] = []string{"text/csv"}
 		response = []byte(strings.Join(topics, ","))
 	}
-	_, _ = w.Write(response)
+	_, err = w.Write(response)
+	if err != nil {
+		s.logger.Warnf("%s:%s:write error: %s", r.Method, r.URL.Path, err.Error())
+	}
 }
 
 // HandleCreateTopic handles requests to the /topics/... endpoints with method == PUT.
@@ -75,11 +84,13 @@ func (s *Server) HandleCreateTopic(w http.ResponseWriter, r *http.Request) {
 
 	topic, err := getTopic(r)
 	if err != nil {
+		s.logger.Warnf("%s:%s:topic error: %s", r.Method, r.URL.Path, err.Error())
 		headers.SetError(w, err)
 		return
 	}
 	err = s.q.CreateTopic(topic)
 	if err != nil {
+		s.logger.Warnf("%s:%s:create topic: %s", r.Method, r.URL.Path, err.Error())
 		headers.SetError(w, err)
 		return
 	}
@@ -92,6 +103,7 @@ func (s *Server) HandleCreateTopic(w http.ResponseWriter, r *http.Request) {
 // offset or mod time.
 func (s *Server) HandleModifyTopic(w http.ResponseWriter, r *http.Request) {
 	if r.Body == nil {
+		s.logger.Warnf("%s:%s:body required: %s", r.Method, r.URL.Path, headers.ErrInvalidBodyMissing.Error())
 		headers.SetError(w, headers.ErrInvalidBodyMissing)
 		return
 	}
@@ -101,12 +113,14 @@ func (s *Server) HandleModifyTopic(w http.ResponseWriter, r *http.Request) {
 
 	topic, err := getTopic(r)
 	if err != nil {
+		s.logger.Warnf("%s:%s:topic error: %s", r.Method, r.URL.Path, err.Error())
 		headers.SetError(w, err)
 		return
 	}
 
 	var request headers.ModifyRequest
 	if err = json.NewDecoder(r.Body).Decode(&request); err != nil {
+		s.logger.Warnf("%s:%s:json decode: %s", r.Method, r.URL.Path, err.Error())
 		headers.SetError(w, headers.ErrInvalidBodyJSON)
 		return
 	}
@@ -118,12 +132,16 @@ func (s *Server) HandleModifyTopic(w http.ResponseWriter, r *http.Request) {
 
 	info, err := s.q.ModifyTopic(topic, request)
 	if err != nil {
+		s.logger.Warnf("%s:%s:modify topic: %s", r.Method, r.URL.Path, err.Error())
 		headers.SetError(w, err)
 		return
 	}
 	w.Header()[headers.ContentType] = []string{"application/json"}
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(&info)
+	err = json.NewEncoder(w).Encode(&info)
+	if err != nil {
+		s.logger.Warnf("%s:%s:json write: %s", r.Method, r.URL.Path, err.Error())
+	}
 }
 
 // HandleDeleteTopic handles requests to the /topics/... endpoints with method == DELETE.
@@ -135,11 +153,13 @@ func (s *Server) HandleDeleteTopic(w http.ResponseWriter, r *http.Request) {
 
 	topic, err := getTopic(r)
 	if err != nil {
+		s.logger.Warnf("%s:%s:topic error: %s", r.Method, r.URL.Path, err.Error())
 		headers.SetError(w, err)
 		return
 	}
 	err = s.q.DeleteTopic(topic)
 	if err != nil {
+		s.logger.Warnf("%s:%s:delete topic: %s", r.Method, r.URL.Path, err.Error())
 		headers.SetError(w, err)
 		return
 	}
@@ -151,6 +171,7 @@ func (s *Server) HandleDeleteTopic(w http.ResponseWriter, r *http.Request) {
 // It will add the given messages to the queue topic
 func (s *Server) HandleProduce(w http.ResponseWriter, r *http.Request) {
 	if r.Body == nil {
+		s.logger.Warnf("%s:%s:body required: %s", r.Method, r.URL.Path, headers.ErrInvalidBodyMissing.Error())
 		headers.SetError(w, headers.ErrInvalidBodyMissing)
 		return
 	}
@@ -160,18 +181,21 @@ func (s *Server) HandleProduce(w http.ResponseWriter, r *http.Request) {
 
 	topic, err := getTopic(r)
 	if err != nil {
+		s.logger.Warnf("%s:%s:topic error: %s", r.Method, r.URL.Path, err.Error())
 		headers.SetError(w, err)
 		return
 	}
 
 	sizes, err := headers.ReadSizes(r.Header)
 	if err != nil {
+		s.logger.Warnf("%s:%s:read sizes: %s", r.Method, r.URL.Path, err.Error())
 		headers.SetError(w, err)
 		return
 	}
 
 	err = s.q.Produce(topic, sizes, uint64(time.Now().Unix()), r.Body)
 	if err != nil {
+		s.logger.Warnf("%s:%s:produce: %s", r.Method, r.URL.Path, err.Error())
 		headers.SetError(w, err)
 		return
 	}
@@ -189,6 +213,7 @@ func (s *Server) HandleConsume(w http.ResponseWriter, r *http.Request) {
 
 	topic, err := getTopic(r)
 	if err != nil {
+		s.logger.Warnf("%s:%s:topic error: %s", r.Method, r.URL.Path, err.Error())
 		headers.SetError(w, err)
 		return
 	}
@@ -204,6 +229,7 @@ func (s *Server) HandleConsume(w http.ResponseWriter, r *http.Request) {
 
 	id, err := strconv.ParseInt(r.URL.Query().Get("id"), 10, 64)
 	if err != nil {
+		s.logger.Warnf("%s:%s:parse id: %s", r.Method, r.URL.Path, err.Error())
 		headers.SetError(w, headers.ErrInvalidMessageID)
 		return
 	}
@@ -213,6 +239,7 @@ func (s *Server) HandleConsume(w http.ResponseWriter, r *http.Request) {
 	if queryLimit != "" && queryLimit[0] != '-' {
 		limit, err = strconv.ParseInt(queryLimit, 10, 64)
 		if err != nil {
+			s.logger.Warnf("%s:%s:parse limit: %s", r.Method, r.URL.Path, err.Error())
 			headers.SetError(w, headers.ErrInvalidMessageLimit)
 			return
 		}
@@ -223,6 +250,7 @@ func (s *Server) HandleConsume(w http.ResponseWriter, r *http.Request) {
 
 	count, err := s.q.Consume(group, topic, id, limit, w)
 	if err != nil {
+		s.logger.Warnf("%s:%s:consume: %s", r.Method, r.URL.Path, err.Error())
 		headers.SetError(w, err)
 		return
 	}
@@ -242,6 +270,7 @@ func (s *Server) HandleWatchTopics(w http.ResponseWriter, r *http.Request) {
 	// get topic from url & header
 	topics, err := getWatchTopics(r)
 	if err != nil {
+		s.logger.Warnf("%s:%s:topic error: %s", r.Method, r.URL.Path, err.Error())
 		headers.SetError(w, err)
 		return
 	}
@@ -249,6 +278,7 @@ func (s *Server) HandleWatchTopics(w http.ResponseWriter, r *http.Request) {
 	// setup watcher
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
+		s.logger.Warnf("%s:%s:new watcher: %s", r.Method, r.URL.Path, err.Error())
 		headers.SetError(w, err)
 		return
 	}
@@ -257,9 +287,11 @@ func (s *Server) HandleWatchTopics(w http.ResponseWriter, r *http.Request) {
 	for topic := range topics {
 		err = watcher.Add(filepath.Join(rootDir, topic))
 		if err != nil {
+			s.logger.Warnf("%s:%s:watcher add: %s", r.Method, r.URL.Path, err.Error())
 			if os.IsNotExist(err) {
 				err = headers.ErrTopicDoesNotExist
 			}
+
 			headers.SetError(w, err)
 			return
 		}
@@ -268,6 +300,7 @@ func (s *Server) HandleWatchTopics(w http.ResponseWriter, r *http.Request) {
 	// upgrade request to websocket connection
 	conn, err := s.wsUpgrader.Upgrade(w, r, nil)
 	if err != nil {
+		s.logger.Warnf("%s:%s:websocket upgrade: %s", r.Method, r.URL.Path, err.Error())
 		return
 	}
 	defer conn.Close()
@@ -275,7 +308,13 @@ func (s *Server) HandleWatchTopics(w http.ResponseWriter, r *http.Request) {
 	// add ping/pong handler timers
 	pingT := time.NewTicker(s.wsPingInterval)
 	defer pingT.Stop()
-	conn.SetPongHandler(func(appData string) error { return conn.SetReadDeadline(time.Now().Add(2 * s.wsPingInterval)) })
+	conn.SetPongHandler(func(appData string) error {
+		err := conn.SetReadDeadline(time.Now().Add(2 * s.wsPingInterval))
+		if err != nil {
+			s.logger.Warnf("%s:%s:set ws deadline: %s", r.Method, r.URL.Path, err.Error())
+		}
+		return err
+	})
 
 	// add a reader loop to handle ping/pong/close
 	wsClosed := make(chan error, 1)
@@ -283,9 +322,11 @@ func (s *Server) HandleWatchTopics(w http.ResponseWriter, r *http.Request) {
 
 	// send initial ping
 	if err = conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+		s.logger.Warnf("%s:%s:ping: %s", r.Method, r.URL.Path, err.Error())
 		return
 	}
 	if err = conn.SetReadDeadline(time.Now().Add(2 * s.wsPingInterval)); err != nil {
+		s.logger.Warnf("%s:%s:set initial ws deadline: %s", r.Method, r.URL.Path, err.Error())
 		return
 	}
 
@@ -296,23 +337,35 @@ func (s *Server) HandleWatchTopics(w http.ResponseWriter, r *http.Request) {
 			if event.Op == fsnotify.Write && !strings.HasSuffix(event.Name, ".log") {
 				topic := strings.TrimPrefix(filepath.Dir(event.Name), rootDir+string(filepath.Separator))
 				err = conn.WriteMessage(websocket.TextMessage, []byte(topic))
+				err = errors.Wrap(err, "cannot write topic")
 			} else if event.Op == fsnotify.Remove {
 				topic := strings.TrimPrefix(filepath.Dir(event.Name), rootDir+string(filepath.Separator))
 				err = watcher.Remove(filepath.Dir(event.Name))
+				err = errors.Wrap(err, "cannot remove watcher item")
 				delete(topics, topic)
 				if len(topics) == 0 {
-					_ = conn.WriteControl(websocket.CloseGoingAway, nil, time.Now().Add(s.wsPingInterval))
+					s.logger.Warnf("%s:%s:deleted all topics: %s", r.Method, r.URL.Path, "all topics removed, closing ws connection")
+					msg := websocket.FormatCloseMessage(websocket.CloseGoingAway, headers.ErrTopicDoesNotExist.Error())
+					_ = conn.WriteControl(websocket.CloseGoingAway, msg, time.Now().Add(s.wsPingInterval))
 					return
 				}
 			}
 		case <-pingT.C:
 			err = conn.WriteMessage(websocket.PingMessage, []byte{})
+			err = errors.Wrap(err, "cannot write ping")
 		case err = <-wsClosed:
+			if codeErr, ok := err.(*websocket.CloseError); ok && codeErr.Code == websocket.CloseNormalClosure {
+				return
+			}
+			err = errors.Wrap(err, "closed")
 		case <-s.closed:
-			_ = conn.WriteControl(websocket.CloseGoingAway, nil, time.Now().Add(s.wsPingInterval))
+			s.logger.Warnf("%s:%s:closing server: %s", r.Method, r.URL.Path, "server closing, closing ws connection")
+			msg := websocket.FormatCloseMessage(websocket.CloseGoingAway, headers.ErrClosed.Error())
+			_ = conn.WriteControl(websocket.CloseGoingAway, msg, time.Now().Add(s.wsPingInterval))
 			return
 		}
 		if err != nil {
+			s.logger.Warnf("%s:%s:%s", r.Method, r.URL.Path, err.Error())
 			return
 		}
 	}

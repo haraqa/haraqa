@@ -1,13 +1,19 @@
+//+build linux
+
 package haraqa
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
+	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
 
 	"github.com/haraqa/haraqa/internal/headers"
@@ -53,6 +59,19 @@ func TestOptions(t *testing.T) {
 		}
 		if c.c != http.DefaultClient {
 			t.Error("http client not set")
+		}
+	}
+
+	// WithConsumerGroup
+	{
+		group := "test-group"
+		c := &Client{}
+		err := WithConsumerGroup(group)(c)
+		if err != nil {
+			t.Error(err)
+		}
+		if c.consumerGroup != group {
+			t.Error(c.consumerGroup, group)
 		}
 	}
 }
@@ -311,7 +330,7 @@ func TestClient_Consume(t *testing.T) {
 	ts.EnableHTTP2 = true
 	defer ts.Close()
 
-	c, err := NewClient(WithHTTPClient(ts.Client()), WithURL(ts.URL))
+	c, err := NewClient(WithHTTPClient(ts.Client()), WithURL(ts.URL), WithConsumerGroup("consumer-group"))
 	if err != nil {
 		t.Error(err)
 	}
@@ -363,5 +382,73 @@ func TestClient_Consume(t *testing.T) {
 	_, err = c.ConsumeMsgs("consume_topic", 123, 456)
 	if !errors.Is(err, io.ErrUnexpectedEOF) {
 		t.Error(err)
+	}
+}
+
+func TestClient_WatchTopics(t *testing.T) {
+	c, err := NewClient()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = c.WatchTopics(nil, nil, nil)
+	if err == nil || err.Error() != "receiver channel cannot be nil" {
+		t.Error(err)
+	}
+	ch := make(chan string, 1)
+	err = c.WatchTopics(nil, nil, ch)
+	if !errors.Is(err, ErrInvalidTopic) {
+		t.Error(err)
+	}
+
+	var wg sync.WaitGroup
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		wg.Add(1)
+		defer wg.Done()
+		upgrader := websocket.Upgrader{}
+		conn, err := upgrader.Upgrade(w, r, map[string][]string{})
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		err = conn.WriteMessage(websocket.TextMessage, []byte("ws-topic"))
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		_, _, err = conn.ReadMessage()
+		if ce, ok := err.(*websocket.CloseError); !ok || ce.Code != websocket.CloseNormalClosure {
+			t.Error(err)
+		}
+	}))
+	c.url = server.URL
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		err = c.WatchTopics(ctx, []string{"ws-topic"}, ch)
+		if !errors.Is(err, context.Canceled) {
+			t.Error(err)
+			return
+		}
+	}()
+	topic, ok := <-ch
+	if !ok || topic != "ws-topic" {
+		t.Error(topic, ok)
+	}
+	cancel()
+	wg.Wait()
+}
+
+func TestClient_Close(t *testing.T) {
+	c := &Client{
+		closer: make(chan struct{}),
+	}
+	err := c.Close()
+	if err != nil {
+		t.Error(err)
+	}
+	select {
+	case <-c.closer:
+	case <-time.After(time.Second * 1):
+		t.Error("channel should be closed")
 	}
 }

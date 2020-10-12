@@ -23,6 +23,7 @@ import (
 var (
 	ErrTopicAlreadyExists = headers.ErrTopicAlreadyExists
 	ErrNoContent          = headers.ErrNoContent
+	ErrInvalidTopic       = headers.ErrInvalidTopic
 )
 
 // Option represents a optional function argument to NewClient
@@ -260,6 +261,12 @@ func (c *Client) ConsumeMsgs(topic string, id int64, limit int) ([][]byte, error
 // WatchTopics opens a websocket to the server to listen for changes to the given topics.
 // It writes the name of any modified topics to the given channel until a context cancellation or an error occurs
 func (c *Client) WatchTopics(ctx context.Context, topics []string, ch chan<- string) error {
+	if ch == nil {
+		return errors.New("receiver channel cannot be nil")
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if len(topics) == 0 {
 		return headers.ErrInvalidTopic
 	}
@@ -297,10 +304,13 @@ func (c *Client) WatchTopics(ctx context.Context, topics []string, ch chan<- str
 	for {
 		select {
 		case <-c.closer:
+			_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "client closing"), time.Now().Add(time.Second*30))
 			return nil
 		case <-ctx.Done():
+			_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "client closed on context"), time.Now().Add(time.Second*30))
 			return ctx.Err()
 		case err = <-errs:
+			_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "client closing on error"), time.Now().Add(time.Second*30))
 			return err
 		}
 	}

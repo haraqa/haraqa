@@ -75,10 +75,27 @@ func WithMiddleware(middleware ...func(http.Handler) http.Handler) Option {
 	}
 }
 
+// WithLogger adds a logger to the server
+func WithLogger(logger Logger) Option {
+	return func(s *Server) error {
+		s.logger = logger
+		return nil
+	}
+}
+
+// WithWebsocketInterval sets the interval between pings for a websocket connection
+func WithWebsocketInterval(d time.Duration) Option {
+	return func(s *Server) error {
+		s.wsPingInterval = d
+		return nil
+	}
+}
+
 // Server is an http server on top of the given queue (defaults to a file based queue)
 type Server struct {
 	middlewares         []func(http.Handler) http.Handler
 	handler             http.Handler
+	logger              Logger
 	metrics             Metrics
 	defaultConsumeLimit int64
 	consumerGroupLock   *sync.Map
@@ -93,11 +110,12 @@ type Server struct {
 func NewServer(options ...Option) (*Server, error) {
 	s := &Server{
 		metrics:             noOpMetrics{},
+		logger:              noopLogger{},
 		defaultConsumeLimit: -1,
 		consumerGroupLock:   &sync.Map{},
 		closed:              make(chan struct{}),
 		waitGroup:           &sync.WaitGroup{},
-		wsPingInterval:      time.Second * 10,
+		wsPingInterval:      time.Second * 60,
 		wsUpgrader: websocket.Upgrader{
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
@@ -157,14 +175,20 @@ func (s *Server) route(raw http.Handler) http.HandlerFunc {
 				s.HandleDeleteTopic(w, r)
 			case http.MethodPatch:
 				s.HandleModifyTopic(w, r)
+			default:
+				s.logger.Warnf("%s:%s:%s", r.Method, r.URL.Path, "invalid method")
 			}
 		case strings.HasPrefix(r.URL.Path, "/raw"):
 			raw.ServeHTTP(w, r)
 		case strings.HasPrefix(r.URL.Path, "/ws/topics"):
 			s.HandleWatchTopics(w, r)
 		default:
+			s.logger.Warnf("%s:%s:%s", r.Method, r.URL.Path, "invalid url")
 			w.WriteHeader(http.StatusNotFound)
-			_, _ = w.Write([]byte("page not found"))
+			_, err := w.Write([]byte("page not found"))
+			if err != nil {
+				s.logger.Warnf("%s:%s:%s", r.Method, r.URL.Path, err.Error())
+			}
 		}
 	}
 }
@@ -172,6 +196,7 @@ func (s *Server) route(raw http.Handler) http.HandlerFunc {
 // Close closes the server and returns any associated errors
 func (s *Server) Close() error {
 	s.handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		s.logger.Warnf("%s:%s:%s", r.Method, r.URL.Path, headers.ErrClosed.Error())
 		headers.SetError(w, headers.ErrClosed)
 	})
 	if s.closed != nil {
