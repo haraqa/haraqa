@@ -118,6 +118,17 @@ func (s *Server) HandleModifyTopic(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	addr, err := s.q.GetTopicOwner(topic)
+	if err != nil {
+		s.logger.Warnf("%s:%s:get topic owner: %s", r.Method, r.URL.Path, err.Error())
+		headers.SetError(w, headers.ErrInvalidBodyJSON)
+		return
+	}
+	if addr != "" && addr != s.publicAddr {
+		s.handleProxy(w, r, addr)
+		return
+	}
+
 	var request headers.ModifyRequest
 	if err = json.NewDecoder(r.Body).Decode(&request); err != nil {
 		s.logger.Warnf("%s:%s:json decode: %s", r.Method, r.URL.Path, err.Error())
@@ -157,6 +168,18 @@ func (s *Server) HandleDeleteTopic(w http.ResponseWriter, r *http.Request) {
 		headers.SetError(w, err)
 		return
 	}
+
+	addr, err := s.q.GetTopicOwner(topic)
+	if err != nil {
+		s.logger.Warnf("%s:%s:get topic owner: %s", r.Method, r.URL.Path, err.Error())
+		headers.SetError(w, headers.ErrInvalidBodyJSON)
+		return
+	}
+	if addr != "" && addr != s.publicAddr {
+		s.handleProxy(w, r, addr)
+		return
+	}
+
 	err = s.q.DeleteTopic(topic)
 	if err != nil {
 		s.logger.Warnf("%s:%s:delete topic: %s", r.Method, r.URL.Path, err.Error())
@@ -183,6 +206,17 @@ func (s *Server) HandleProduce(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.logger.Warnf("%s:%s:topic error: %s", r.Method, r.URL.Path, err.Error())
 		headers.SetError(w, err)
+		return
+	}
+
+	addr, err := s.q.GetTopicOwner(topic)
+	if err != nil {
+		s.logger.Warnf("%s:%s:get topic owner: %s", r.Method, r.URL.Path, err.Error())
+		headers.SetError(w, headers.ErrInvalidBodyJSON)
+		return
+	}
+	if addr != "" && addr != s.publicAddr {
+		s.handleProxy(w, r, addr)
 		return
 	}
 
@@ -215,6 +249,17 @@ func (s *Server) HandleConsume(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.logger.Warnf("%s:%s:topic error: %s", r.Method, r.URL.Path, err.Error())
 		headers.SetError(w, err)
+		return
+	}
+
+	addr, err := s.q.GetTopicOwner(topic)
+	if err != nil {
+		s.logger.Warnf("%s:%s:get topic owner: %s", r.Method, r.URL.Path, err.Error())
+		headers.SetError(w, headers.ErrInvalidBodyJSON)
+		return
+	}
+	if addr != "" && addr != s.publicAddr {
+		s.handleProxy(w, r, addr)
 		return
 	}
 
@@ -273,6 +318,30 @@ func (s *Server) HandleWatchTopics(w http.ResponseWriter, r *http.Request) {
 		s.logger.Warnf("%s:%s:topic error: %s", r.Method, r.URL.Path, err.Error())
 		headers.SetError(w, err)
 		return
+	}
+
+	addrs := map[string]bool{}
+	for topic := range topics {
+		addr, err := s.q.GetTopicOwner(topic)
+		if err != nil {
+			s.logger.Warnf("%s:%s:get topic owner: %s", r.Method, r.URL.Path, err.Error())
+			headers.SetError(w, headers.ErrInvalidBodyJSON)
+			return
+		}
+		addrs[addr] = true
+	}
+	if len(addrs) > 1 {
+		// TODO: enable proxy to multiple
+		s.logger.Warnf("%s:%s:watch topics: %s", r.Method, r.URL.Path, "cannot proxy to multiple servers")
+		headers.SetError(w, headers.ErrProxyFailed)
+		return
+	}
+
+	if !addrs[s.publicAddr] && !addrs[""] {
+		for addr := range addrs {
+			s.handleProxy(w, r, addr)
+			return
+		}
 	}
 
 	// setup watcher

@@ -10,15 +10,16 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/haraqa/haraqa/internal/headers"
 	"github.com/pkg/errors"
+
+	"github.com/haraqa/haraqa/internal/headers"
 )
 
 func TestServer_HandleModifyTopic(t *testing.T) {
 	topic := "modified_topic"
 	info := headers.TopicInfo{MinOffset: 123, MaxOffset: 456}
 	t.Run("nil body",
-		handleModifyTopic(http.StatusBadRequest, headers.ErrInvalidBodyMissing, topic, info, nil, nil))
+		handleModifyTopic(http.StatusBadRequest, headers.ErrInvalidBodyMissing, "", info, nil, nil))
 	t.Run("invalid topic",
 		handleModifyTopic(http.StatusBadRequest, headers.ErrInvalidTopic, "", info, bytes.NewBuffer([]byte("{}")), nil))
 	t.Run("invalid json",
@@ -70,10 +71,11 @@ func handleModifyTopic(status int, errExpected error, topic string, info headers
 		}
 
 		// handle
-		_, err = getTopic(r)
+		topic, err = getTopic(r)
 		if err != nil {
 			s.HandleModifyTopic(w, r)
 		} else {
+			q.EXPECT().GetTopicOwner(topic).Return("", nil)
 			s.ServeHTTP(w, r)
 		}
 

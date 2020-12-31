@@ -7,8 +7,9 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/haraqa/haraqa/internal/headers"
 	"github.com/pkg/errors"
+
+	"github.com/haraqa/haraqa/internal/headers"
 )
 
 func TestServer_HandleDeleteTopic(t *testing.T) {
@@ -19,8 +20,11 @@ func TestServer_HandleDeleteTopic(t *testing.T) {
 	q := NewMockQueue(ctrl)
 	gomock.InOrder(
 		q.EXPECT().RootDir().Times(1).Return(""),
+		q.EXPECT().GetTopicOwner(topic).Return("", nil),
 		q.EXPECT().DeleteTopic(topic).Return(nil).Times(1),
+		q.EXPECT().GetTopicOwner(topic).Return("", nil),
 		q.EXPECT().DeleteTopic(topic).Return(headers.ErrTopicDoesNotExist).Times(1),
+		q.EXPECT().GetTopicOwner(topic).Return("", nil),
 		q.EXPECT().DeleteTopic(topic).Return(errors.New("test delete error")).Times(1),
 		q.EXPECT().Close().Return(nil).Times(1),
 	)

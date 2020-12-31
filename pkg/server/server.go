@@ -91,12 +91,21 @@ func WithWebsocketInterval(d time.Duration) Option {
 	}
 }
 
+// WithPublicAddr sets the public address of the current server
+func WithPublicAddr(addr string) Option {
+	return func(s *Server) error {
+		s.publicAddr = addr
+		return nil
+	}
+}
+
 // Server is an http server on top of the given queue (defaults to a file based queue)
 type Server struct {
 	middlewares         []func(http.Handler) http.Handler
 	handler             http.Handler
 	logger              Logger
 	metrics             Metrics
+	publicAddr          string
 	defaultConsumeLimit int64
 	consumerGroupLock   *sync.Map
 	q                   Queue
@@ -111,6 +120,7 @@ func NewServer(options ...Option) (*Server, error) {
 	s := &Server{
 		metrics:             noOpMetrics{},
 		logger:              noopLogger{},
+		publicAddr:          "localhost",
 		defaultConsumeLimit: -1,
 		consumerGroupLock:   &sync.Map{},
 		closed:              make(chan struct{}),

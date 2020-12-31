@@ -7,8 +7,9 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/haraqa/haraqa/internal/headers"
 	"github.com/pkg/errors"
+
+	"github.com/haraqa/haraqa/internal/headers"
 )
 
 func TestServer_HandleConsume(t *testing.T) {
@@ -79,10 +80,11 @@ func handleConsume(group string, status int, errExpected error, url string, expe
 		r.Header.Set(headers.HeaderConsumerGroup, group)
 
 		// if no topic, handle directly
-		_, err = getTopic(r)
+		topic, err := getTopic(r)
 		if err != nil {
 			s.HandleConsume(w, r)
 		} else {
+			q.EXPECT().GetTopicOwner(topic).Return("", nil)
 			s.ServeHTTP(w, r)
 		}
 

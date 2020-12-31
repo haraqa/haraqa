@@ -25,6 +25,7 @@ func TestServer_HandleWatchTopic(t *testing.T) {
 	mockQ := NewMockQueue(ctrl)
 	mockQ.EXPECT().RootDir().Return(dir).AnyTimes()
 	mockQ.EXPECT().Close().Return(nil)
+	mockQ.EXPECT().GetTopicOwner(gomock.Any()).Return("", nil).AnyTimes()
 
 	os.RemoveAll(dir)
 	os.MkdirAll(filepath.Join(dir, topic), os.ModePerm)

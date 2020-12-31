@@ -64,6 +64,21 @@ func (mr *MockQueueMockRecorder) Close() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockQueue)(nil).Close))
 }
 
+// GetTopicOwner mocks base method
+func (m *MockQueue) GetTopicOwner(topic string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTopicOwner", topic)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTopicOwner indicates an expected call of GetTopicOwner
+func (mr *MockQueueMockRecorder) GetTopicOwner(topic interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTopicOwner", reflect.TypeOf((*MockQueue)(nil).GetTopicOwner), topic)
+}
+
 // ListTopics mocks base method
 func (m *MockQueue) ListTopics(prefix, suffix, regex string) ([]string, error) {
 	m.ctrl.T.Helper()

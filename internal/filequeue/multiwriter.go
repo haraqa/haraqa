@@ -6,7 +6,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-//go:generate mockgen -source multiwriter.go -package filequeue -destination multiwriter_mocks_test.go
+//go:generate go run github.com/golang/mock/mockgen -source multiwriter.go -package filequeue -destination multiwriter_mocks_test.go
 
 // WriteAtCloser is a combination of io.Writer and io.Closer, similar to io.WriteCloser
 type WriteAtCloser interface {

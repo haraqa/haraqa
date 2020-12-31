@@ -9,8 +9,8 @@ import (
 	"github.com/haraqa/haraqa/internal/filequeue"
 )
 
-//go:generate mockgen -source queue.go -package server -destination queue_mock_test.go
-//go:generate goimports -w queue_mock_test.go
+//go:generate go run github.com/golang/mock/mockgen -source queue.go -package server -destination queue_mock_test.go
+//go:generate go run golang.org/x/tools/cmd/goimports -w queue_mock_test.go
 
 var _ Queue = &filequeue.FileQueue{}
 
@@ -19,6 +19,7 @@ type Queue interface {
 	RootDir() string
 	Close() error
 
+	GetTopicOwner(topic string) (string, error)
 	ListTopics(prefix, suffix, regex string) ([]string, error)
 	CreateTopic(topic string) error
 	DeleteTopic(topic string) error

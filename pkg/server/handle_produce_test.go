@@ -8,13 +8,14 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+
 	"github.com/haraqa/haraqa/internal/headers"
 )
 
 func TestServer_HandleProduce(t *testing.T) {
 	topic := "produce_topic"
 	t.Run("nil body",
-		handleProduce(http.StatusBadRequest, headers.ErrInvalidBodyMissing, topic, nil, nil, nil))
+		handleProduce(http.StatusBadRequest, headers.ErrInvalidBodyMissing, "", nil, nil, nil))
 	t.Run("invalid topic",
 		handleProduce(http.StatusBadRequest, headers.ErrInvalidTopic, "", nil, bytes.NewBuffer([]byte("hello world")), nil))
 	t.Run("missing sizes",
@@ -67,6 +68,7 @@ func handleProduce(status int, errExpected error, topic string, sizes []string, 
 		if err != nil {
 			s.HandleProduce(w, r)
 		} else {
+			q.EXPECT().GetTopicOwner(topic).Return("", nil)
 			s.ServeHTTP(w, r)
 		}
 

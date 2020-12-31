@@ -32,6 +32,7 @@ const (
 	errInvalidWebsocket    = "invalid websocket"
 	errNoContent           = "no content"
 	errClosed              = "server closing"
+	errProxyFailed         = "proxy failed"
 )
 
 // Errors returned by the Client/Server
@@ -47,6 +48,7 @@ var (
 	ErrInvalidWebsocket    = errors.New(errInvalidWebsocket)
 	ErrNoContent           = errors.New(errNoContent)
 	ErrClosed              = errors.New(errClosed)
+	ErrProxyFailed         = errors.New(errProxyFailed)
 )
 
 var errMap = map[string]error{
@@ -61,6 +63,7 @@ var errMap = map[string]error{
 	errInvalidWebsocket:    ErrInvalidWebsocket,
 	errNoContent:           ErrNoContent,
 	errClosed:              ErrClosed,
+	errProxyFailed:         ErrProxyFailed,
 }
 
 // SetError adds the error to the response header and body and sets the status code as needed
