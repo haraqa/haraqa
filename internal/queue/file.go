@@ -26,8 +26,7 @@ type File struct {
 	writerOffset int64
 	metaCache    map[int64][metaSize / 8]int64
 	isClosed     bool
-	used         time.Time
-	//createdAt    time.Time
+	used         chan struct{}
 }
 
 func CreateFile(dirs []string, topic string, baseID int64, maxEntries int64) (*File, error) {
@@ -87,8 +86,7 @@ func CreateFile(dirs []string, topic string, baseID int64, maxEntries int64) (*F
 		numEntries:   0,
 		writerOffset: writerOffset,
 		metaCache:    make(map[int64][metaSize / 8]int64, maxEntries),
-		used:         createdAt,
-		//createdAt:    createdAt,
+		used:         make(chan struct{}, 1),
 	}, nil
 }
 
@@ -97,7 +95,7 @@ func OpenFile(dirs []string, topic string, baseID int64) (*File, error) {
 	f := &File{
 		mux:        &sync.Mutex{},
 		extraFiles: make([]*os.File, len(dirs)-1),
-		used:       time.Now().UTC(),
+		used:       make(chan struct{}, 1),
 	}
 	filename := formatName(baseID)
 	path := filepath.Join(dirs[len(dirs)-1], topic, filename)
@@ -134,7 +132,6 @@ func OpenFile(dirs []string, topic string, baseID int64) (*File, error) {
 func (f *File) Close() error {
 	f.mux.Lock()
 	defer f.mux.Unlock()
-	f.isClosed = true
 	var errs []error
 	if f.File != nil {
 		if err := f.File.Close(); err != nil {
@@ -149,6 +146,8 @@ func (f *File) Close() error {
 			errs = append(errs, err)
 		}
 	}
+	close(f.used)
+	f.isClosed = true
 	if len(errs) > 0 {
 		return errs[0]
 	}
@@ -161,24 +160,28 @@ type Meta struct {
 	startTime, endTime time.Time
 }
 
-func (f *File) ReadMeta(id int64, limit int64) (*Meta, error) {
+func (f *File) ReadMeta(id int64, limit int64) (Meta, error) {
 	if f == nil || f.File == nil {
-		return nil, errors.New("file not opened")
+		return Meta{}, errors.New("file not opened")
 	}
-	f.used = time.Now().UTC()
+	// mark as used
+	select {
+	case <-f.used:
+	default:
+	}
 
 	id = id - f.baseID
 	if id < 0 {
-		return nil, errors.New("invalid id")
+		return Meta{}, errors.New("invalid id")
 	}
 	if id > f.numEntries {
-		return nil, nil
+		return Meta{}, nil
 	}
 	if limit > f.numEntries-id || limit <= 0 {
 		limit = f.numEntries - id
 	}
 
-	output := &Meta{
+	output := Meta{
 		sizes: make([]int64, limit),
 	}
 
@@ -211,7 +214,7 @@ func (f *File) ReadMeta(id int64, limit int64) (*Meta, error) {
 	// TODO: check amount read
 	_, err := f.File.ReadAt(buf[:], infoSize+id*metaSize)
 	if err != nil && !errors.Is(err, io.EOF) {
-		return nil, err
+		return Meta{}, err
 	}
 	output.startAt = int64(binary.LittleEndian.Uint64(buf[:8]))
 	output.startTime = time.Unix(int64(binary.LittleEndian.Uint64(buf[16:24])), 0)
@@ -221,8 +224,13 @@ func (f *File) ReadMeta(id int64, limit int64) (*Meta, error) {
 		off += metaSize
 	}
 	off -= metaSize
-	output.endAt = int64(binary.LittleEndian.Uint64(buf[off:off+8])) + output.sizes[len(output.sizes)-1]
-	output.endTime = time.Unix(int64(binary.LittleEndian.Uint64(buf[off+16:off+24])), 0)
+	if off == 0 {
+		output.endAt = output.startAt
+		output.endTime = output.startTime
+	} else {
+		output.endAt = int64(binary.LittleEndian.Uint64(buf[off:off+8])) + output.sizes[len(output.sizes)-1]
+		output.endTime = time.Unix(int64(binary.LittleEndian.Uint64(buf[off+16:off+24])), 0)
+	}
 
 	return output, nil
 }
@@ -230,6 +238,19 @@ func (f *File) ReadMeta(id int64, limit int64) (*Meta, error) {
 var ErrFileClosed = errors.New("file closed")
 
 func (f *File) WriteMessages(timestamp uint64, sizes []int64, r io.Reader) (int, error) {
+	writeFile := func(file *os.File, buf []byte, info [16]byte) error {
+		// write metadata
+		if _, err := file.WriteAt(buf, infoSize+metaSize*f.numEntries); err != nil {
+			return err
+		}
+
+		// update file info
+		if _, err := file.WriteAt(info[:], 16); err != nil {
+			return err
+		}
+		return nil
+	}
+
 	// get producer lock
 	f.mux.Lock()
 	defer f.mux.Unlock()
@@ -237,9 +258,14 @@ func (f *File) WriteMessages(timestamp uint64, sizes []int64, r io.Reader) (int,
 		return 0, ErrFileClosed
 	}
 
-	f.used = time.Now().UTC()
 	if f.numEntries == f.maxEntries {
 		return 0, nil
+	}
+
+	// mark as used
+	select {
+	case <-f.used:
+	default:
 	}
 
 	quantity := int64(len(sizes))
@@ -272,19 +298,6 @@ func (f *File) WriteMessages(timestamp uint64, sizes []int64, r io.Reader) (int,
 	binary.LittleEndian.PutUint64(info[:8], uint64(f.numEntries+quantity))
 	binary.LittleEndian.PutUint64(info[8:16], uint64(f.writerOffset+off))
 
-	writeFile := func(file *os.File) error {
-		// write metadata
-		if _, err := file.WriteAt(buf, infoSize+metaSize*f.numEntries); err != nil {
-			return err
-		}
-
-		// update file info
-		if _, err := file.WriteAt(info[:], 16); err != nil {
-			return err
-		}
-		return nil
-	}
-
 	writers := make([]io.Writer, len(f.extraFiles)+1)
 	for i := range f.extraFiles {
 		if _, err := f.extraFiles[i].Seek(f.writerOffset, io.SeekStart); err != nil {
@@ -302,11 +315,11 @@ func (f *File) WriteMessages(timestamp uint64, sizes []int64, r io.Reader) (int,
 	}
 
 	for _, file := range f.extraFiles {
-		if err := writeFile(file); err != nil {
+		if err := writeFile(file, buf, info); err != nil {
 			return 0, err
 		}
 	}
-	if err := writeFile(f.File); err != nil {
+	if err := writeFile(f.File, buf, info); err != nil {
 		return 0, err
 	}
 

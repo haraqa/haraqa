@@ -41,21 +41,20 @@ func NewQueue(dirs []string, cache bool, maxEntriesPerFile int64) (*Queue, error
 	return q, nil
 }
 
-func (q *Queue) ClearCache(before time.Time) {
+func (q *Queue) ClearCache() {
 	q.fileCache.Range(func(key, value interface{}) bool {
 		f, ok := value.(*File)
-		if !ok && f == nil {
+		if !ok && f == nil || f.isClosed {
 			q.fileCache.Delete(key)
 			return true
 		}
-		before = before.UTC()
-		if !before.IsZero() && f.used.After(before) {
-			return true
+		select {
+		case <-f.used:
+			q.fileCache.Delete(key)
+			f.Close()
+		default:
+			f.used <- struct{}{}
 		}
-
-		q.fileCache.Delete(key)
-		f.Close()
-
 		return true
 	})
 }
@@ -236,7 +235,7 @@ func (q *Queue) Consume(group, topic string, id int64, limit int64, w http.Respo
 	if err != nil {
 		return 0, err
 	}
-	if meta == nil {
+	if len(meta.sizes) == 0 {
 		return 0, nil
 	}
 
