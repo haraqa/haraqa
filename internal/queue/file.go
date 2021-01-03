@@ -20,7 +20,6 @@ type File struct {
 	mux *sync.Mutex
 	*os.File
 	extraFiles   []*os.File
-	info         *[infoSize]byte
 	baseID       int64
 	maxEntries   int64
 	numEntries   int64
@@ -83,7 +82,6 @@ func CreateFile(dirs []string, topic string, baseID int64, maxEntries int64) (*F
 		mux:          &sync.Mutex{},
 		File:         files[len(files)-1],
 		extraFiles:   files[:len(files)-1],
-		info:         &info,
 		baseID:       baseID,
 		maxEntries:   maxEntries,
 		numEntries:   0,
@@ -113,10 +111,10 @@ func OpenFile(dirs []string, topic string, baseID int64) (*File, error) {
 		_ = f.Close()
 		return nil, err
 	}
-	f.baseID = int64(binary.LittleEndian.Uint64((*f.info)[0:8]))
-	f.maxEntries = int64(binary.LittleEndian.Uint64((*f.info)[8:16]))
-	f.numEntries = int64(binary.LittleEndian.Uint64((*f.info)[16:24]))
-	f.writerOffset = int64(binary.LittleEndian.Uint64((*f.info)[24:32]))
+	f.baseID = int64(binary.LittleEndian.Uint64((info)[0:8]))
+	f.maxEntries = int64(binary.LittleEndian.Uint64((info)[8:16]))
+	f.numEntries = int64(binary.LittleEndian.Uint64((info)[16:24]))
+	f.writerOffset = int64(binary.LittleEndian.Uint64((info)[24:32]))
 	//f.createdAt = time.Unix(int64(binary.LittleEndian.Uint64((*f.info)[32:40])), 0)
 
 	f.metaCache = make(map[int64][metaSize / 8]int64, f.maxEntries)
