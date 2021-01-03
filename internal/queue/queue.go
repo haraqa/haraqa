@@ -194,16 +194,8 @@ func (q *Queue) produce(topic string, msgSizes []int64, timestamp uint64, r io.R
 	}
 
 	if n < len(msgSizes) {
-		numEntries, err := f.NumEntries()
-		if err != nil {
-			return err
-		}
-		maxEntries, err := f.MaxEntries()
-		if err != nil {
-			return err
-		}
-		if numEntries == maxEntries {
-			baseID += maxEntries
+		if f.numEntries == f.maxEntries {
+			baseID += f.maxEntries
 			if q.baseIDCache != nil {
 				q.baseIDCache.Store(topic, baseID)
 			}
