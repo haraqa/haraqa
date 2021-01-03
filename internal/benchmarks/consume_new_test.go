@@ -5,18 +5,15 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
 	"net/http/httptest"
 	"os"
-	"sync"
-	"sync/atomic"
 	"testing"
 
 	"github.com/haraqa/haraqa"
 	"github.com/haraqa/haraqa/pkg/server"
 )
 
-func BenchmarkConsume(b *testing.B) {
+func BenchmarkNewConsume(b *testing.B) {
 	rnd := make([]byte, 12)
 	rand.Read(rnd)
 	randomName := base64.URLEncoding.EncodeToString(rnd)
@@ -30,7 +27,7 @@ func BenchmarkConsume(b *testing.B) {
 		}
 	}()
 	haraqaServer, err := server.NewServer(
-		server.WithFileQueue(dirNames, true, 5000),
+		server.WithDefaultQueue(dirNames, true, 5000),
 	)
 	if err != nil {
 		b.Fatal(err)
@@ -78,69 +75,4 @@ func BenchmarkConsume(b *testing.B) {
 	b.Run("go consume 100", benchConsumerN(10, 100, c))
 	b.Run("go consume 1000", benchConsumerN(10, 1000, c))
 	fmt.Println("")
-}
-
-func benchConsumer(batchSize int, c *haraqa.Client) func(b *testing.B) {
-	return func(b *testing.B) {
-		b.ReportAllocs()
-		for i := 0; i < b.N; {
-			r, _, err := c.Consume("benchtopic", 0, batchSize)
-			if err != nil {
-				b.Fatal(err)
-			}
-			body, err := ioutil.ReadAll(r)
-			if err != nil {
-				b.Fatal(err)
-			}
-			r.Close()
-
-			i += len(body) / 100
-		}
-		b.StopTimer()
-	}
-}
-
-func benchConsumerN(N, batchSize int, c *haraqa.Client) func(b *testing.B) {
-	return func(b *testing.B) {
-		var wg sync.WaitGroup
-		ch := make(chan struct{}, N)
-		defer close(ch)
-		var failures int64
-		for i := 0; i < N; i++ {
-			go func() {
-				for range ch {
-					var n int
-					for n < batchSize {
-						r, sizes, err := c.Consume("benchtopic", 0, batchSize-n)
-						if err != nil {
-							b.Fatal(err)
-						}
-						if len(sizes) == 0 {
-							continue
-						}
-						body, err := ioutil.ReadAll(r)
-						if err != nil {
-							b.Log(err, len(body), sizes)
-							fmt.Println(err, len(body), sizes)
-							atomic.AddInt64(&failures, 1)
-						}
-						r.Close()
-						n += len(body) / 100
-					}
-					wg.Done()
-				}
-			}()
-		}
-		b.ReportAllocs()
-		for i := 0; i < b.N; i += batchSize {
-			wg.Add(1)
-			ch <- struct{}{}
-		}
-		wg.Wait()
-		b.StopTimer()
-		if failures > 0 {
-			b.Log(failures)
-			b.Fail()
-		}
-	}
 }

@@ -298,9 +298,13 @@ func TestClient_Consume(t *testing.T) {
 		if r.Method != http.MethodGet {
 			t.Errorf("invalid method %s", r.Method)
 		}
-		if r.URL.String() != "/topics/consume_topic?id=123&limit=456" {
+		if r.URL.String() != "/topics/consume_topic" {
 			t.Errorf("invalid url path %q", r.URL.String())
 		}
+		if r.Header.Get(headers.HeaderID) != "123" || r.Header.Get(headers.HeaderLimit) != "456" {
+			t.Errorf("invalid header %+v", r.Header)
+		}
+
 		switch count {
 		case 0, 3:
 			headers.SetSizes([]int64{1, 3, 5}, w.Header())

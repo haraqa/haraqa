@@ -17,7 +17,10 @@ const (
 	HeaderFileName      = "X-File-Name"
 	HeaderWatchTopics   = "X-Topics"
 	HeaderConsumerGroup = "X-Consumer-Group"
+	HeaderID            = "X-Id"
+	HeaderLimit         = "X-Limit"
 	ContentType         = "Content-Type"
+	LastModified        = "Last-Modified"
 )
 
 const (

@@ -2,8 +2,10 @@ package server
 
 import (
 	"bytes"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	urlpkg "net/url"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -72,12 +74,20 @@ func handleConsume(group string, status int, errExpected error, url string, expe
 
 		// make request/response
 		w := httptest.NewRecorder()
+		u, err := urlpkg.Parse(url)
+		if err != nil {
+			t.Fatal(err)
+		}
+		url = u.Path
 		r, err := http.NewRequest(http.MethodGet, url, bytes.NewBuffer([]byte("test body")))
 		if err != nil {
 			t.Error(err)
 			return
 		}
 		r.Header.Set(headers.HeaderConsumerGroup, group)
+		r.Header.Set(headers.HeaderID, u.Query().Get("id"))
+		r.Header.Set(headers.HeaderLimit, u.Query().Get("limit"))
+		fmt.Println(url, r.Header)
 
 		// if no topic, handle directly
 		topic, err := getTopic(r)
@@ -96,7 +106,7 @@ func handleConsume(group string, status int, errExpected error, url string, expe
 		}
 		err = headers.ReadErrors(resp.Header)
 		if err != errExpected && err.Error() != errExpected.Error() {
-			t.Error(err)
+			t.Error(err, "expected", errExpected)
 		}
 	}
 }

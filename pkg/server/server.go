@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	queue2 "github.com/haraqa/haraqa/internal/queue"
+
 	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
 
@@ -41,6 +43,24 @@ func WithFileQueue(dirs []string, cache bool, entries int64) Option {
 		}
 		var err error
 		s.q, err = filequeue.New(cache, entries, dirs...)
+		return err
+	}
+}
+
+// WithDefaultQueue sets the queue
+func WithDefaultQueue(dirs []string, cache bool, entries int64) Option {
+	return func(s *Server) error {
+		if s.q != nil {
+			return nil
+		}
+		if len(dirs) == 0 {
+			return errors.New("at least one directory must be given")
+		}
+		if entries < 0 {
+			return errors.New("invalid entries, value must not be negative")
+		}
+		var err error
+		s.q, err = queue2.NewQueue(dirs, cache, entries)
 		return err
 	}
 }

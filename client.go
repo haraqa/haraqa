@@ -211,12 +211,13 @@ func (c *Client) Consume(topic string, id int64, limit int) (io.ReadCloser, []in
 	var err error
 	req := getRequestPool.Get().(*http.Request)
 	defer getRequestPool.Put(req)
-	req.URL, err = url.Parse(c.url + "/topics/" + topic + "?id=" + strconv.FormatInt(id, 10))
+	req.URL, err = url.Parse(c.url + "/topics/" + topic)
 	if err != nil {
 		return nil, nil, err
 	}
+	req.Header.Set(headers.HeaderID, strconv.FormatInt(id, 10))
 	if limit > 0 {
-		req.URL.RawQuery += "&limit=" + strconv.Itoa(limit)
+		req.Header.Set(headers.HeaderLimit, strconv.Itoa(limit))
 	}
 	if c.consumerGroup != "" {
 		req.Header[headers.HeaderConsumerGroup] = []string{c.consumerGroup}
@@ -228,6 +229,9 @@ func (c *Client) Consume(topic string, id int64, limit int) (io.ReadCloser, []in
 	}
 	if resp.StatusCode != http.StatusPartialContent && resp.StatusCode != http.StatusOK {
 		err = headers.ReadErrors(resp.Header)
+		if err == nil {
+			err = errors.New("unexpected server response")
+		}
 		return nil, nil, errors.Wrap(err, "error consuming")
 	}
 

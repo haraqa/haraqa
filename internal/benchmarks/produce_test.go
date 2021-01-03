@@ -52,7 +52,6 @@ func BenchmarkProduce(b *testing.B) {
 		log.Fatal(err)
 	}
 
-	fmt.Println("")
 	b.Run("produce 1", benchProducer(1, c))
 	b.Run("produce 10", benchProducer(10, c))
 	b.Run("produce 100", benchProducer(100, c))
@@ -62,6 +61,7 @@ func BenchmarkProduce(b *testing.B) {
 	b.Run("go produce 10", benchProducerN(10, 10, c))
 	b.Run("go produce 100", benchProducerN(10, 100, c))
 	b.Run("go produce 1000", benchProducerN(10, 1000, c))
+	fmt.Println("")
 }
 
 func benchProducer(batchSize int, c *haraqa.Client) func(b *testing.B) {

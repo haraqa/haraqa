@@ -227,7 +227,7 @@ func (s *Server) HandleProduce(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = s.q.Produce(topic, sizes, uint64(time.Now().Unix()), r.Body)
+	err = s.q.Produce(topic, sizes, uint64(time.Now().UTC().Unix()), r.Body)
 	if err != nil {
 		s.logger.Warnf("%s:%s:produce: %s", r.Method, r.URL.Path, err.Error())
 		headers.SetError(w, err)
@@ -263,7 +263,7 @@ func (s *Server) HandleConsume(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	group := r.Header.Get(headers.HeaderConsumerGroup)
+	group := getFirst(r.Header, headers.HeaderConsumerGroup)
 	if group != "" {
 		tmp, _ := s.consumerGroupLock.LoadOrStore(group+"/"+topic, &sync.Mutex{})
 		if lock, ok := tmp.(*sync.Mutex); ok {
@@ -271,8 +271,7 @@ func (s *Server) HandleConsume(w http.ResponseWriter, r *http.Request) {
 			defer lock.Unlock()
 		}
 	}
-
-	id, err := strconv.ParseInt(r.URL.Query().Get("id"), 10, 64)
+	id, err := strconv.ParseInt(getFirst(r.Header, headers.HeaderID), 10, 64)
 	if err != nil {
 		s.logger.Warnf("%s:%s:parse id: %s", r.Method, r.URL.Path, err.Error())
 		headers.SetError(w, headers.ErrInvalidMessageID)
@@ -280,7 +279,7 @@ func (s *Server) HandleConsume(w http.ResponseWriter, r *http.Request) {
 	}
 
 	limit := s.defaultConsumeLimit
-	queryLimit := r.URL.Query().Get("limit")
+	queryLimit := getFirst(r.Header, headers.HeaderLimit)
 	if queryLimit != "" && queryLimit[0] != '-' {
 		limit, err = strconv.ParseInt(queryLimit, 10, 64)
 		if err != nil {
@@ -304,6 +303,14 @@ func (s *Server) HandleConsume(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.metrics.ConsumeMsgs(count)
+}
+
+func getFirst(m map[string][]string, key string) string {
+	v, ok := m[key]
+	if !ok || len(v) == 0 {
+		return ""
+	}
+	return v[0]
 }
 
 // HandleWatchTopics accepts websocket connections and watches the topic files for writes
