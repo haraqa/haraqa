@@ -1,6 +1,7 @@
 package queue
 
 import (
+	"encoding/binary"
 	"io"
 	"net/http"
 	"os"
@@ -137,8 +138,64 @@ func (q *Queue) DeleteTopic(topic string) error {
 	return nil
 }
 func (q *Queue) ModifyTopic(topic string, request headers.ModifyRequest) (*headers.TopicInfo, error) {
-	// TODO: truncate topic
-	return nil, nil
+	var (
+		keep          string
+		min           int64 = -1
+		max, keepBase int64
+		info          [infoSize]byte
+		deletePaths   = make(map[string]struct{})
+	)
+
+	err := filepath.Walk(filepath.Join(q.RootDir(), topic), func(path string, fileInfo os.FileInfo, err error) error {
+		if fileInfo.IsDir() {
+			return nil
+		}
+
+		f, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		if _, err = f.ReadAt(info[:], 0); err != nil {
+			return err
+		}
+
+		baseID := int64(binary.LittleEndian.Uint64(info[:8]))
+		numEntries := int64(binary.LittleEndian.Uint64(info[16:24]))
+
+		if request.Truncate < baseID || fileInfo.ModTime().Before(request.Before) {
+			deletePaths[path] = struct{}{}
+		} else if min == -1 || min > baseID {
+			min = baseID
+		}
+
+		if max <= baseID+numEntries {
+			max = baseID + numEntries
+			// we always keep the last file
+			keep = path
+			keepBase = baseID
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	delete(deletePaths, keep)
+	if min == -1 || min > keepBase {
+		min = keepBase
+	}
+
+	for path := range deletePaths {
+		if err = os.Remove(path); err != nil {
+			return nil, err
+		}
+	}
+	return &headers.TopicInfo{
+		MinOffset: min,
+		MaxOffset: max,
+	}, nil
 }
 
 func (q *Queue) Produce(topic string, msgSizes []int64, timestamp uint64, r io.Reader) error {
