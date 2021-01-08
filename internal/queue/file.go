@@ -17,7 +17,7 @@ const (
 )
 
 type File struct {
-	mux *sync.Mutex
+	mux sync.Mutex
 	*os.File
 	extraFiles   []*os.File
 	baseID       int64
@@ -78,7 +78,6 @@ func CreateFile(dirs []string, topic string, baseID int64, maxEntries int64) (*F
 	}
 
 	return &File{
-		mux:          &sync.Mutex{},
 		File:         files[len(files)-1],
 		extraFiles:   files[:len(files)-1],
 		baseID:       baseID,
@@ -93,7 +92,6 @@ func CreateFile(dirs []string, topic string, baseID int64, maxEntries int64) (*F
 func OpenFile(dirs []string, topic string, baseID int64) (*File, error) {
 	var err error
 	f := &File{
-		mux:        &sync.Mutex{},
 		extraFiles: make([]*os.File, len(dirs)-1),
 		used:       make(chan struct{}, 1),
 	}
@@ -113,7 +111,6 @@ func OpenFile(dirs []string, topic string, baseID int64) (*File, error) {
 	f.maxEntries = int64(binary.LittleEndian.Uint64((info)[8:16]))
 	f.numEntries = int64(binary.LittleEndian.Uint64((info)[16:24]))
 	f.writerOffset = int64(binary.LittleEndian.Uint64((info)[24:32]))
-	//f.createdAt = time.Unix(int64(binary.LittleEndian.Uint64((*f.info)[32:40])), 0)
 
 	f.metaCache = make(map[int64][metaSize / 8]int64, f.maxEntries)
 	for i, dir := range dirs[:len(dirs)-1] {
@@ -146,7 +143,9 @@ func (f *File) Close() error {
 			errs = append(errs, err)
 		}
 	}
-	close(f.used)
+	if !f.isClosed {
+		close(f.used)
+	}
 	f.isClosed = true
 	if len(errs) > 0 {
 		return errs[0]
@@ -238,7 +237,7 @@ func (f *File) ReadMeta(id int64, limit int64) (Meta, error) {
 var ErrFileClosed = errors.New("file closed")
 
 func (f *File) WriteMessages(timestamp uint64, sizes []int64, r io.Reader) (int, error) {
-	writeFile := func(file *os.File, buf []byte, info [16]byte) error {
+	writeFile := func(file io.WriterAt, buf []byte, info [16]byte) error {
 		// write metadata
 		if _, err := file.WriteAt(buf, infoSize+metaSize*f.numEntries); err != nil {
 			return err
