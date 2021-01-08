@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -70,7 +71,8 @@ func TestQueue_ListTopics(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if len(topics) != 2 || topics[0] != "topic_b" || topics[1] != "topic_a" {
+	sort.Strings(topics)
+	if len(topics) != 2 || topics[0] != "topic_a" || topics[1] != "topic_b" {
 		t.Error(topics)
 	}
 
@@ -78,6 +80,7 @@ func TestQueue_ListTopics(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	sort.Strings(topics)
 	if len(topics) != 2 || topics[0] != "t_a" || topics[1] != "topic_a" {
 		t.Error(topics)
 	}
@@ -86,7 +89,8 @@ func TestQueue_ListTopics(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if len(topics) != 2 || topics[0] != "topic_b" || topics[1] != "topic_a" {
+	sort.Strings(topics)
+	if len(topics) != 2 || topics[0] != "topic_a" || topics[1] != "topic_b" {
 		t.Error(topics)
 	}
 
