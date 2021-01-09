@@ -145,6 +145,23 @@ func TestQueue_DeleteTopic(t *testing.T) {
 	}
 }
 
+func testModifyTopic(q *Queue, topic string, req headers.ModifyRequest, min, max int64) func(*testing.T) {
+	return func(t *testing.T) {
+		info, err := q.ModifyTopic(topic, req)
+		if err != nil {
+			t.Error(err)
+		}
+		if info.MinOffset != min || info.MaxOffset != max {
+			d, err := os.Open(filepath.Join(q.RootDir(), topic))
+			if err == nil {
+				defer d.Close()
+				t.Log(d.Readdirnames(-1))
+			}
+			t.Error(info)
+		}
+	}
+}
+
 func TestQueue_ModifyTopic(t *testing.T) {
 	dirName, err := ioutil.TempDir("", ".haraqa*")
 	if err != nil {
@@ -159,10 +176,18 @@ func TestQueue_ModifyTopic(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	topic := "topic"
+	const topic = "topic"
 	if err = q.CreateTopic(topic); err != nil {
 		t.Error(err)
 	}
+	info, err := q.ModifyTopic(topic, headers.ModifyRequest{})
+	if err != nil {
+		t.Error(err)
+	}
+	if info.MinOffset != 0 || info.MaxOffset != 0 {
+		t.Error(info)
+	}
+
 	r := new(bytes.Buffer)
 	var msgSizes []int64
 	for _, msg := range []string{"my", "test", "messages", "are", "here"} {
@@ -173,55 +198,10 @@ func TestQueue_ModifyTopic(t *testing.T) {
 		t.Error(err)
 	}
 
-	info, err := q.ModifyTopic(topic, headers.ModifyRequest{Truncate: 2})
-	if err != nil {
-		t.Error(err)
-	}
-	if info.MinOffset != 2 || info.MaxOffset != 5 {
-		d, err := os.Open(filepath.Join(dirName, topic))
-		if err == nil {
-			defer d.Close()
-			t.Log(d.Readdirnames(-1))
-		}
-		t.Error(info)
-	}
-
-	info, err = q.ModifyTopic(topic, headers.ModifyRequest{Truncate: 3})
-	if err != nil {
-		t.Error(err)
-	}
-	if info.MinOffset != 2 || info.MaxOffset != 5 {
-		d, err := os.Open(filepath.Join(dirName, topic))
-		if err == nil {
-			defer d.Close()
-			t.Log(d.Readdirnames(-1))
-		}
-		t.Error(info)
-	}
-
-	info, err = q.ModifyTopic(topic, headers.ModifyRequest{Truncate: 4})
-	if err != nil {
-		t.Error(err)
-	}
-	if info.MinOffset != 4 || info.MaxOffset != 5 {
-		d, err := os.Open(filepath.Join(dirName, topic))
-		if err == nil {
-			defer d.Close()
-			t.Log(d.Readdirnames(-1))
-		}
-		t.Error(info)
-	}
-
-	info, err = q.ModifyTopic(topic, headers.ModifyRequest{Truncate: 5})
-	if err != nil {
-		t.Error(err)
-	}
-	if info.MinOffset != 4 || info.MaxOffset != 5 {
-		d, err := os.Open(filepath.Join(dirName, topic))
-		if err == nil {
-			defer d.Close()
-			t.Log(d.Readdirnames(-1))
-		}
-		t.Error(info)
-	}
+	t.Run("trunc 2", testModifyTopic(q, topic, headers.ModifyRequest{Truncate: 2}, 2, 5))
+	t.Run("trunc 3", testModifyTopic(q, topic, headers.ModifyRequest{Truncate: 3}, 2, 5))
+	t.Run("trunc 4", testModifyTopic(q, topic, headers.ModifyRequest{Truncate: 4}, 4, 5))
+	t.Run("trunc 5", testModifyTopic(q, topic, headers.ModifyRequest{Truncate: 4}, 4, 5))
+	t.Run("trunc 6", testModifyTopic(q, topic, headers.ModifyRequest{Truncate: 4}, 4, 5))
+	t.Run("before now", testModifyTopic(q, topic, headers.ModifyRequest{Before: time.Now()}, 4, 5))
 }

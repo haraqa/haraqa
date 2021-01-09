@@ -105,7 +105,7 @@ func (q *Queue) ModifyTopic(topic string, request headers.ModifyRequest) (*heade
 			break
 		}
 		if !request.Before.IsZero() {
-			stat, err := os.Stat(names[idx])
+			stat, err := os.Stat(filepath.Join(q.RootDir(), topic, names[idx]))
 			if err != nil {
 				return nil, err
 			}

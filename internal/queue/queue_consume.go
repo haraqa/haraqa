@@ -50,7 +50,7 @@ func (q *Queue) Consume(group, topic string, id int64, limit int64, w http.Respo
 	wHeader := w.Header()
 	wHeader[headers.HeaderStartTime] = []string{meta.startTime.Format(time.ANSIC)}
 	wHeader[headers.HeaderEndTime] = []string{meta.endTime.Format(time.ANSIC)}
-	wHeader[headers.HeaderFileName] = []string{path}
+	wHeader[headers.HeaderFileName] = []string{topic + "/" + filename}
 	wHeader[headers.ContentType] = []string{"application/octet-stream"}
 	wHeader[headers.LastModified] = []string{meta.endTime.UTC().Format("Mon, 02 Jan 2006 15:04:05 GMT")}
 	headers.SetSizes(meta.sizes, wHeader)
