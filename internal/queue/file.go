@@ -30,9 +30,17 @@ type File struct {
 }
 
 func CreateFile(dirs []string, topic string, baseID int64, maxEntries int64) (*File, error) {
-	if len(dirs) < 1 {
+	switch {
+	case len(dirs) < 1:
 		return nil, errors.New("missing directories to create file")
+	case topic == "":
+		return nil, errors.New("missing topic to create file")
+	case baseID < 0:
+		return nil, errors.New("invalid baseID to create file")
+	case maxEntries < 1:
+		return nil, errors.New("invalid maxEntries to create file")
 	}
+
 	createdAt := time.Now().UTC()
 	writerOffset := infoSize + maxEntries*metaSize
 
@@ -95,6 +103,15 @@ func initFile(ws io.WriteSeeker, info [infoSize]byte, maxEntries int64) error {
 }
 
 func OpenFile(dirs []string, topic string, baseID int64) (*File, error) {
+	switch {
+	case len(dirs) < 1:
+		return nil, errors.New("missing directories to create file")
+	case topic == "":
+		return nil, errors.New("missing topic to create file")
+	case baseID < 0:
+		return nil, errors.New("invalid baseID to create file")
+	}
+
 	var err error
 	f := &File{
 		extraFiles: make([]*os.File, len(dirs)-1),
