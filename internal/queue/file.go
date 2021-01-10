@@ -241,19 +241,6 @@ func (f *File) ReadMeta(id int64, limit int64) (Meta, error) {
 var ErrFileClosed = errors.New("file closed")
 
 func (f *File) WriteMessages(timestamp uint64, sizes []int64, r io.Reader) (int, error) {
-	writeFile := func(file io.WriterAt, buf []byte, info [16]byte) error {
-		// write metadata
-		if _, err := file.WriteAt(buf, infoSize+metaSize*f.numEntries); err != nil {
-			return err
-		}
-
-		// update file info
-		if _, err := file.WriteAt(info[:], 16); err != nil {
-			return err
-		}
-		return nil
-	}
-
 	// get producer lock
 	f.mux.Lock()
 	defer f.mux.Unlock()
@@ -275,25 +262,22 @@ func (f *File) WriteMessages(timestamp uint64, sizes []int64, r io.Reader) (int,
 	if quantity > f.maxEntries-f.numEntries {
 		quantity = f.maxEntries - f.numEntries
 	}
-	var totalSize int64
-	for i := range sizes[:quantity] {
-		totalSize += sizes[i]
-	}
+
 	cache := make(map[int64][metaSize / 8]int64, quantity)
 
 	var metaOff, off int64
 	var now [8]byte
 	binary.LittleEndian.PutUint64(now[:], timestamp)
-	buf := make([]byte, quantity*metaSize)
+	metaBuf := make([]byte, quantity*metaSize)
 	for i := range sizes[:quantity] {
 		cache[f.numEntries+int64(i)] = [metaSize / 8]int64{
 			f.writerOffset + off,
 			sizes[i],
 			int64(timestamp),
 		}
-		binary.LittleEndian.PutUint64(buf[metaOff:metaOff+8], uint64(f.writerOffset+off))
-		binary.LittleEndian.PutUint64(buf[metaOff+8:metaOff+16], uint64(sizes[i]))
-		copy(buf[metaOff+16:metaOff+24], now[:])
+		binary.LittleEndian.PutUint64(metaBuf[metaOff:metaOff+8], uint64(f.writerOffset+off))
+		binary.LittleEndian.PutUint64(metaBuf[metaOff+8:metaOff+16], uint64(sizes[i]))
+		copy(metaBuf[metaOff+16:metaOff+24], now[:])
 		metaOff += metaSize
 		off += sizes[i]
 	}
@@ -301,29 +285,34 @@ func (f *File) WriteMessages(timestamp uint64, sizes []int64, r io.Reader) (int,
 	binary.LittleEndian.PutUint64(info[:8], uint64(f.numEntries+quantity))
 	binary.LittleEndian.PutUint64(info[8:16], uint64(f.writerOffset+off))
 
-	writers := make([]io.Writer, len(f.extraFiles)+1)
-	for i := range f.extraFiles {
-		if _, err := f.extraFiles[i].Seek(f.writerOffset, io.SeekStart); err != nil {
-			return 0, err
+	var err error
+	files := append(f.extraFiles, f.File)
+	buf := bufPool.Get().([]byte)
+	defer bufPool.Put(buf)
+
+	remaining := off
+	for remaining > 0 {
+		if remaining < int64(len(buf)) {
+			buf = buf[:remaining]
 		}
-		writers[i] = f.extraFiles[i]
-	}
-	if _, err := f.File.Seek(f.writerOffset, io.SeekStart); err != nil {
-		return 0, err
-	}
-	writers[len(writers)-1] = f.File
-	w := io.MultiWriter(writers...)
-	if _, err := io.CopyN(w, r, totalSize); err != nil {
-		return 0, err
+
+		if n, err := io.ReadFull(r, buf); err != nil {
+			return 0, errors.Wrapf(err, "read %d bytes out of %d", n, remaining)
+		}
+
+		for i := range files {
+			// write data
+			if _, err = files[i].WriteAt(buf, f.writerOffset+off-remaining); err != nil {
+				return 0, err
+			}
+		}
+		remaining -= int64(len(buf))
 	}
 
-	for _, file := range f.extraFiles {
-		if err := writeFile(file, buf, info); err != nil {
+	for i := range files {
+		if err = writeFileMeta(files[i], metaBuf, info, f.numEntries); err != nil {
 			return 0, err
 		}
-	}
-	if err := writeFile(f.File, buf, info); err != nil {
-		return 0, err
 	}
 
 	for k, v := range cache {
@@ -334,4 +323,23 @@ func (f *File) WriteMessages(timestamp uint64, sizes []int64, r io.Reader) (int,
 	f.writerOffset += off
 
 	return int(quantity), nil
+}
+
+var bufPool = sync.Pool{
+	New: func() interface{} {
+		return make([]byte, 1024*32)
+	},
+}
+
+func writeFileMeta(file io.WriterAt, metaBuf []byte, info [16]byte, numEntries int64) error {
+	// write metadata
+	if _, err := file.WriteAt(metaBuf, infoSize+metaSize*numEntries); err != nil {
+		return err
+	}
+
+	// update file info
+	if _, err := file.WriteAt(info[:], 16); err != nil {
+		return err
+	}
+	return nil
 }

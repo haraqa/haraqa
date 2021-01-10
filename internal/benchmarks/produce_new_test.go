@@ -1,9 +1,8 @@
 package benchmarks
 
 import (
-	"crypto/rand"
-	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http/httptest"
 	"os"
@@ -14,18 +13,19 @@ import (
 )
 
 func BenchmarkNewProduce(b *testing.B) {
-	defer os.RemoveAll(".haraqa")
-
-	rnd := make([]byte, 10)
-	rand.Read(rnd)
-	randomName := base64.URLEncoding.EncodeToString(rnd)
-	dirNames := []string{
-		".haraqa1-" + randomName,
-		".haraqa2-" + randomName,
+	var err error
+	dirNames := make([]string, 3)
+	for i := range dirNames {
+		dirNames[i], err = ioutil.TempDir("", ".haraqa*")
+		if err != nil {
+			b.Error(err)
+		}
 	}
 	defer func() {
-		for _, name := range dirNames {
-			os.RemoveAll(name)
+		for _, dirName := range dirNames {
+			if err := os.RemoveAll(dirName); err != nil {
+				b.Error(err)
+			}
 		}
 	}()
 

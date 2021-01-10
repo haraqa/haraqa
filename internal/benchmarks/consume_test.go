@@ -2,8 +2,6 @@ package benchmarks
 
 import (
 	"bytes"
-	"crypto/rand"
-	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"net/http/httptest"
@@ -17,16 +15,21 @@ import (
 )
 
 func BenchmarkConsume(b *testing.B) {
-	rnd := make([]byte, 12)
-	rand.Read(rnd)
-	randomName := base64.URLEncoding.EncodeToString(rnd)
+	b.SkipNow()
 
-	dirNames := []string{
-		".haraqa1-" + randomName,
+	var err error
+	dirNames := make([]string, 1)
+	for i := range dirNames {
+		dirNames[i], err = ioutil.TempDir("", ".haraqa*")
+		if err != nil {
+			b.Error(err)
+		}
 	}
 	defer func() {
-		for _, name := range dirNames {
-			os.RemoveAll(name)
+		for _, dirName := range dirNames {
+			if err := os.RemoveAll(dirName); err != nil {
+				b.Error(err)
+			}
 		}
 	}()
 	haraqaServer, err := server.NewServer(
@@ -81,6 +84,7 @@ func BenchmarkConsume(b *testing.B) {
 }
 
 func benchConsumer(batchSize int, c *haraqa.Client) func(b *testing.B) {
+	buf := new(bytes.Buffer)
 	return func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; {
@@ -88,13 +92,14 @@ func benchConsumer(batchSize int, c *haraqa.Client) func(b *testing.B) {
 			if err != nil {
 				b.Fatal(err)
 			}
-			body, err := ioutil.ReadAll(r)
+			buf.Reset()
+			n, err := buf.ReadFrom(r)
 			if err != nil {
 				b.Fatal(err)
 			}
 			r.Close()
 
-			i += len(body) / 100
+			i += int(n) / 100
 		}
 		b.StopTimer()
 	}
@@ -108,24 +113,26 @@ func benchConsumerN(N, batchSize int, c *haraqa.Client) func(b *testing.B) {
 		var failures int64
 		for i := 0; i < N; i++ {
 			go func() {
+				buf := new(bytes.Buffer)
 				for range ch {
-					var n int
-					for n < batchSize {
-						r, sizes, err := c.Consume("benchtopic", 0, batchSize-n)
+					var N int
+					for N < batchSize {
+						r, sizes, err := c.Consume("benchtopic", 0, batchSize-N)
 						if err != nil {
 							b.Fatal(err)
 						}
 						if len(sizes) == 0 {
 							continue
 						}
-						body, err := ioutil.ReadAll(r)
+						buf.Reset()
+						n, err := buf.ReadFrom(r)
 						if err != nil {
-							b.Log(err, len(body), sizes)
-							fmt.Println(err, len(body), sizes)
+							b.Log(err, n, sizes)
+							fmt.Println(err, n, sizes)
 							atomic.AddInt64(&failures, 1)
 						}
 						r.Close()
-						n += len(body) / 100
+						N += int(n) / 100
 					}
 					wg.Done()
 				}

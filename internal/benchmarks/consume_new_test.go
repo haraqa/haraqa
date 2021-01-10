@@ -2,9 +2,8 @@ package benchmarks
 
 import (
 	"bytes"
-	"crypto/rand"
-	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"net/http/httptest"
 	"os"
 	"testing"
@@ -14,18 +13,22 @@ import (
 )
 
 func BenchmarkNewConsume(b *testing.B) {
-	rnd := make([]byte, 12)
-	rand.Read(rnd)
-	randomName := base64.URLEncoding.EncodeToString(rnd)
-
-	dirNames := []string{
-		".haraqa1-" + randomName,
+	var err error
+	dirNames := make([]string, 1)
+	for i := range dirNames {
+		dirNames[i], err = ioutil.TempDir("", ".haraqa*")
+		if err != nil {
+			b.Error(err)
+		}
 	}
 	defer func() {
-		for _, name := range dirNames {
-			os.RemoveAll(name)
+		for _, dirName := range dirNames {
+			if err := os.RemoveAll(dirName); err != nil {
+				b.Error(err)
+			}
 		}
 	}()
+
 	haraqaServer, err := server.NewServer(
 		server.WithDefaultQueue(dirNames, true, 5000),
 	)
