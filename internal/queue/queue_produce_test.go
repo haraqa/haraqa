@@ -17,19 +17,27 @@ func TestQueue_Produce(t *testing.T) {
 
 func testQueueProduce(cache bool) func(*testing.T) {
 	return func(t *testing.T) {
-		dirName, err := ioutil.TempDir("", ".haraqa*")
-		if err != nil {
-			t.Error(err)
-		}
-		defer func() {
-			if err := os.RemoveAll(dirName); err != nil {
+		var err error
+		dirNames := make([]string, 3)
+		for i := range dirNames {
+			dirNames[i], err = ioutil.TempDir("", ".haraqa*")
+			if err != nil {
 				t.Error(err)
 			}
+		}
+		defer func() {
+			for _, dirName := range dirNames {
+				if err := os.RemoveAll(dirName); err != nil {
+					t.Error(err)
+				}
+			}
 		}()
-		q, err := NewQueue([]string{dirName}, cache, 2)
+
+		q, err := NewQueue(dirNames, cache, 2)
 		if err != nil {
 			t.Error(err)
 		}
+		defer q.Close()
 		const topic = "topic"
 		if err = q.CreateTopic(topic); err != nil {
 			t.Error(err)

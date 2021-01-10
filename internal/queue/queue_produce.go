@@ -7,8 +7,6 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/pkg/errors"
-
 	"github.com/haraqa/haraqa/internal/headers"
 )
 
@@ -90,9 +88,6 @@ func (q *Queue) produce(topic string, msgSizes []int64, timestamp uint64, r io.R
 	}
 
 	n, err := f.WriteMessages(timestamp, msgSizes, r)
-	for errors.Is(err, ErrFileClosed) {
-		n, err = f.WriteMessages(timestamp, msgSizes, r)
-	}
 	if err != nil {
 		return err
 	}

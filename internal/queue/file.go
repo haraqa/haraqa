@@ -30,6 +30,9 @@ type File struct {
 }
 
 func CreateFile(dirs []string, topic string, baseID int64, maxEntries int64) (*File, error) {
+	if len(dirs) < 1 {
+		return nil, errors.New("missing directories to create file")
+	}
 	createdAt := time.Now().UTC()
 	writerOffset := infoSize + maxEntries*metaSize
 
@@ -40,53 +43,55 @@ func CreateFile(dirs []string, topic string, baseID int64, maxEntries int64) (*F
 	binary.LittleEndian.PutUint64(info[24:32], uint64(writerOffset))
 	binary.LittleEndian.PutUint64(info[32:40], uint64(createdAt.Unix()))
 
-	initFile := func(f *os.File) error {
-		if _, err := f.Write(info[:]); err != nil {
-			return err
-		}
-		// fill with zeros
-		seek := infoSize + metaSize*maxEntries - 1
-		if _, err := f.Seek(seek, io.SeekStart); err != nil {
-			return err
-		}
-		if _, err := f.Write([]byte{0}); err != nil {
-			return err
-		}
-		return nil
-	}
-	closeFiles := func(files []*os.File) {
-		for i := range files {
-			if files[i] != nil {
-				_ = files[i].Close()
-			}
-		}
-	}
-
-	var err error
-	files := make([]*os.File, len(dirs))
-	for i, dir := range dirs {
-		files[i], err = os.Create(filepath.Join(dir, topic, formatName(baseID)))
-		if err != nil {
-			closeFiles(files)
-			return nil, err
-		}
-		err = initFile(files[i])
-		if err != nil {
-			closeFiles(files)
-			return nil, err
-		}
-	}
-
-	return &File{
-		File:         files[len(files)-1],
-		extraFiles:   files[:len(files)-1],
+	f := &File{
+		extraFiles:   make([]*os.File, len(dirs)-1),
 		baseID:       baseID,
 		maxEntries:   maxEntries,
 		numEntries:   0,
 		writerOffset: writerOffset,
 		metaCache:    make(map[int64][metaSize / 8]int64, maxEntries),
 		used:         make(chan struct{}, 1),
-	}, nil
+	}
+	var err error
+	defer func() {
+		if err != nil {
+			_ = f.Close()
+		}
+	}()
+
+	for i := range dirs {
+		var tmp *os.File
+		tmp, err = os.Create(filepath.Join(dirs[i], topic, formatName(baseID)))
+		if err != nil {
+			return nil, err
+		}
+		if i < len(f.extraFiles) {
+			f.extraFiles[i] = tmp
+		} else {
+			f.File = tmp
+		}
+
+		if err = initFile(tmp, info, maxEntries); err != nil {
+			return nil, err
+		}
+	}
+
+	return f, nil
+}
+
+func initFile(ws io.WriteSeeker, info [infoSize]byte, maxEntries int64) error {
+	if _, err := ws.Write(info[:]); err != nil {
+		return err
+	}
+	// fill with zeros
+	seek := infoSize + metaSize*maxEntries - 1
+	if _, err := ws.Seek(seek, io.SeekStart); err != nil {
+		return err
+	}
+	if _, err := ws.Write([]byte{0}); err != nil {
+		return err
+	}
+	return nil
 }
 
 func OpenFile(dirs []string, topic string, baseID int64) (*File, error) {
@@ -95,16 +100,20 @@ func OpenFile(dirs []string, topic string, baseID int64) (*File, error) {
 		extraFiles: make([]*os.File, len(dirs)-1),
 		used:       make(chan struct{}, 1),
 	}
+	defer func() {
+		if err != nil {
+			_ = f.Close()
+		}
+	}()
+
 	filename := formatName(baseID)
 	path := filepath.Join(dirs[len(dirs)-1], topic, filename)
 	f.File, err = os.OpenFile(path, os.O_RDWR, 0)
 	if err != nil {
-		_ = f.Close()
 		return nil, err
 	}
 	var info [infoSize]byte
 	if _, err := f.File.ReadAt(info[:], 0); err != nil {
-		_ = f.Close()
 		return nil, err
 	}
 	f.baseID = int64(binary.LittleEndian.Uint64((info)[0:8]))
@@ -115,12 +124,10 @@ func OpenFile(dirs []string, topic string, baseID int64) (*File, error) {
 	f.metaCache = make(map[int64][metaSize / 8]int64, f.maxEntries)
 	for i, dir := range dirs[:len(dirs)-1] {
 		path := filepath.Join(dir, topic, filename)
-		file, err := os.OpenFile(path, os.O_RDWR, 0)
+		f.extraFiles[i], err = os.OpenFile(path, os.O_RDWR, 0)
 		if err != nil {
-			_ = f.Close()
 			return nil, err
 		}
-		f.extraFiles[i] = file
 	}
 
 	return f, nil
@@ -129,26 +136,23 @@ func OpenFile(dirs []string, topic string, baseID int64) (*File, error) {
 func (f *File) Close() error {
 	f.mux.Lock()
 	defer f.mux.Unlock()
-	var errs []error
+	errs := make([]error, 0, 1+len(f.extraFiles))
 	if f.File != nil {
-		if err := f.File.Close(); err != nil {
-			errs = append(errs, err)
-		}
+		errs = append(errs, f.File.Close())
 	}
-	for _, f := range f.extraFiles {
-		if f == nil {
-			continue
-		}
-		if err := f.Close(); err != nil {
-			errs = append(errs, err)
+	for i := range f.extraFiles {
+		if f.extraFiles[i] != nil {
+			errs = append(errs, f.extraFiles[i].Close())
 		}
 	}
 	if !f.isClosed {
 		close(f.used)
 	}
 	f.isClosed = true
-	if len(errs) > 0 {
-		return errs[0]
+	for i := range errs {
+		if errs[i] != nil {
+			return errs[i]
+		}
 	}
 	return nil
 }
