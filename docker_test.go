@@ -1,4 +1,4 @@
-// +build !linux
+// +build !skip_docker
 
 package haraqa_test
 
