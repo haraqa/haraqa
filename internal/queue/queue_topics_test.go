@@ -2,7 +2,6 @@ package queue
 
 import (
 	"bytes"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -16,7 +15,7 @@ import (
 )
 
 func TestQueue_CreateTopic(t *testing.T) {
-	dirName, err := ioutil.TempDir("", ".haraqa*")
+	dirName, err := os.MkdirTemp("", ".haraqa*")
 	if err != nil {
 		t.Error(err)
 	}
@@ -44,7 +43,7 @@ func TestQueue_CreateTopic(t *testing.T) {
 }
 
 func TestQueue_ListTopics(t *testing.T) {
-	dirName, err := ioutil.TempDir("", ".haraqa*")
+	dirName, err := os.MkdirTemp("", ".haraqa*")
 	if err != nil {
 		t.Error(err)
 	}
@@ -117,7 +116,7 @@ func TestQueue_GetTopicOwner(t *testing.T) {
 }
 
 func TestQueue_DeleteTopic(t *testing.T) {
-	dirName, err := ioutil.TempDir("", ".haraqa*")
+	dirName, err := os.MkdirTemp("", ".haraqa*")
 	if err != nil {
 		t.Error(err)
 	}
@@ -163,7 +162,7 @@ func testModifyTopic(q *Queue, topic string, req headers.ModifyRequest, min, max
 }
 
 func TestQueue_ModifyTopic(t *testing.T) {
-	dirName, err := ioutil.TempDir("", ".haraqa*")
+	dirName, err := os.MkdirTemp("", ".haraqa*")
 	if err != nil {
 		t.Error(err)
 	}

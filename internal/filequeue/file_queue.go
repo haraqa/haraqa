@@ -1,6 +1,7 @@
 package filequeue
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -99,11 +100,14 @@ func (q *FileQueue) GetTopicOwner(topic string) (string, error) {
 func (q *FileQueue) ListTopics(prefix, suffix, regex string) ([]string, error) {
 	var names []string
 	rootDir := q.rootDirNames[len(q.rootDirNames)-1]
-	err := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
-		if !info.IsDir() {
+	err := fs.WalkDir(os.DirFS("."), rootDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return errors.Wrapf(err, "unable to walk directory %q to list topics", rootDir)
+		}
+		if !d.IsDir() {
 			return nil
 		}
-		if path == rootDir {
+		if strings.EqualFold(path, rootDir) {
 			return nil
 		}
 		path = filepath.ToSlash(strings.TrimPrefix(path, rootDir+string(filepath.Separator)))

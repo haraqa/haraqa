@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -155,7 +154,7 @@ func (c *Client) ListTopics(prefix, suffix, regex string) ([]string, error) {
 		err = headers.ReadErrors(resp.Header)
 		return nil, errors.Wrap(err, "error getting topics")
 	}
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -215,9 +214,9 @@ func (c *Client) Consume(topic string, id int64, limit int) (io.ReadCloser, []in
 	if err != nil {
 		return nil, nil, err
 	}
-	req.Header.Set(headers.HeaderID, strconv.FormatInt(id, 10))
+	req.Header[headers.HeaderID] = []string{strconv.FormatInt(id, 10)}
 	if limit > 0 {
-		req.Header.Set(headers.HeaderLimit, strconv.Itoa(limit))
+		req.Header[headers.HeaderLimit] = []string{strconv.Itoa(limit)}
 	}
 	if c.consumerGroup != "" {
 		req.Header[headers.HeaderConsumerGroup] = []string{c.consumerGroup}

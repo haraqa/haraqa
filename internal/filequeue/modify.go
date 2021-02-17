@@ -1,6 +1,7 @@
 package filequeue
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -22,19 +23,20 @@ func (q *FileQueue) ModifyTopic(topic string, request headers.ModifyRequest) (*h
 	}
 
 	topicInfo := &headers.TopicInfo{}
-	err = filepath.Walk(topicPath, func(path string, info os.FileInfo, err error) error {
+	err = fs.WalkDir(os.DirFS("."), topicPath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			if os.IsNotExist(err) {
+			if errors.Is(err, fs.ErrNotExist) {
 				err = nil
 			}
 			return err
 		}
-
-		// ignore directories & non dat files
-		if info.IsDir() || strings.ContainsRune(info.Name(), '.') {
+		if d.IsDir() || strings.ContainsRune(d.Name(), '.') {
 			return nil
 		}
-
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
 		return truncateTopic(request, topicInfo, latest, path, info)
 	})
 	if err != nil {
@@ -44,7 +46,7 @@ func (q *FileQueue) ModifyTopic(topic string, request headers.ModifyRequest) (*h
 	return topicInfo, nil
 }
 
-func truncateTopic(request headers.ModifyRequest, topicInfo *headers.TopicInfo, latest string, path string, info os.FileInfo) error {
+func truncateTopic(request headers.ModifyRequest, topicInfo *headers.TopicInfo, latest string, path string, info fs.FileInfo) error {
 	// remove all but latest if truncate is negative
 	if request.Truncate < 0 && !strings.HasPrefix(info.Name(), latest) {
 		return errors.Wrapf(os.Remove(path), "unable to remove truncated file %s", path)

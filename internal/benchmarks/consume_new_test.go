@@ -3,7 +3,6 @@ package benchmarks
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"net/http/httptest"
 	"os"
 	"testing"
@@ -16,7 +15,7 @@ func BenchmarkNewConsume(b *testing.B) {
 	var err error
 	dirNames := make([]string, 1)
 	for i := range dirNames {
-		dirNames[i], err = ioutil.TempDir("", ".haraqa*")
+		dirNames[i], err = os.MkdirTemp("", ".haraqa*")
 		if err != nil {
 			b.Error(err)
 		}

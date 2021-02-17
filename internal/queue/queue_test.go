@@ -1,7 +1,6 @@
 package queue
 
 import (
-	"io/ioutil"
 	"os"
 	"sync"
 	"testing"
@@ -10,7 +9,7 @@ import (
 )
 
 func TestNewQueue(t *testing.T) {
-	name, err := ioutil.TempDir("", ".haraqa*")
+	name, err := os.MkdirTemp("", ".haraqa*")
 	if err != nil {
 		t.Error(err)
 		return

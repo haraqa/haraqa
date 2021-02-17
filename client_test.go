@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -250,7 +249,7 @@ func TestClient_Produce(t *testing.T) {
 		}
 		switch count {
 		case 0, 1:
-			b, err := ioutil.ReadAll(r.Body)
+			b, err := io.ReadAll(r.Body)
 			if err != nil {
 				t.Error(err)
 			}
@@ -347,7 +346,7 @@ func TestClient_Consume(t *testing.T) {
 	if len(sizes) != 3 || sizes[0] != 1 || sizes[1] != 3 || sizes[2] != 5 {
 		t.Errorf("invalid sizes %+v", sizes)
 	}
-	b, err := ioutil.ReadAll(body)
+	b, err := io.ReadAll(body)
 	if err != nil {
 		t.Error(err)
 	}

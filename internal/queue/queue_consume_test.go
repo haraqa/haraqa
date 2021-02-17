@@ -2,7 +2,6 @@ package queue
 
 import (
 	"bytes"
-	"io/ioutil"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -13,7 +12,7 @@ import (
 )
 
 func TestQueue_Consume(t *testing.T) {
-	dirName, err := ioutil.TempDir("", ".haraqa*")
+	dirName, err := os.MkdirTemp("", ".haraqa*")
 	if err != nil {
 		t.Error(err)
 	}

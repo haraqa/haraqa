@@ -2,7 +2,7 @@ package filequeue
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 	"net/http/httptest"
 	"os"
 	"reflect"
@@ -78,7 +78,7 @@ func TestFileQueue_Consume(t *testing.T) {
 			t.Error(sizes, msgSizes)
 		}
 
-		b, err := ioutil.ReadAll(w.Body)
+		b, err := io.ReadAll(w.Body)
 		if err != nil {
 			t.Error(err)
 		}
@@ -108,7 +108,7 @@ func TestFileQueue_Consume(t *testing.T) {
 		if !reflect.DeepEqual(sizes, msgSizes[:2]) {
 			t.Error(sizes, msgSizes)
 		}
-		b, err := ioutil.ReadAll(w.Body)
+		b, err := io.ReadAll(w.Body)
 		if err != nil {
 			t.Error(err)
 		}
@@ -138,7 +138,7 @@ func TestFileQueue_Consume(t *testing.T) {
 		if !reflect.DeepEqual(sizes, msgSizes[2:]) {
 			t.Error(sizes, msgSizes)
 		}
-		b, err := ioutil.ReadAll(w.Body)
+		b, err := io.ReadAll(w.Body)
 		if err != nil {
 			t.Error(err)
 		}
@@ -168,7 +168,7 @@ func TestFileQueue_Consume(t *testing.T) {
 		if !reflect.DeepEqual(sizes, []int64{msgSizes[len(msgSizes)-1]}) {
 			t.Error(sizes, msgSizes)
 		}
-		b, err := ioutil.ReadAll(w.Body)
+		b, err := io.ReadAll(w.Body)
 		if err != nil {
 			t.Error(err)
 		}
@@ -206,7 +206,7 @@ func TestFileQueue_Consume(t *testing.T) {
 		if !reflect.DeepEqual(sizes, []int64{int64(len(newInput))}) {
 			t.Error(sizes, msgSizes)
 		}
-		b, err := ioutil.ReadAll(w.Body)
+		b, err := io.ReadAll(w.Body)
 		if err != nil {
 			t.Error(err)
 		}

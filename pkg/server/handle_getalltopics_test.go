@@ -3,7 +3,7 @@ package server
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -102,7 +102,7 @@ func handleGetAllTopics(status int, query string, errExpected error, topics []st
 				t.Error(topics)
 			}
 		case "", "text/plain":
-			b, err := ioutil.ReadAll(resp.Body)
+			b, err := io.ReadAll(resp.Body)
 			if err != nil {
 				t.Error(err)
 				return

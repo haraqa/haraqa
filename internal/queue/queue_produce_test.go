@@ -2,7 +2,6 @@ package queue
 
 import (
 	"bytes"
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -20,7 +19,7 @@ func testQueueProduce(cache bool) func(*testing.T) {
 		var err error
 		dirNames := make([]string, 3)
 		for i := range dirNames {
-			dirNames[i], err = ioutil.TempDir("", ".haraqa*")
+			dirNames[i], err = os.MkdirTemp("", ".haraqa*")
 			if err != nil {
 				t.Error(err)
 			}
