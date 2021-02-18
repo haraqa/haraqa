@@ -139,7 +139,7 @@ paths:
           type: "string"
         - name: "X-Sizes"
           in: "header"
-          description: "Sizes of each message in the body"
+          description: "Sizes of each message in the body, delimited by a colon (:)"
           required: true
           type: "array"
           items:

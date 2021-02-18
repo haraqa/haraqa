@@ -75,7 +75,7 @@ func TestSizes(t *testing.T) {
 	testSize(t, map[string][]string{HeaderSizes: {}}, nil, ErrInvalidHeaderSizes)
 	testSize(t, map[string][]string{HeaderSizes: {"blue"}}, nil, ErrInvalidHeaderSizes)
 	testSize(t, map[string][]string{HeaderSizes: {"123"}}, []int64{123}, nil)
-	testSize(t, map[string][]string{HeaderSizes: {"123", "456"}}, []int64{123, 456}, nil)
+	testSize(t, map[string][]string{HeaderSizes: {"123:456"}}, []int64{123, 456}, nil)
 
 	h := http.Header{}
 	SetSizes([]int64{}, h)

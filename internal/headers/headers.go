@@ -3,6 +3,7 @@ package headers
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -122,27 +123,64 @@ func ReadErrors(header http.Header) error {
 // ReadSizes reads the message sizes from the header
 func ReadSizes(header http.Header) ([]int64, error) {
 	sizes := header[HeaderSizes]
-	if len(sizes) == 0 {
+	if len(sizes) != 1 || len(sizes[0]) == 0 {
 		return nil, ErrInvalidHeaderSizes
 	}
+
+	var n, count int
+	for {
+		idx := strings.IndexRune(sizes[0][n:], ':')
+		if idx < 0 {
+			break
+		}
+		count++
+		n += idx + 1
+	}
+
+	n = 0
+	var i int
 	var err error
-	msgSizes := make([]int64, len(sizes))
-	for i, size := range sizes {
-		msgSizes[i], err = strconv.ParseInt(size, 10, 64)
+	msgSizes := make([]int64, 1+count)
+	for {
+		idx := strings.IndexRune(sizes[0][n:], ':')
+		if idx < 0 {
+			break
+		}
+		msgSizes[i], err = strconv.ParseInt(sizes[0][n:n+idx], 10, 64)
 		if err != nil {
 			return nil, ErrInvalidHeaderSizes
 		}
+		n += idx + 1
+		i++
+	}
+	// get last entry
+	msgSizes[len(msgSizes)-1], err = strconv.ParseInt(sizes[0][n:], 10, 64)
+	if err != nil {
+		return nil, ErrInvalidHeaderSizes
 	}
 	return msgSizes, nil
 }
 
 // SetSizes sets the sizes of the messages in the header
 func SetSizes(msgSizes []int64, h http.Header) http.Header {
-	sizes := make([]string, len(msgSizes))
-	for i := range msgSizes {
-		sizes[i] = strconv.FormatInt(msgSizes[i], 10)
+	if len(msgSizes) == 0 {
+		return h
 	}
-	h[HeaderSizes] = sizes
+	buf := new(strings.Builder)
+	var max = 1
+	for i := range msgSizes {
+		if int(msgSizes[i])/10 > max {
+			max = int(msgSizes[i]) / 10
+		}
+	}
+	// grow to max buffer size
+	buf.Grow((max + 1) * len(msgSizes))
+	for i := range msgSizes {
+		buf.WriteString(strconv.FormatInt(msgSizes[i], 10))
+		buf.WriteByte(':')
+	}
+	// set header (and remove trailing :)
+	h[HeaderSizes] = []string{buf.String()[:buf.Len()-1]}
 	return h
 }
 

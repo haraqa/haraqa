@@ -3,7 +3,7 @@ on: [push]
 jobs:
 
   build:
-    name: Build v15
+    name: Build v16
     runs-on: ubuntu-latest
     steps:
 

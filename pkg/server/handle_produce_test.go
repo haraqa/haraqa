@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -59,9 +60,7 @@ func handleProduce(status int, errExpected error, topic string, sizes []string, 
 			t.Error(err)
 			return
 		}
-		for _, size := range sizes {
-			r.Header.Add(headers.HeaderSizes, size)
-		}
+		r.Header.Set(headers.HeaderSizes, strings.Join(sizes, ":"))
 
 		// if no topic, handle directly
 		_, err = getTopic(r)

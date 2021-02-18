@@ -18,10 +18,15 @@ ARG TEST_ONLY=""
 RUN go test -mod=readonly -race -timeout 30s -count=1 -failfast -coverprofile=cover.out -covermode=atomic -tags skip_docker ./... && \
       go tool cover -html=cover.out -o /profiles/coverage.html
 # test for speed
-RUN go test -mod=readonly -bench=. -benchtime=1000x -run=XXX -cpu=4 \
-      -trace        /profiles/trace.out \
-      -cpuprofile   /profiles/cpu.out \
-      -memprofile   /profiles/mem.out \
+RUN go test -mod=readonly -bench=Produce -benchtime=1000x -run=XXX -cpu=4 \
+      -trace        /profiles/produce_trace.out \
+      -cpuprofile   /profiles/produce_cpu.out \
+      -memprofile   /profiles/produce_mem.out \
+      ./internal/benchmarks
+RUN go test -mod=readonly -bench=Consume -benchtime=1000x -run=XXX -cpu=4 \
+      -trace        /profiles/consume_trace.out \
+      -cpuprofile   /profiles/consume_cpu.out \
+      -memprofile   /profiles/consume_mem.out \
       ./internal/benchmarks
 
 # Build binary
