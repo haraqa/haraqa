@@ -361,7 +361,7 @@ func (s *Server) HandleWatchTopics(w http.ResponseWriter, r *http.Request) {
 	defer watcher.Close()
 	rootDir := s.q.RootDir()
 	for topic := range topics {
-		err = watcher.Add(filepath.Join(rootDir, topic))
+		err = watcher.Add(rootDir + string(filepath.Separator) + topic)
 		if err != nil {
 			s.logger.Warnf("%s:%s:watcher add: %s", r.Method, r.URL.Path, err.Error())
 			if os.IsNotExist(err) {

@@ -29,7 +29,7 @@ func (q *Queue) getLatestBaseID(topic string) (int64, error) {
 		}
 	}
 
-	dir, err := os.Open(filepath.Join(q.RootDir(), topic))
+	dir, err := os.Open(q.RootDir() + string(filepath.Separator) + topic)
 	if err != nil {
 		return 0, err
 	}
@@ -62,7 +62,7 @@ func (q *Queue) produce(topic string, msgSizes []int64, timestamp uint64, r io.R
 		key string
 	)
 	if q.fileCache != nil {
-		key = filepath.Join(q.RootDir(), topic, formatName(baseID))
+		key = q.RootDir() + string(filepath.Separator) + topic + string(filepath.Separator) + formatName(baseID)
 		v, found := q.fileCache.Load(key)
 		if found {
 			f, _ = v.(*File)

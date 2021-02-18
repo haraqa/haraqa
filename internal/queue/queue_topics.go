@@ -57,7 +57,7 @@ func (q *Queue) CreateTopic(topic string) error {
 		return errors.New("invalid topic")
 	}
 	for _, dir := range q.dirs {
-		err := os.Mkdir(filepath.Join(dir, topic), os.ModePerm)
+		err := os.Mkdir(dir+string(filepath.Separator)+topic, os.ModePerm)
 		if os.IsExist(err) {
 			continue
 		}
@@ -74,13 +74,13 @@ func (q *Queue) DeleteTopic(topic string) error {
 	}
 	var errs []error
 	for _, dir := range q.dirs {
-		errs = append(errs, os.RemoveAll(filepath.Join(dir, topic)))
+		errs = append(errs, os.RemoveAll(dir+string(filepath.Separator)+topic))
 	}
 	return firstError(errs)
 }
 
 func (q *Queue) ModifyTopic(topic string, request headers.ModifyRequest) (*headers.TopicInfo, error) {
-	d, err := os.Open(filepath.Join(q.RootDir(), topic))
+	d, err := os.Open(q.RootDir() + string(filepath.Separator) + topic)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +105,7 @@ func (q *Queue) ModifyTopic(topic string, request headers.ModifyRequest) (*heade
 			break
 		}
 		if !request.Before.IsZero() {
-			stat, err := os.Stat(filepath.Join(q.RootDir(), topic, names[idx]))
+			stat, err := os.Stat(q.RootDir() + string(filepath.Separator) + topic + string(filepath.Separator) + names[idx])
 			if err != nil {
 				return nil, err
 			}
@@ -119,11 +119,11 @@ func (q *Queue) ModifyTopic(topic string, request headers.ModifyRequest) (*heade
 	var errs []error
 	for _, name := range names[idx+1:] {
 		for _, dir := range q.dirs {
-			errs = append(errs, os.RemoveAll(filepath.Join(dir, topic, name)))
+			errs = append(errs, os.RemoveAll(dir+string(filepath.Separator)+topic+string(filepath.Separator)+name))
 		}
 	}
 
-	f, err := os.Open(filepath.Join(q.RootDir(), topic, names[0]))
+	f, err := os.Open(q.RootDir() + string(filepath.Separator) + topic + string(filepath.Separator) + names[0])
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +140,7 @@ func (q *Queue) ModifyTopic(topic string, request headers.ModifyRequest) (*heade
 	max := baseID + numEntries
 
 	if idx != 0 {
-		minF, err := os.Open(filepath.Join(q.RootDir(), topic, names[idx]))
+		minF, err := os.Open(q.RootDir() + string(filepath.Separator) + topic + string(filepath.Separator) + names[idx])
 		if err != nil {
 			return nil, err
 		}

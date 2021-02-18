@@ -151,7 +151,7 @@ func testModifyTopic(q *Queue, topic string, req headers.ModifyRequest, min, max
 			t.Error(err)
 		}
 		if info.MinOffset != min || info.MaxOffset != max {
-			d, err := os.Open(filepath.Join(q.RootDir(), topic))
+			d, err := os.Open(q.RootDir() + string(filepath.Separator) + topic)
 			if err == nil {
 				defer d.Close()
 				t.Log(d.Readdirnames(-1))

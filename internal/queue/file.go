@@ -69,7 +69,7 @@ func CreateFile(dirs []string, topic string, baseID int64, maxEntries int64) (*F
 
 	for i := range dirs {
 		var tmp *os.File
-		tmp, err = os.Create(filepath.Join(dirs[i], topic, formatName(baseID)))
+		tmp, err = os.Create(dirs[i] + string(filepath.Separator) + topic + string(filepath.Separator) + formatName(baseID))
 		if err != nil {
 			return nil, err
 		}
@@ -124,7 +124,7 @@ func OpenFile(dirs []string, topic string, baseID int64) (*File, error) {
 	}()
 
 	filename := formatName(baseID)
-	path := filepath.Join(dirs[len(dirs)-1], topic, filename)
+	path := dirs[len(dirs)-1] + string(filepath.Separator) + topic + string(filepath.Separator) + filename
 	f.File, err = os.OpenFile(path, os.O_RDWR, 0)
 	if err != nil {
 		return nil, err
@@ -140,7 +140,7 @@ func OpenFile(dirs []string, topic string, baseID int64) (*File, error) {
 
 	f.metaCache = make(map[int64][metaSize / 8]int64, f.maxEntries)
 	for i, dir := range dirs[:len(dirs)-1] {
-		path := filepath.Join(dir, topic, filename)
+		path := dir + string(filepath.Separator) + topic + string(filepath.Separator) + filename
 		f.extraFiles[i], err = os.OpenFile(path, os.O_RDWR, 0)
 		if err != nil {
 			return nil, err

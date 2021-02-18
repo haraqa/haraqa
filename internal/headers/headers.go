@@ -166,6 +166,10 @@ func SetSizes(msgSizes []int64, h http.Header) http.Header {
 	if len(msgSizes) == 0 {
 		return h
 	}
+	if len(msgSizes) == 1 {
+		h[HeaderSizes] = []string{strconv.FormatInt(msgSizes[0], 10)}
+	}
+
 	buf := new(strings.Builder)
 	var max = 1
 	for i := range msgSizes {

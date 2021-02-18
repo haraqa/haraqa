@@ -28,7 +28,7 @@ func TestServer_HandleWatchTopic(t *testing.T) {
 	mockQ.EXPECT().GetTopicOwner(gomock.Any()).Return("", nil).AnyTimes()
 
 	os.RemoveAll(dir)
-	os.MkdirAll(filepath.Join(dir, topic), os.ModePerm)
+	os.MkdirAll(dir+string(filepath.Separator)+topic, os.ModePerm)
 	defer os.RemoveAll(dir)
 
 	s, err := NewServer(WithQueue(mockQ))
@@ -72,7 +72,7 @@ func TestServer_HandleWatchTopic(t *testing.T) {
 			return
 		}
 
-		f, err := os.Create(filepath.Join(dir, topic, "00000"))
+		f, err := os.Create(dir + string(filepath.Separator) + topic + string(filepath.Separator) + "00000")
 		if err != nil {
 			t.Error(err)
 			return

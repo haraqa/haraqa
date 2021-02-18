@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
-	"time"
 
 	"github.com/haraqa/haraqa/internal/headers"
 )
@@ -18,7 +17,7 @@ func (q *Queue) Consume(group, topic string, id int64, limit int64, w http.Respo
 	if err != nil {
 		return 0, err
 	}
-	path := filepath.Join(q.RootDir(), topic, filename)
+	path := q.RootDir() + string(filepath.Separator) + topic + string(filepath.Separator) + filename
 	var f *File
 	if q.fileCache != nil {
 		v, found := q.fileCache.Load(path)
@@ -48,12 +47,14 @@ func (q *Queue) Consume(group, topic string, id int64, limit int64, w http.Respo
 	}
 
 	wHeader := w.Header()
-	wHeader[headers.HeaderStartTime] = []string{meta.startTime.Format(time.ANSIC)}
-	wHeader[headers.HeaderEndTime] = []string{meta.endTime.Format(time.ANSIC)}
 	wHeader[headers.HeaderFileName] = []string{topic + "/" + filename}
 	wHeader[headers.ContentType] = []string{"application/octet-stream"}
-	wHeader[headers.LastModified] = []string{meta.endTime.UTC().Format("Mon, 02 Jan 2006 15:04:05 GMT")}
 	headers.SetSizes(meta.sizes, wHeader)
+
+	// TODO: evaluate if we need timestamps in response message
+	//wHeader[headers.HeaderStartTime] = []string{meta.startTime.Format(time.ANSIC)}
+	//wHeader[headers.HeaderEndTime] = []string{meta.endTime.Format(time.ANSIC)}
+	//wHeader[headers.LastModified] = []string{meta.endTime.UTC().Format("Mon, 02 Jan 2006 15:04:05 GMT")}
 
 	var rs io.ReadSeeker = f
 	if q.fileCache != nil {
@@ -82,11 +83,11 @@ func (q *Queue) Consume(group, topic string, id int64, limit int64, w http.Respo
 func (q *Queue) getBaseID(topic string, id int64) (string, int64, error) {
 	checkID := id - id%q.maxEntries
 	filename := formatName(checkID)
-	_, err := os.Stat(filepath.Join(q.RootDir(), topic, filename))
+	_, err := os.Stat(q.RootDir() + string(filepath.Separator) + topic + string(filepath.Separator) + filename)
 	if err == nil {
 		return filename, checkID, nil
 	}
-	dir, err := os.Open(filepath.Join(q.RootDir(), topic))
+	dir, err := os.Open(q.RootDir() + string(filepath.Separator) + topic)
 	if err != nil {
 		return "", 0, err
 	}
@@ -113,6 +114,40 @@ func (q *Queue) getBaseID(topic string, id int64) (string, int64, error) {
 	}
 	return filename, baseID, nil
 }
+
+/*
+func (q *Queue) getBaseID(topic string, id int64) (string, int64, error) {
+	checkID := id - id%q.maxEntries
+	filename := formatName(checkID)
+	_, err := fs.Stat(os.DirFS(q.RootDir()), topic+string(filepath.Separator)+filename)
+	if err == nil {
+		return filename, checkID, nil
+	}
+	entries, err := fs.ReadDir(os.DirFS(q.RootDir()), topic) //.Readdirnames(-1)
+	if err != nil {
+		return "", 0, err
+	}
+	if len(entries) == 0 {
+		return formatName(0), 0, err
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name() < entries[j].Name()
+	})
+	baseID := int64(0)
+	for i := range entries {
+		parsed, err := strconv.ParseInt(entries[i].Name(), 10, 64)
+		if err != nil {
+			continue
+		}
+		if id < parsed {
+			break
+		}
+		filename = entries[i].Name()
+		baseID = parsed
+	}
+	return filename, baseID, nil
+}
+*/
 
 func (q *Queue) getGroupOffsetID(group, topic string, id int64) int64 {
 	if group == "" || id > 0 {

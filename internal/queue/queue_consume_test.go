@@ -102,7 +102,7 @@ func testConsume(q *Queue, group, topic string, id, limit int64, expected []stri
 		}
 		if len(sizes) != len(expected) {
 			t.Error(sizes)
-			d, err := os.Open(filepath.Join(q.RootDir(), topic))
+			d, err := os.Open(q.RootDir() + string(filepath.Separator) + topic)
 			if err == nil {
 				defer d.Close()
 				t.Log(d.Readdirnames(-1))
