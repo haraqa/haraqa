@@ -74,7 +74,9 @@ func (q *Queue) Consume(group, topic string, id int64, limit int64, w http.Respo
 	if err != nil {
 		return 0, err
 	}
-	io.CopyN(w, rs, meta.endAt-meta.startAt)
+	if _, err = io.CopyN(w, rs, meta.endAt-meta.startAt); err != nil {
+		return 0, err
+	}
 
 	//http.ServeContent(w, req, path, meta.endTime, f)
 	return len(meta.sizes), nil

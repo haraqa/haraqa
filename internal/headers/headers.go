@@ -1,10 +1,13 @@
 package headers
 
 import (
+	"bytes"
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
+	"unsafe"
 
 	"github.com/pkg/errors"
 )
@@ -168,11 +171,17 @@ func SetSizes(msgSizes []int64, h http.Header) http.Header {
 	}
 	if len(msgSizes) == 1 {
 		h[HeaderSizes] = []string{strconv.FormatInt(msgSizes[0], 10)}
+		return h
 	}
 
 	// concat size values into a : delimited string
 	// this is to sidestep header slice allocations in textproto
-	buf := new(strings.Builder)
+	buf := bufPool.Get().(*bytes.Buffer)
+	defer func() {
+		buf.Reset()
+		bufPool.Put(buf)
+	}()
+
 	var max = 1
 	for i := range msgSizes {
 		if int(msgSizes[i])/10 > max {
@@ -185,10 +194,17 @@ func SetSizes(msgSizes []int64, h http.Header) http.Header {
 		buf.WriteString(strconv.FormatInt(msgSizes[i], 10))
 		buf.WriteByte(':')
 	}
-	// set header (and remove trailing :)
-	h[HeaderSizes] = []string{buf.String()[:buf.Len()-1]}
+	//remove trailing :
+	b := buf.Bytes()[:buf.Len()-1]
+
+	// set header
+	h[HeaderSizes] = []string{*(*string)(unsafe.Pointer(&b))}
 	return h
 }
+
+var bufPool = sync.Pool{New: func() interface{} {
+	return new(bytes.Buffer)
+}}
 
 // ModifyRequest is the request structure required by the modify endpoints
 type ModifyRequest struct {

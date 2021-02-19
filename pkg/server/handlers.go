@@ -448,11 +448,11 @@ func (s *Server) HandleWatchTopics(w http.ResponseWriter, r *http.Request) {
 }
 
 func getTopic(r *http.Request) (string, error) {
-	split := strings.SplitN(strings.ToLower(r.URL.Path), "/topics/", 2)
-	if len(split) < 2 {
+	i := strings.Index(strings.ToLower(r.URL.Path), "/topics/")
+	if i < 0 {
 		return "", headers.ErrInvalidTopic
 	}
-	topic := strings.ToLower(filepath.Clean(split[1]))
+	topic := strings.ToLower(filepath.Clean(r.URL.Path[i+len("/topics/"):]))
 	if topic == "" || topic == "." {
 		return "", headers.ErrInvalidTopic
 	}
