@@ -100,14 +100,14 @@ paths:
           description: "Topic to consume from"
           required: true
           type: "string"
-        - name: "id"
-          in: "query"
+        - name: "X-Id"
+          in: "header"
           description: "Message id to start consuming from. If negative, the next message(s) for that consumer group is sent. If X-Consumer-Group was not specified, the last message in the topic is consumed."
           required: true
           type: "integer"
           format: "int64"
-        - name: "limit"
-          in: "query"
+        - name: "X-Limit"
+          in: "header"
           description: "(Optional) Max number of messages to consume"
           required: false
           type: "integer"
@@ -141,10 +141,7 @@ paths:
           in: "header"
           description: "Sizes of each message in the body, delimited by a colon (:)"
           required: true
-          type: "array"
-          items:
-            type: "integer"
-            format: "int64"
+          type: "string"
         - name: "body"
           in: "body"
           required: true

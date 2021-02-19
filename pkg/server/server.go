@@ -6,13 +6,12 @@ import (
 	"sync"
 	"time"
 
-	queue2 "github.com/haraqa/haraqa/internal/queue"
-
 	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
 
 	"github.com/haraqa/haraqa/internal/filequeue"
 	"github.com/haraqa/haraqa/internal/headers"
+	"github.com/haraqa/haraqa/internal/queue"
 )
 
 // Option represents a optional function argument to NewServer
@@ -60,7 +59,7 @@ func WithDefaultQueue(dirs []string, cache bool, entries int64) Option {
 			return errors.New("invalid entries, value must not be negative")
 		}
 		var err error
-		s.q, err = queue2.NewQueue(dirs, cache, entries)
+		s.q, err = queue.NewQueue(dirs, cache, entries)
 		return err
 	}
 }

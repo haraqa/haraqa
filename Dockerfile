@@ -7,6 +7,9 @@ WORKDIR /haraqa
 COPY go.mod .
 RUN go mod download
 COPY cmd cmd
+# Update server docs to use local version, not github version
+RUN sed -i 's/https:\/\/raw.githubusercontent.com\/haraqa\/haraqa\/master\/cmd\/server/\/docs/g' cmd/server/swagger.html && \
+    sed -i 's/https:\/\/raw.githubusercontent.com\/haraqa\/haraqa\/master\/cmd\/server/\/docs/g' cmd/server/redocs.html
 RUN cd /haraqa/cmd/server && go mod download
 COPY . .
 

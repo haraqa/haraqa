@@ -87,7 +87,7 @@ to a simple REST server. These messages are stored in haraqa in a topic unique t
 * [Redocs API Documentation](https://haraqa.github.io/haraqa/cmd/server/redocs.html)
 * [Swagger yaml](https://github.com/haraqa/haraqa/blob/master/cmd/server/swagger.yaml)
 
-The docker server also includes local api documentation at the `/docs` and `/docs/swagger` endpoints.
+The docker server also includes local api documentation at the `/docs/redocs` and `/docs/swagger` endpoints.
 
 ### Server
 The recommended deployment strategy is to use [Docker](https://hub.docker.com/r/haraqa/haraqa)

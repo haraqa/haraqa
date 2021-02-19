@@ -1,10 +1,12 @@
 package main
 
 import (
+	"embed"
 	"flag"
 	"net/http"
 	_ "net/http/pprof"
 	"strconv"
+	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -12,6 +14,9 @@ import (
 
 	"github.com/haraqa/haraqa/pkg/server"
 )
+
+//go:embed swagger.html redocs.html swagger.yaml
+var content embed.FS
 
 func main() {
 	var (
@@ -49,7 +54,7 @@ func main() {
 
 	// get options
 	var opts []server.Option
-	opts = append(opts, server.WithFileQueue(flag.Args(), fileCache, fileEntries))
+	opts = append(opts, server.WithDefaultQueue(flag.Args(), fileCache, fileEntries))
 	opts = append(opts, server.WithLogger(logger))
 	if consumeLimit > 0 {
 		opts = append(opts, server.WithDefaultConsumeLimit(consumeLimit))
@@ -63,20 +68,21 @@ func main() {
 	if cors {
 		opts = append(opts, server.WithMiddleware(func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.Header().Set("Access-Control-Allow-Origin", "*")
+				// we're already using a canonical mime header format, so we don't need to use w.Header().Set()
+				w.Header()["Access-Control-Allow-Origin"] = []string{"*"}
 				next.ServeHTTP(w, r)
 			})
 		}))
 	}
 	if docs {
-		http.Handle("/docs/swagger.yaml", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			http.ServeFile(w, r, "swagger.yaml")
-		}))
+		http.Handle("/docs/", http.StripPrefix("/docs/", http.FileServer(http.FS(content))))
 		http.Handle("/docs/swagger", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			http.ServeFile(w, r, "swagger.html")
+			url := strings.ReplaceAll(r.URL.String(), "swagger", "swagger.html")
+			http.Redirect(w, r, url, http.StatusPermanentRedirect)
 		}))
-		http.Handle("/docs", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			http.ServeFile(w, r, "redocs.html")
+		http.Handle("/docs/redocs", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			url := strings.ReplaceAll(r.URL.String(), "redocs", "redocs.html")
+			http.Redirect(w, r, url, http.StatusPermanentRedirect)
 		}))
 	}
 

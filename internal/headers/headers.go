@@ -170,6 +170,8 @@ func SetSizes(msgSizes []int64, h http.Header) http.Header {
 		h[HeaderSizes] = []string{strconv.FormatInt(msgSizes[0], 10)}
 	}
 
+	// concat size values into a : delimited string
+	// this is to sidestep header slice allocations in textproto
 	buf := new(strings.Builder)
 	var max = 1
 	for i := range msgSizes {
