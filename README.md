@@ -11,7 +11,7 @@
 [![License](https://img.shields.io/github/license/haraqa/haraqa.svg)](https://github.com/haraqa/haraqa/blob/master/LICENSE)
 [![Build](https://github.com/haraqa/haraqa/workflows/build/badge.svg)](https://github.com/haraqa/haraqa/blob/master/.github/workflows/go.yml)
 [![Coverage Status](https://coveralls.io/repos/github/haraqa/haraqa/badge.svg)](https://coveralls.io/github/haraqa/haraqa)
-[![Docker Build](https://img.shields.io/docker/cloud/build/haraqa/haraqa.svg)](https://hub.docker.com/r/haraqa/haraqa/)
+[![Docker Build](https://github.com/haraqa/haraqa/actions/workflows/docker.yml/badge.svg)](https://hub.docker.com/r/haraqa/haraqa/)
 [![Release](https://img.shields.io/github/release/haraqa/haraqa.svg)](https://github.com/haraqa/haraqa/releases)
 
 **haraqa** is designed to be a developer friendly, scalable message queue for data
