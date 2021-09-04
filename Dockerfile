@@ -1,16 +1,12 @@
 # ===================================================
 # Compiler image (use debian for -race detection)
 # ===================================================
-FROM golang:1.16 as compiler
-RUN mkdir /profiles && mkdir /haraqa
+FROM golang:1.17 as compiler
+RUN mkdir /profiles && mkdir -p /haraqa/cmd/server
 WORKDIR /haraqa
 COPY go.mod .
-RUN go mod download
-COPY cmd cmd
-# Update server docs to use local version, not github version
-RUN sed -i 's/https:\/\/raw.githubusercontent.com\/haraqa\/haraqa\/master\/cmd\/server/\/docs/g' cmd/server/swagger.html && \
-    sed -i 's/https:\/\/raw.githubusercontent.com\/haraqa\/haraqa\/master\/cmd\/server/\/docs/g' cmd/server/redocs.html
-RUN cd /haraqa/cmd/server && go mod download
+COPY cmd/server/go.mod cmd/server/go.mod
+RUN go mod download && cd /haraqa/cmd/server && go mod download
 COPY . .
 
 # Prevent caching when --build-arg CACHEBUST=$$(date +%s)
@@ -47,15 +43,6 @@ ENTRYPOINT ["/haraqa"]
 
 # HTTP Port
 EXPOSE 4353
-
-# Copy static files
-COPY cmd/server/swagger.yaml .
-COPY cmd/server/swagger.html .
-COPY cmd/server/redocs.html .
-
-# Update to use local version, not github version
-RUN sed -i 's/https:\/\/raw.githubusercontent.com\/haraqa\/haraqa\/master\/cmd\/server/\/docs/g' swagger.html && \
-    sed -i 's/https:\/\/raw.githubusercontent.com\/haraqa\/haraqa\/master\/cmd\/server/\/docs/g' redocs.html
 
 # Get binary from compiler
 COPY --from=compiler /haraqa-build /haraqa
