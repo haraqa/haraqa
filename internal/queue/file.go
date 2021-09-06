@@ -190,15 +190,20 @@ func (f *File) ReadMeta(id int64, limit int64) (Meta, error) {
 	default:
 	}
 
-	id = id - f.baseID
+	if id < 0 {
+		id = f.numEntries - 1
+		limit = 1
+	} else {
+		id = id - f.baseID
+		if limit > f.numEntries-id || limit <= 0 {
+			limit = f.numEntries - id
+		}
+	}
 	if id < 0 {
 		return Meta{}, errors.New("invalid id")
 	}
 	if id > f.numEntries {
 		return Meta{}, nil
-	}
-	if limit > f.numEntries-id || limit <= 0 {
-		limit = f.numEntries - id
 	}
 
 	output := Meta{
@@ -245,7 +250,7 @@ func (f *File) ReadMeta(id int64, limit int64) (Meta, error) {
 	}
 	off -= metaSize
 	if off == 0 {
-		output.endAt = output.startAt
+		output.endAt = output.startAt + output.sizes[len(output.sizes)-1]
 		output.endTime = output.startTime
 	} else {
 		output.endAt = int64(binary.LittleEndian.Uint64(buf[off:off+8])) + output.sizes[len(output.sizes)-1]

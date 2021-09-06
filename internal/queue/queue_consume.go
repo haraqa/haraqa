@@ -86,7 +86,7 @@ func (q *Queue) getBaseID(topic string, id int64) (string, int64, error) {
 	checkID := id - id%q.maxEntries
 	filename := formatName(checkID)
 	_, err := os.Stat(q.RootDir() + string(filepath.Separator) + topic + string(filepath.Separator) + filename)
-	if err == nil {
+	if err == nil && id >= 0 {
 		return filename, checkID, nil
 	}
 	dir, err := os.Open(q.RootDir() + string(filepath.Separator) + topic)
@@ -108,7 +108,7 @@ func (q *Queue) getBaseID(topic string, id int64) (string, int64, error) {
 		if err != nil {
 			continue
 		}
-		if id < parsed {
+		if id >= 0 && id < parsed {
 			break
 		}
 		filename = name

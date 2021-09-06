@@ -319,9 +319,44 @@ func (c *Client) WatchTopics(ctx context.Context, topics []string, ch chan<- str
 	}
 }
 
+// Close closes any active topic watchers
 func (c *Client) Close() error {
 	if c.closer != nil {
 		close(c.closer)
 	}
 	return nil
+}
+
+// NewWriter creates a new producer consistent with io.Writer
+func (c *Client) NewWriter(topic string, delimiter []byte) io.Writer {
+	return &Writer{
+		c:     c,
+		topic: topic,
+		delim: delimiter,
+	}
+}
+
+type Writer struct {
+	c     *Client
+	topic string
+	delim []byte
+}
+
+// Write produces messages to the haraqa instance separated by the delimiter. This is thread safe
+func (w *Writer) Write(b []byte) (int, error) {
+	var err error
+	if len(w.delim) > 0 {
+		msgs := bytes.SplitAfter(b, w.delim)
+		//remove last msg if blank
+		if len(msgs) > 0 && len(msgs[len(msgs)-1]) == 0 {
+			msgs = msgs[:len(msgs)-1]
+		}
+		err = w.c.ProduceMsgs(w.topic, msgs...)
+	} else {
+		err = w.c.ProduceMsgs(w.topic, b)
+	}
+	if err != nil {
+		return 0, err
+	}
+	return len(b), err
 }
