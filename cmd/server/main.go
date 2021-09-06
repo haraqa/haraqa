@@ -1,7 +1,8 @@
 package main
 
 import (
-	"embed"
+	"bytes"
+	_ "embed"
 	"flag"
 	"net/http"
 	_ "net/http/pprof"
@@ -15,10 +16,24 @@ import (
 	"github.com/haraqa/haraqa/pkg/server"
 )
 
-//go:embed swagger.html redocs.html swagger.yaml
-var content embed.FS
+var (
+	//go:embed docs.html
+	docsHTML []byte
+	//go:embed swagger.html
+	swaggerHTML []byte
+	//go:embed redocs.html
+	redocHTML []byte
+	//go:embed swagger.yaml
+	swaggerYAML []byte
+)
 
 func main() {
+	// replace github url with relative
+	gitURL := []byte("https://raw.githubusercontent.com/haraqa/haraqa/master/cmd/server/")
+	const docPath = "/docs/"
+	swaggerHTML = bytes.ReplaceAll(swaggerHTML, gitURL, []byte(docPath))
+	redocHTML = bytes.ReplaceAll(redocHTML, gitURL, []byte(docPath))
+
 	var (
 		ballastSize  int64
 		httpPort     uint
@@ -75,14 +90,17 @@ func main() {
 		}))
 	}
 	if docs {
-		http.Handle("/docs/", http.StripPrefix("/docs/", http.FileServer(http.FS(content))))
-		http.Handle("/docs/swagger", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			url := strings.ReplaceAll(r.URL.String(), "swagger", "swagger.html")
-			http.Redirect(w, r, url, http.StatusPermanentRedirect)
-		}))
-		http.Handle("/docs/redocs", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			url := strings.ReplaceAll(r.URL.String(), "redocs", "redocs.html")
-			http.Redirect(w, r, url, http.StatusPermanentRedirect)
+		http.Handle(docPath, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch strings.TrimPrefix(r.URL.Path, docPath) {
+			case "redocs", "redocs.html":
+				_, _ = w.Write(redocHTML)
+			case "swagger", "swagger.html":
+				_, _ = w.Write(swaggerHTML)
+			case "swagger.yaml":
+				_, _ = w.Write(swaggerYAML)
+			default:
+				_, _ = w.Write(docsHTML)
+			}
 		}))
 	}
 
