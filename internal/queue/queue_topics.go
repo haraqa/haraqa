@@ -17,15 +17,8 @@ func (q *Queue) GetTopicOwner(topic string) (string, error) {
 	return "", nil
 }
 
-func (q *Queue) ListTopics(prefix, suffix, regex string) ([]string, error) {
-	var rgx *regexp.Regexp
+func (q *Queue) ListTopics(regex *regexp.Regexp) ([]string, error) {
 	var err error
-	if regex != "" && regex != ".*" {
-		rgx, err = regexp.Compile(regex)
-		if err != nil {
-			return nil, err
-		}
-	}
 	d, err := os.Open(q.RootDir())
 	if err != nil {
 		return nil, err
@@ -37,13 +30,7 @@ func (q *Queue) ListTopics(prefix, suffix, regex string) ([]string, error) {
 	}
 	var i int
 	for _, name := range names {
-		if prefix != "" && !strings.HasPrefix(name, prefix) {
-			continue
-		}
-		if suffix != "" && !strings.HasSuffix(name, suffix) {
-			continue
-		}
-		if rgx != nil && !rgx.MatchString(name) {
+		if regex != nil && !regex.MatchString(name) {
 			continue
 		}
 		names[i] = name

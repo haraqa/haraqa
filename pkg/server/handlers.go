@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -46,9 +47,23 @@ func (s *Server) HandleGetAllTopics(w http.ResponseWriter, r *http.Request) {
 	if r.Body != nil {
 		_ = r.Body.Close()
 	}
+	var (
+		regexParam = r.URL.Query().Get("regex")
+		regex      *regexp.Regexp
+		err        error
+	)
 
-	query := r.URL.Query()
-	topics, err := s.q.ListTopics(query.Get("prefix"), query.Get("suffix"), query.Get("regex"))
+	// read regex if given
+	if regexParam != "" && regexParam != ".*" {
+		regex, err = regexp.Compile(regexParam)
+		if err != nil {
+			s.logger.Warnf("%s:%s:regex error: %s", r.Method, r.URL.Path, err.Error())
+			headers.SetError(w, err)
+			return
+		}
+	}
+
+	topics, err := s.q.ListTopics(regex)
 	if err != nil {
 		s.logger.Warnf("%s:%s:list error: %s", r.Method, r.URL.Path, err.Error())
 		headers.SetError(w, err)

@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
-	"strings"
 	"testing"
 	"time"
 
@@ -66,7 +66,7 @@ func TestQueue_ListTopics(t *testing.T) {
 		t.Error(err)
 	}
 
-	topics, err := q.ListTopics("topic", "", "")
+	topics, err := q.ListTopics(regexp.MustCompile(`^topic`))
 	if err != nil {
 		t.Error(err)
 	}
@@ -75,7 +75,7 @@ func TestQueue_ListTopics(t *testing.T) {
 		t.Error(topics)
 	}
 
-	topics, err = q.ListTopics("", "a", "")
+	topics, err = q.ListTopics(regexp.MustCompile(`a$`))
 	if err != nil {
 		t.Error(err)
 	}
@@ -84,7 +84,7 @@ func TestQueue_ListTopics(t *testing.T) {
 		t.Error(topics)
 	}
 
-	topics, err = q.ListTopics("", "", "topic.*")
+	topics, err = q.ListTopics(regexp.MustCompile("topic.*"))
 	if err != nil {
 		t.Error(err)
 	}
@@ -93,13 +93,8 @@ func TestQueue_ListTopics(t *testing.T) {
 		t.Error(topics)
 	}
 
-	_, err = q.ListTopics("", "", "*")
-	if !strings.Contains(err.Error(), "error parsing regexp") {
-		t.Error(err)
-	}
-
 	q.dirs[0] = "folder/doesnt/exist"
-	_, err = q.ListTopics("", "", "")
+	_, err = q.ListTopics(nil)
 	if !errors.Is(err, os.ErrNotExist) {
 		t.Error(err)
 	}

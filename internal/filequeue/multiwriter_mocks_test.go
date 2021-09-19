@@ -5,34 +5,35 @@
 package filequeue
 
 import (
-	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
 )
 
-// MockWriteAtCloser is a mock of WriteAtCloser interface
+// MockWriteAtCloser is a mock of WriteAtCloser interface.
 type MockWriteAtCloser struct {
 	ctrl     *gomock.Controller
 	recorder *MockWriteAtCloserMockRecorder
 }
 
-// MockWriteAtCloserMockRecorder is the mock recorder for MockWriteAtCloser
+// MockWriteAtCloserMockRecorder is the mock recorder for MockWriteAtCloser.
 type MockWriteAtCloserMockRecorder struct {
 	mock *MockWriteAtCloser
 }
 
-// NewMockWriteAtCloser creates a new mock instance
+// NewMockWriteAtCloser creates a new mock instance.
 func NewMockWriteAtCloser(ctrl *gomock.Controller) *MockWriteAtCloser {
 	mock := &MockWriteAtCloser{ctrl: ctrl}
 	mock.recorder = &MockWriteAtCloserMockRecorder{mock}
 	return mock
 }
 
-// EXPECT returns an object that allows the caller to indicate expected use
+// EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockWriteAtCloser) EXPECT() *MockWriteAtCloserMockRecorder {
 	return m.recorder
 }
 
-// Close mocks base method
+// Close mocks base method.
 func (m *MockWriteAtCloser) Close() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Close")
@@ -40,13 +41,13 @@ func (m *MockWriteAtCloser) Close() error {
 	return ret0
 }
 
-// Close indicates an expected call of Close
+// Close indicates an expected call of Close.
 func (mr *MockWriteAtCloserMockRecorder) Close() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockWriteAtCloser)(nil).Close))
 }
 
-// WriteAt mocks base method
+// WriteAt mocks base method.
 func (m *MockWriteAtCloser) WriteAt(p []byte, off int64) (int, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WriteAt", p, off)
@@ -55,7 +56,7 @@ func (m *MockWriteAtCloser) WriteAt(p []byte, off int64) (int, error) {
 	return ret0, ret1
 }
 
-// WriteAt indicates an expected call of WriteAt
+// WriteAt indicates an expected call of WriteAt.
 func (mr *MockWriteAtCloserMockRecorder) WriteAt(p, off interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteAt", reflect.TypeOf((*MockWriteAtCloser)(nil).WriteAt), p, off)

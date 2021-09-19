@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	urlpkg "net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -141,11 +142,15 @@ func (c *Client) DeleteTopic(topic string) error {
 }
 
 // ListTopics Lists all topics, filter by prefix, suffix, and/or a regex expression
-func (c *Client) ListTopics(prefix, suffix, regex string) ([]string, error) {
-	prefix = urlpkg.QueryEscape(prefix)
-	suffix = urlpkg.QueryEscape(suffix)
+func (c *Client) ListTopics(regex string) ([]string, error) {
+	// check the regex expression
+	if regex != "" {
+		if _, err := regexp.Compile(regex); err != nil {
+			return nil, err
+		}
+	}
 	regex = urlpkg.QueryEscape(regex)
-	path := c.url + "/topics?prefix=" + prefix + "&suffix=" + suffix + "&regex=" + regex
+	path := c.url + "/topics?regex=" + regex
 	resp, err := http.Get(path)
 	if err != nil {
 		return nil, err

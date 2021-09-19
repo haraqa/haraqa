@@ -97,7 +97,7 @@ func (q *FileQueue) GetTopicOwner(topic string) (string, error) {
 }
 
 // ListTopics returns all of the topic names in the queue
-func (q *FileQueue) ListTopics(prefix, suffix, regex string) ([]string, error) {
+func (q *FileQueue) ListTopics(regex *regexp.Regexp) ([]string, error) {
 	var names []string
 	rootDir := q.rootDirNames[len(q.rootDirNames)-1]
 	err := fs.WalkDir(os.DirFS("."), rootDir, func(path string, d fs.DirEntry, err error) error {
@@ -112,20 +112,8 @@ func (q *FileQueue) ListTopics(prefix, suffix, regex string) ([]string, error) {
 		}
 		path = filepath.ToSlash(strings.TrimPrefix(path, rootDir+string(filepath.Separator)))
 
-		if prefix != "" && !strings.HasPrefix(path, prefix) {
+		if regex != nil && !regex.MatchString(path) {
 			return nil
-		}
-		if suffix != "" && !strings.HasSuffix(path, suffix) {
-			return nil
-		}
-		if regex != "" && regex != ".*" {
-			rx, err := regexp.Compile(regex)
-			if err != nil {
-				return errors.Wrap(err, "invalid regex")
-			}
-			if !rx.MatchString(path) {
-				return nil
-			}
 		}
 		names = append(names, path)
 		return nil

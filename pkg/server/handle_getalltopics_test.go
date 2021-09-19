@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -18,23 +19,23 @@ func TestServer_HandleGetAllTopics(t *testing.T) {
 	topics := []string{"topic_1", "topic_2", "topic_3"}
 	t.Run("happy path",
 		handleGetAllTopics(http.StatusOK, "", nil, topics, "", func(q *MockQueue) {
-			q.EXPECT().ListTopics("", "", "").Return(topics, nil).Times(1)
+			q.EXPECT().ListTopics(nil).Return(topics, nil).Times(1)
 		}))
 	t.Run("happy path - csv",
 		handleGetAllTopics(http.StatusOK, "", nil, topics, "text/csv", func(q *MockQueue) {
-			q.EXPECT().ListTopics("", "", "").Return(topics, nil).Times(1)
+			q.EXPECT().ListTopics(nil).Return(topics, nil).Times(1)
 		}))
 	t.Run("happy path - json",
 		handleGetAllTopics(http.StatusOK, "", nil, topics, "application/json", func(q *MockQueue) {
-			q.EXPECT().ListTopics("", "", "").Return(topics, nil).Times(1)
+			q.EXPECT().ListTopics(nil).Return(topics, nil).Times(1)
 		}))
 	t.Run("no matching topics",
-		handleGetAllTopics(http.StatusOK, "?prefix=p&suffix=s&regex=r", nil, []string{}, "application/json", func(q *MockQueue) {
-			q.EXPECT().ListTopics("p", "s", "r").Return(nil, nil).Times(1)
+		handleGetAllTopics(http.StatusOK, "?regex=^r", nil, []string{}, "application/json", func(q *MockQueue) {
+			q.EXPECT().ListTopics(regexp.MustCompile("^r")).Return(nil, nil).Times(1)
 		}))
 	t.Run("error",
 		handleGetAllTopics(http.StatusServiceUnavailable, "", headers.ErrClosed, topics, "application/json", func(q *MockQueue) {
-			q.EXPECT().ListTopics("", "", "").Return(nil, headers.ErrClosed).Times(1)
+			q.EXPECT().ListTopics(nil).Return(nil, headers.ErrClosed).Times(1)
 		}))
 }
 

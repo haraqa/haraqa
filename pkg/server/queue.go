@@ -3,6 +3,7 @@ package server
 import (
 	"io"
 	"net/http"
+	"regexp"
 
 	"github.com/haraqa/haraqa/internal/headers"
 
@@ -20,7 +21,7 @@ type Queue interface {
 	Close() error
 
 	GetTopicOwner(topic string) (string, error)
-	ListTopics(prefix, suffix, regex string) ([]string, error)
+	ListTopics(regex *regexp.Regexp) ([]string, error)
 	CreateTopic(topic string) error
 	DeleteTopic(topic string) error
 	ModifyTopic(topic string, request headers.ModifyRequest) (*headers.TopicInfo, error)

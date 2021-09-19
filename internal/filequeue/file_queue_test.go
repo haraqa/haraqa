@@ -3,6 +3,7 @@ package filequeue
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -108,7 +109,7 @@ func TestFileQueue_Topics(t *testing.T) {
 
 	// list topics
 	{
-		names, err := q.ListTopics("new", "topic", `[a-z\\]*`)
+		names, err := q.ListTopics(regexp.MustCompile(`[a-z\\]*`))
 		if err != nil {
 			t.Error(err)
 		}
@@ -116,21 +117,9 @@ func TestFileQueue_Topics(t *testing.T) {
 			t.Error(names)
 		}
 
-		names, err = q.ListTopics("invalid", "", "")
+		names, err = q.ListTopics(regexp.MustCompile("[0-9]"))
 		if err != nil || len(names) != 0 {
 			t.Error(err, names)
-		}
-		names, err = q.ListTopics("", "invalid", "")
-		if err != nil || len(names) != 0 {
-			t.Error(err, names)
-		}
-		names, err = q.ListTopics("", "", "[0-9]")
-		if err != nil || len(names) != 0 {
-			t.Error(err, names)
-		}
-		names, err = q.ListTopics("", "", "[")
-		if err == nil || err.Error() != "invalid regex: error parsing regexp: missing closing ]: `[`" {
-			t.Errorf("%q:%+v", err, names)
 		}
 	}
 
@@ -148,7 +137,7 @@ func TestFileQueue_Topics(t *testing.T) {
 
 	// list topics
 	{
-		names, err := q.ListTopics("", "", "")
+		names, err := q.ListTopics(nil)
 		if err != nil {
 			t.Error(err)
 		}

@@ -78,7 +78,11 @@ func TestServer_HandleWatchTopic(t *testing.T) {
 			return
 		}
 		defer f.Close()
-		f.Write([]byte("hello_there"))
+		_, err = f.Write([]byte("hello_there"))
+		if err != nil {
+			t.Error(err)
+			return
+		}
 		time.Sleep(s.wsPingInterval * 2)
 
 		msgType, data, err := conn.ReadMessage()
