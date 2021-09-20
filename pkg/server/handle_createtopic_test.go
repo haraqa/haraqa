@@ -37,7 +37,6 @@ func handleCreateTopic(status int, errExpected error, topic string, expect func(
 
 		// setup mock queue
 		q := NewMockQueue(ctrl)
-		q.EXPECT().RootDir().Times(1).Return("")
 		q.EXPECT().Close().Return(nil).Times(1)
 		if expect != nil {
 			expect(q)

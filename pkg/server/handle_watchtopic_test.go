@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -31,24 +32,27 @@ func TestServer_HandleWatchTopic(t *testing.T) {
 	os.MkdirAll(dir+string(filepath.Separator)+topic, os.ModePerm)
 	defer os.RemoveAll(dir)
 
-	s, err := NewServer(WithQueue(mockQ))
+	s, err := NewServer(WithQueue(mockQ), WithLogger(TestLogger{t}))
 	if err != nil {
 		t.Error(err)
 	}
 	s.wsPingInterval = time.Millisecond * 100
 	defer s.Close()
 
-	server := httptest.NewServer(s.route(nil))
+	server := httptest.NewServer(s.route())
 	server.EnableHTTP2 = true
 	defer server.Close()
 
 	t.Run("missing topics", handleWatchTopicErrors(http.StatusBadRequest, server.URL+"/ws/topics", headers.ErrInvalidTopic))
-	t.Run("invalid topic", handleWatchTopicErrors(http.StatusPreconditionFailed, server.URL+"/ws/topics/invalid_topic", headers.ErrTopicDoesNotExist))
 	t.Run("invalid websocket", handleWatchTopicErrors(http.StatusBadRequest, server.URL+"/ws/topics/"+topic, headers.ErrInvalidWebsocket))
 
 	// valid websocket
 	{
 		url := strings.Replace(server.URL, "http", "ws", 1) + "/ws/topics/" + topic
+		written := make(chan string, 1)
+		deleted := make(chan string, 1)
+		mockQ.EXPECT().WatchTopics(gomock.Any()).AnyTimes().Return(written, deleted, io.NopCloser(nil), nil)
+
 		conn, resp, err := websocket.DefaultDialer.Dial(url, map[string][]string{
 			headers.HeaderWatchTopics: {topic, topic, topic},
 		})
@@ -72,17 +76,7 @@ func TestServer_HandleWatchTopic(t *testing.T) {
 			return
 		}
 
-		f, err := os.Create(dir + string(filepath.Separator) + topic + string(filepath.Separator) + "00000")
-		if err != nil {
-			t.Error(err)
-			return
-		}
-		defer f.Close()
-		_, err = f.Write([]byte("hello_there"))
-		if err != nil {
-			t.Error(err)
-			return
-		}
+		written <- topic
 		time.Sleep(s.wsPingInterval * 2)
 
 		msgType, data, err := conn.ReadMessage()
@@ -94,7 +88,7 @@ func TestServer_HandleWatchTopic(t *testing.T) {
 			t.Error(msgType)
 		}
 		if !bytes.Equal(data, []byte(topic)) {
-			t.Error(string(data))
+			t.Error(string(data), topic)
 		}
 		conn.Close()
 	}
@@ -107,7 +101,7 @@ func handleWatchTopicErrors(status int, url string, expectedError error) func(*t
 			t.Error(err)
 		}
 		if resp.StatusCode != status {
-			t.Error(resp.StatusCode)
+			t.Error(resp.StatusCode, status)
 		}
 		err = headers.ReadErrors(resp.Header)
 		if err != expectedError {

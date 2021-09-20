@@ -31,7 +31,6 @@ func TestNewServer(t *testing.T) {
 	{
 		q := NewMockQueue(ctrl)
 		gomock.InOrder(
-			q.EXPECT().RootDir().Return("./.haraqa").Times(1),
 			q.EXPECT().Close().Times(1),
 		)
 		s, err := NewServer(WithQueue(q))
@@ -52,10 +51,8 @@ func TestNewServer(t *testing.T) {
 	// with middleware
 	{
 		q := NewMockQueue(ctrl)
-		gomock.InOrder(
-			q.EXPECT().RootDir().Return("./.haraqa").Times(1),
-			q.EXPECT().Close().Times(1),
-		)
+		q.EXPECT().Close().Times(1)
+
 		mw := func(next http.Handler) http.Handler {
 			return next
 		}
@@ -74,21 +71,11 @@ func TestServer_route(t *testing.T) {
 	s := &Server{
 		logger: noopLogger{},
 	}
-	handler := s.route(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusPartialContent)
-	}))
-
-	// raw endpoint
-	w := httptest.NewRecorder()
-	r, _ := http.NewRequest(http.MethodGet, "/raw/", nil)
-	handler.ServeHTTP(w, r)
-	if w.Code != http.StatusPartialContent {
-		t.Fatal(w.Code)
-	}
+	handler := s.route()
 
 	// 404
-	w = httptest.NewRecorder()
-	r, _ = http.NewRequest(http.MethodGet, "/invalid", nil)
+	w := httptest.NewRecorder()
+	r, _ := http.NewRequest(http.MethodGet, "/invalid", nil)
 	handler.ServeHTTP(w, r)
 	if w.Code != http.StatusNotFound {
 		t.Fatal(w.Code)

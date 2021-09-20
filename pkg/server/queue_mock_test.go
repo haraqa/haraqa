@@ -166,3 +166,20 @@ func (mr *MockQueueMockRecorder) RootDir() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RootDir", reflect.TypeOf((*MockQueue)(nil).RootDir))
 }
+
+// WatchTopics mocks base method.
+func (m *MockQueue) WatchTopics(topics []string) (chan string, chan string, io.Closer, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchTopics", topics)
+	ret0, _ := ret[0].(chan string)
+	ret1, _ := ret[1].(chan string)
+	ret2, _ := ret[2].(io.Closer)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
+}
+
+// WatchTopics indicates an expected call of WatchTopics.
+func (mr *MockQueueMockRecorder) WatchTopics(topics interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchTopics", reflect.TypeOf((*MockQueue)(nil).WatchTopics), topics)
+}

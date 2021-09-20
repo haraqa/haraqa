@@ -40,7 +40,6 @@ func handleProduce(status int, errExpected error, topic string, sizes []string, 
 
 		// setup queue
 		q := NewMockQueue(ctrl)
-		q.EXPECT().RootDir().Times(1).Return("")
 		q.EXPECT().Close().Times(1).Return(nil)
 		if expect != nil {
 			expect(q)

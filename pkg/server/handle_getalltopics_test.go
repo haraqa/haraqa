@@ -46,7 +46,6 @@ func handleGetAllTopics(status int, query string, errExpected error, topics []st
 
 		// setup mock queue
 		q := NewMockQueue(ctrl)
-		q.EXPECT().RootDir().Times(1).Return("")
 		q.EXPECT().Close().Return(nil).Times(1)
 		if expect != nil {
 			expect(q)

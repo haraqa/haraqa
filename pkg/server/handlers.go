@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fsnotify/fsnotify"
 	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
 
@@ -335,10 +334,14 @@ func (s *Server) HandleWatchTopics(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// get topic from url & header
-	topics, err := getWatchTopics(r)
+	topicList, topics, err := getWatchTopics(r)
 	if err != nil {
 		s.logger.Warnf("%s:%s:topic error: %s", r.Method, r.URL.Path, err.Error())
 		headers.SetError(w, err)
+		return
+	}
+	if len(topics) == 0 {
+		headers.SetError(w, headers.ErrInvalidTopic)
 		return
 	}
 
@@ -366,35 +369,26 @@ func (s *Server) HandleWatchTopics(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// setup watcher
-	watcher, err := fsnotify.NewWatcher()
+	// upgrade request to websocket connection
+	conn, err := s.wsUpgrader.Upgrade(w, r, r.Header)
 	if err != nil {
-		s.logger.Warnf("%s:%s:new watcher: %s", r.Method, r.URL.Path, err.Error())
+		s.logger.Warnf("%s:%s:websocket upgrade: %s", r.Method, r.URL.Path, err.Error())
 		headers.SetError(w, err)
 		return
 	}
-	defer watcher.Close()
-	rootDir := s.q.RootDir()
-	for topic := range topics {
-		err = watcher.Add(rootDir + string(filepath.Separator) + topic)
-		if err != nil {
-			s.logger.Warnf("%s:%s:watcher add: %s", r.Method, r.URL.Path, err.Error())
-			if os.IsNotExist(err) {
-				err = headers.ErrTopicDoesNotExist
-			}
+	defer conn.Close()
 
-			headers.SetError(w, err)
-			return
-		}
-	}
-
-	// upgrade request to websocket connection
-	conn, err := s.wsUpgrader.Upgrade(w, r, nil)
+	// setup watcher
+	written, deleted, closer, err := s.q.WatchTopics(topicList)
 	if err != nil {
-		s.logger.Warnf("%s:%s:websocket upgrade: %s", r.Method, r.URL.Path, err.Error())
+		s.logger.Warnf("%s:%s:watcher error: %s", r.Method, r.URL.Path, err.Error())
+		if os.IsNotExist(err) {
+			err = headers.ErrTopicDoesNotExist
+		}
+		headers.SetError(w, err)
 		return
 	}
-	defer conn.Close()
+	defer closer.Close()
 
 	// add ping/pong handler timers
 	pingT := time.NewTicker(s.wsPingInterval)
@@ -424,22 +418,16 @@ func (s *Server) HandleWatchTopics(w http.ResponseWriter, r *http.Request) {
 	// loop waiting for an event or timeout
 	for {
 		select {
-		case event := <-watcher.Events:
-			if event.Op == fsnotify.Write && !strings.HasSuffix(event.Name, ".log") {
-				topic := strings.TrimPrefix(filepath.Dir(event.Name), rootDir+string(filepath.Separator))
-				err = conn.WriteMessage(websocket.TextMessage, []byte(topic))
-				err = errors.Wrap(err, "cannot write topic")
-			} else if event.Op == fsnotify.Remove {
-				topic := strings.TrimPrefix(filepath.Dir(event.Name), rootDir+string(filepath.Separator))
-				err = watcher.Remove(filepath.Dir(event.Name))
-				err = errors.Wrap(err, "cannot remove watcher item")
-				delete(topics, topic)
-				if len(topics) == 0 {
-					s.logger.Warnf("%s:%s:deleted all topics: %s", r.Method, r.URL.Path, "all topics removed, closing ws connection")
-					msg := websocket.FormatCloseMessage(websocket.CloseGoingAway, headers.ErrTopicDoesNotExist.Error())
-					_ = conn.WriteControl(websocket.CloseGoingAway, msg, time.Now().Add(s.wsPingInterval))
-					return
-				}
+		case topic := <-written:
+			err = conn.WriteMessage(websocket.TextMessage, []byte(topic))
+			err = errors.Wrap(err, "cannot write topic")
+		case topic := <-deleted:
+			delete(topics, topic)
+			if len(topics) == 0 {
+				s.logger.Warnf("%s:%s:deleted all topics: %s", r.Method, r.URL.Path, "all topics removed, closing ws connection")
+				msg := websocket.FormatCloseMessage(websocket.CloseGoingAway, headers.ErrTopicDoesNotExist.Error())
+				_ = conn.WriteControl(websocket.CloseGoingAway, msg, time.Now().Add(s.wsPingInterval))
+				return
 			}
 		case <-pingT.C:
 			err = conn.WriteMessage(websocket.PingMessage, []byte{})
@@ -474,9 +462,10 @@ func getTopic(r *http.Request) (string, error) {
 	return topic, nil
 }
 
-func getWatchTopics(r *http.Request) (map[string]bool, error) {
+func getWatchTopics(r *http.Request) ([]string, map[string]bool, error) {
+	list := r.Header.Values(headers.HeaderWatchTopics)
 	topics := make(map[string]bool)
-	for _, topic := range r.Header.Values(headers.HeaderWatchTopics) {
+	for _, topic := range list {
 		topics[strings.ToLower(filepath.Clean(topic))] = true
 	}
 	topic, err := getTopic(r)
@@ -484,9 +473,9 @@ func getWatchTopics(r *http.Request) (map[string]bool, error) {
 		topics[topic] = true
 	}
 	if len(topics) == 0 {
-		return nil, headers.ErrInvalidTopic
+		return list, nil, headers.ErrInvalidTopic
 	}
-	return topics, nil
+	return list, topics, nil
 }
 
 func readNoopWebsocket(conn *websocket.Conn, ch chan error) {

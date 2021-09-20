@@ -17,7 +17,6 @@ var _ Queue = &filequeue.FileQueue{}
 
 // Queue is the interface used by the server to produce and consume messages from different distinct categories called topics
 type Queue interface {
-	RootDir() string
 	Close() error
 
 	GetTopicOwner(topic string) (string, error)
@@ -25,6 +24,7 @@ type Queue interface {
 	CreateTopic(topic string) error
 	DeleteTopic(topic string) error
 	ModifyTopic(topic string, request headers.ModifyRequest) (*headers.TopicInfo, error)
+	WatchTopics(topics []string) (written, deleted chan string, closer io.Closer, err error)
 
 	Produce(topic string, msgSizes []int64, timestamp uint64, r io.Reader) error
 	Consume(group, topic string, id int64, limit int64, w http.ResponseWriter) (int, error)

@@ -65,7 +65,6 @@ func handleConsume(group string, status int, errExpected error, url string, expe
 
 		// setup queue
 		q := NewMockQueue(ctrl)
-		q.EXPECT().RootDir().AnyTimes().Return("")
 		q.EXPECT().Close().Times(1).Return(nil)
 		cm := NewMockConsumerManager(ctrl)
 		if expect != nil {

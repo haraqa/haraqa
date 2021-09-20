@@ -16,7 +16,6 @@ func TestServer_HandleOptions(t *testing.T) {
 
 	q := NewMockQueue(ctrl)
 	gomock.InOrder(
-		q.EXPECT().RootDir().Times(1).Return(""),
 		q.EXPECT().Close().Return(nil).Times(1),
 	)
 	s, err := NewServer(WithQueue(q))

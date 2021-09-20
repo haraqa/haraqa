@@ -19,7 +19,6 @@ func TestServer_HandleDeleteTopic(t *testing.T) {
 	topic := "deleted_topic"
 	q := NewMockQueue(ctrl)
 	gomock.InOrder(
-		q.EXPECT().RootDir().Times(1).Return(""),
 		q.EXPECT().GetTopicOwner(topic).Return("", nil),
 		q.EXPECT().DeleteTopic(topic).Return(nil).Times(1),
 		q.EXPECT().GetTopicOwner(topic).Return("", nil),

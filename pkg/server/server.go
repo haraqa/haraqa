@@ -179,8 +179,7 @@ func NewServer(options ...Option) (*Server, error) {
 		s.consumerManager = memconsumer.New()
 	}
 
-	rawHandler := http.StripPrefix("/raw/", http.FileServer(http.Dir(s.q.RootDir())))
-	s.handler = s.route(rawHandler)
+	s.handler = s.route()
 
 	// iterate over middlewares in reverse order
 	for j := len(s.middlewares) - 1; j >= 0; j-- {
@@ -194,7 +193,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.handler.ServeHTTP(w, r)
 }
 
-func (s *Server) route(raw http.Handler) http.HandlerFunc {
+func (s *Server) route() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if s.waitGroup != nil {
 			s.waitGroup.Add(1)
@@ -222,8 +221,6 @@ func (s *Server) route(raw http.Handler) http.HandlerFunc {
 			default:
 				s.logger.Warnf("%s:%s:%s", r.Method, r.URL.Path, "invalid method")
 			}
-		case strings.HasPrefix(r.URL.Path, "/raw"):
-			raw.ServeHTTP(w, r)
 		case strings.HasPrefix(r.URL.Path, "/ws/topics"):
 			s.HandleWatchTopics(w, r)
 		default:
