@@ -204,7 +204,7 @@ func TestClient_ListTopics(t *testing.T) {
 		if r.Method != http.MethodGet {
 			t.Error("invalid method")
 		}
-		if r.URL.String() != "/topics?prefix=p&suffix=s&regex=r" {
+		if r.URL.String() != "/topics?regex=r" {
 			t.Errorf("invalid url path %q", r.URL.String())
 		}
 		switch count {
