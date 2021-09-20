@@ -8,7 +8,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -278,21 +277,6 @@ func (s *Server) HandleConsume(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	group := getFirst(r.Header, headers.HeaderConsumerGroup)
-	if group != "" {
-		tmp, _ := s.consumerGroupLock.LoadOrStore(group+"/"+topic, &sync.Mutex{})
-		if lock, ok := tmp.(*sync.Mutex); ok {
-			lock.Lock()
-			defer lock.Unlock()
-		}
-	}
-	id, err := strconv.ParseInt(getFirst(r.Header, headers.HeaderID), 10, 64)
-	if err != nil {
-		s.logger.Warnf("%s:%s:parse id: %s", r.Method, r.URL.Path, err.Error())
-		headers.SetError(w, headers.ErrInvalidMessageID)
-		return
-	}
-
 	limit := s.defaultConsumeLimit
 	queryLimit := getFirst(r.Header, headers.HeaderLimit)
 	if queryLimit != "" && queryLimit[0] != '-' {
@@ -306,6 +290,22 @@ func (s *Server) HandleConsume(w http.ResponseWriter, r *http.Request) {
 			limit = s.defaultConsumeLimit
 		}
 	}
+
+	group := getFirst(r.Header, headers.HeaderConsumerGroup)
+	reqID, err := strconv.ParseInt(getFirst(r.Header, headers.HeaderID), 10, 64)
+	if err != nil {
+		s.logger.Warnf("%s:%s:parse id: %s", r.Method, r.URL.Path, err.Error())
+		headers.SetError(w, headers.ErrInvalidMessageID)
+		return
+	}
+
+	id, unlock, err := s.consumerManager.GetOffset(group, topic, reqID)
+	if err != nil {
+		s.logger.Warnf("%s:%s:consumer lock: %s", r.Method, r.URL.Path, err.Error())
+		headers.SetError(w, headers.ErrConsumerLockFailed)
+		return
+	}
+	defer unlock()
 
 	count, err := s.q.Consume(group, topic, id, limit, w)
 	if err != nil {

@@ -165,11 +165,3 @@ func (q *Queue) getGroupOffsetID(group, topic string, id int64) int64 {
 
 	return id
 }
-
-func (q *Queue) SetConsumerOffset(group, topic string, id int64) error {
-	// TODO: set consumer offset
-	if q.groupCache != nil {
-		q.groupCache.Store(group+":"+topic, id)
-	}
-	return nil
-}

@@ -7,15 +7,26 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/pkg/errors"
-
 	"github.com/haraqa/haraqa/internal/filequeue"
 	"github.com/haraqa/haraqa/internal/headers"
+	"github.com/haraqa/haraqa/internal/memconsumer"
 	"github.com/haraqa/haraqa/internal/queue"
+	"github.com/pkg/errors"
 )
 
 // Option represents a optional function argument to NewServer
 type Option func(*Server) error
+
+// WithConsumerManager overrides the default consumer manager
+func WithConsumerManager(consumerManager ConsumerManager) Option {
+	return func(s *Server) error {
+		if consumerManager == nil {
+			return errors.New("consumerManager cannot be nil")
+		}
+		s.consumerManager = consumerManager
+		return nil
+	}
+}
 
 // WithQueue overrides the default file queue
 func WithQueue(q Queue) Option {
@@ -128,6 +139,7 @@ type Server struct {
 	defaultConsumeLimit int64
 	consumerGroupLock   *sync.Map
 	q                   Queue
+	consumerManager     ConsumerManager
 	closed              chan struct{}
 	waitGroup           *sync.WaitGroup
 	wsPingInterval      time.Duration
@@ -162,6 +174,9 @@ func NewServer(options ...Option) (*Server, error) {
 		if err := option(s); err != nil {
 			return nil, errors.Wrap(err, "invalid option")
 		}
+	}
+	if s.consumerManager == nil {
+		s.consumerManager = memconsumer.New()
 	}
 
 	rawHandler := http.StripPrefix("/raw/", http.FileServer(http.Dir(s.q.RootDir())))

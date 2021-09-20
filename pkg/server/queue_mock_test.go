@@ -166,17 +166,3 @@ func (mr *MockQueueMockRecorder) RootDir() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RootDir", reflect.TypeOf((*MockQueue)(nil).RootDir))
 }
-
-// SetConsumerOffset mocks base method.
-func (m *MockQueue) SetConsumerOffset(group, topic string, id int64) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetConsumerOffset", group, topic, id)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetConsumerOffset indicates an expected call of SetConsumerOffset.
-func (mr *MockQueueMockRecorder) SetConsumerOffset(group, topic, id interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetConsumerOffset", reflect.TypeOf((*MockQueue)(nil).SetConsumerOffset), group, topic, id)
-}

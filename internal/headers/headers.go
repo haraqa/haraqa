@@ -32,6 +32,7 @@ const (
 	errTopicAlreadyExists  = "topic already exists"
 	errInvalidHeaderSizes  = "invalid header: " + HeaderSizes
 	errInvalidMessageID    = "invalid message id"
+	errConsumerLockFailed  = "unable to get consumer offset"
 	errInvalidMessageLimit = "invalid message limit"
 	errInvalidTopic        = "invalid topic"
 	errInvalidBodyMissing  = "invalid body: body cannot be empty"
@@ -47,6 +48,7 @@ var (
 	ErrTopicDoesNotExist   = errors.New(errTopicDoesNotExist)
 	ErrTopicAlreadyExists  = errors.New(errTopicAlreadyExists)
 	ErrInvalidHeaderSizes  = errors.New(errInvalidHeaderSizes)
+	ErrConsumerLockFailed  = errors.New(errConsumerLockFailed)
 	ErrInvalidMessageID    = errors.New(errInvalidMessageID)
 	ErrInvalidMessageLimit = errors.New(errInvalidMessageLimit)
 	ErrInvalidTopic        = errors.New(errInvalidTopic)
@@ -63,6 +65,7 @@ var errMap = map[string]error{
 	errTopicAlreadyExists:  ErrTopicAlreadyExists,
 	errInvalidHeaderSizes:  ErrInvalidHeaderSizes,
 	errInvalidMessageID:    ErrInvalidMessageID,
+	errConsumerLockFailed:  ErrConsumerLockFailed,
 	errInvalidMessageLimit: ErrInvalidMessageLimit,
 	errInvalidTopic:        ErrInvalidTopic,
 	errInvalidBodyMissing:  ErrInvalidBodyMissing,
