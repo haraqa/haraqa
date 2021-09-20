@@ -1,4 +1,5 @@
-//+build linux
+//go:build linux
+// +build linux
 
 package haraqa
 
@@ -114,7 +115,7 @@ func TestClient_InvalidRequests(t *testing.T) {
 		if err == nil {
 			t.Error(err)
 		}
-		_, err = c.ListTopics("", "", "")
+		_, err = c.ListTopics("")
 		if err == nil {
 			t.Error(err)
 		}
@@ -221,11 +222,11 @@ func TestClient_ListTopics(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	_, err = c.ListTopics("p", "s", "r")
+	_, err = c.ListTopics("r")
 	if err != nil {
 		t.Error(err)
 	}
-	_, err = c.ListTopics("p", "s", "r")
+	_, err = c.ListTopics("r")
 	if !errors.Is(err, headers.ErrTopicDoesNotExist) {
 		t.Error(err)
 	}
