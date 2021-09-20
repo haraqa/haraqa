@@ -19,12 +19,16 @@ jobs:
     - name: Get dependencies
       run: |
         go mod download
-        go get github.com/mattn/goveralls && go mod tidy
+        go install github.com/mattn/goveralls@latest && go mod tidy
 
     - name: Test
       run: |
         go test -mod=readonly -race -timeout 30s -covermode=atomic -coverprofile=cover.out -tags skip_docker ./...
-        $(go env GOPATH)/bin/goveralls -coverprofile=cover.out -service=github-actions -repotoken ${{ secrets.COVERALLS_TOKEN }}
+  
+    - name: Send coverage
+      env:
+        COVERALLS_TOKEN: ${{ secrets.COVERALLS_TOKEN }}
+      run: goveralls -coverprofile=cover.out -service=github-actions
 
     - name: Benchmark
       run: mkdir -p profiles && go test -bench=. -benchtime=1000x -run=XXX -trace profiles/trace.out -cpuprofile profiles/cpu.out -memprofile profiles/mem.out ./internal/benchmarks
