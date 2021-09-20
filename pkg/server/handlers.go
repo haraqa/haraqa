@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"html/template"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -71,22 +72,37 @@ func (s *Server) HandleGetAllTopics(w http.ResponseWriter, r *http.Request) {
 		topics = []string{}
 	}
 
-	var response []byte
-	switch r.Header.Get("Accept") {
-	case "application/json":
+	accept := strings.Split(r.Header.Get(headers.Accept), ",")[0]
+	switch {
+	case strings.EqualFold(accept, "application/json"):
 		w.Header()[headers.ContentType] = []string{"application/json"}
-		response, _ = json.Marshal(map[string][]string{
+		response, _ := json.Marshal(map[string][]string{
 			"topics": topics,
 		})
+		_, err = w.Write(response)
+	case strings.EqualFold(accept, "text/html"):
+		w.Header()[headers.ContentType] = []string{"text/html"}
+		err = template.Must(tmpl.Clone()).Execute(w, topics)
 	default:
 		w.Header()[headers.ContentType] = []string{"text/csv"}
-		response = []byte(strings.Join(topics, ","))
+		response := []byte(strings.Join(topics, ","))
+		_, err = w.Write(response)
 	}
-	_, err = w.Write(response)
 	if err != nil {
 		s.logger.Warnf("%s:%s:write error: %s", r.Method, r.URL.Path, err.Error())
 	}
 }
+
+var tmpl = template.Must(template.New("topics").Parse(`<html>
+<head></head>
+<body>
+<pre>
+{{range $val := . }}
+<a href="/topics/{{$val}}?id=0&limit=100">{{$val}}</a>
+{{end}}
+</pre>
+</body>
+</html>`))
 
 // HandleCreateTopic handles requests to the /topics/... endpoints with method == PUT.
 // It will create a topic if the topic does not exist.
@@ -291,7 +307,11 @@ func (s *Server) HandleConsume(w http.ResponseWriter, r *http.Request) {
 	}
 
 	group := getFirst(r.Header, headers.HeaderConsumerGroup)
-	reqID, err := strconv.ParseInt(getFirst(r.Header, headers.HeaderID), 10, 64)
+	paramID := getFirst(r.Header, headers.HeaderID)
+	if paramID == "" {
+		paramID = r.URL.Query().Get("id")
+	}
+	reqID, err := strconv.ParseInt(paramID, 10, 64)
 	if err != nil {
 		s.logger.Warnf("%s:%s:parse id: %s", r.Method, r.URL.Path, err.Error())
 		headers.SetError(w, headers.ErrInvalidMessageID)
@@ -305,6 +325,14 @@ func (s *Server) HandleConsume(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer unlock()
+
+	accept := strings.Split(r.Header.Get(headers.Accept), ",")[0]
+	switch {
+	case strings.EqualFold(accept, "text/html") || strings.EqualFold(accept, "text/plain"):
+		w.Header()[headers.ContentType] = []string{"text/plain"}
+	default:
+		w.Header()[headers.ContentType] = []string{"application/octet-stream"}
+	}
 
 	count, err := s.q.Consume(group, topic, id, limit, w)
 	if err != nil {

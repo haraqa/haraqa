@@ -23,6 +23,7 @@ const (
 	HeaderConsumerGroup = "X-Consumer-Group"
 	HeaderID            = "X-Id"
 	HeaderLimit         = "X-Limit"
+	Accept              = "Accept"
 	ContentType         = "Content-Type"
 	LastModified        = "Last-Modified"
 )

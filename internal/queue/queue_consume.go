@@ -48,7 +48,6 @@ func (q *Queue) Consume(group, topic string, id int64, limit int64, w http.Respo
 
 	wHeader := w.Header()
 	wHeader[headers.HeaderFileName] = []string{topic + "/" + filename}
-	wHeader[headers.ContentType] = []string{"application/octet-stream"}
 	headers.SetSizes(meta.sizes, wHeader)
 
 	// TODO: evaluate if we need timestamps in response message
@@ -77,8 +76,6 @@ func (q *Queue) Consume(group, topic string, id int64, limit int64, w http.Respo
 	if _, err = io.CopyN(w, rs, meta.endAt-meta.startAt); err != nil {
 		return 0, err
 	}
-
-	//http.ServeContent(w, req, path, meta.endTime, f)
 	return len(meta.sizes), nil
 }
 

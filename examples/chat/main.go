@@ -93,7 +93,6 @@ func (u *User) Listen(topic string) {
 	}
 
 	ch := make(chan string, 1)
-	ch <- topic
 
 	go func() {
 		defer close(ch)
