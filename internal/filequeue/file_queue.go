@@ -91,11 +91,6 @@ func (q *FileQueue) RootDir() string {
 	return q.rootDirNames[len(q.rootDirNames)-1]
 }
 
-// GetTopicOwner returns the address of the server with claim to the topic
-func (q *FileQueue) GetTopicOwner(topic string) (string, error) {
-	return "", nil
-}
-
 // ListTopics returns all of the topic names in the queue
 func (q *FileQueue) ListTopics(regex *regexp.Regexp) ([]string, error) {
 	var names []string

@@ -24,9 +24,9 @@ func TestServer_HandleWatchTopic(t *testing.T) {
 	dir := ".haraqa-watch"
 	topic := "helloworld"
 	mockQ := NewMockQueue(ctrl)
-	mockQ.EXPECT().RootDir().Return(dir).AnyTimes()
+	dist := NewMockDistributor(ctrl)
 	mockQ.EXPECT().Close().Return(nil)
-	mockQ.EXPECT().GetTopicOwner(gomock.Any()).Return("", nil).AnyTimes()
+	dist.EXPECT().GetTopicOwner(gomock.Any()).Return("", nil).AnyTimes()
 
 	os.RemoveAll(dir)
 	os.MkdirAll(dir+string(filepath.Separator)+topic, os.ModePerm)

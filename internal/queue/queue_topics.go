@@ -13,10 +13,6 @@ import (
 	"github.com/haraqa/haraqa/internal/headers"
 )
 
-func (q *Queue) GetTopicOwner(topic string) (string, error) {
-	return "", nil
-}
-
 func (q *Queue) ListTopics(regex *regexp.Regexp) ([]string, error) {
 	var err error
 	d, err := os.Open(q.RootDir())

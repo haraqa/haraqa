@@ -41,12 +41,13 @@ func handleProduce(status int, errExpected error, topic string, sizes []string, 
 		// setup queue
 		q := NewMockQueue(ctrl)
 		q.EXPECT().Close().Times(1).Return(nil)
+		dist := NewMockDistributor(ctrl)
 		if expect != nil {
 			expect(q)
 		}
 
 		// setup server
-		s, err := NewServer(WithQueue(q))
+		s, err := NewServer(WithQueue(q), WithDistributor(dist))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -66,7 +67,7 @@ func handleProduce(status int, errExpected error, topic string, sizes []string, 
 		if err != nil {
 			s.HandleProduce(w, r)
 		} else {
-			q.EXPECT().GetTopicOwner(topic).Return("", nil)
+			dist.EXPECT().GetTopicOwner(topic).Return("", nil)
 			s.ServeHTTP(w, r)
 		}
 

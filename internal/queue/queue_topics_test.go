@@ -100,16 +100,6 @@ func TestQueue_ListTopics(t *testing.T) {
 	}
 }
 
-func TestQueue_GetTopicOwner(t *testing.T) {
-	owner, err := (&Queue{}).GetTopicOwner("topic")
-	if err != nil {
-		t.Error(err)
-	}
-	if owner != "" {
-		t.Error(owner)
-	}
-}
-
 func TestQueue_DeleteTopic(t *testing.T) {
 	dirName, err := os.MkdirTemp("", ".haraqa*")
 	if err != nil {

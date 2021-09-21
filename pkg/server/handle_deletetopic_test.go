@@ -18,16 +18,17 @@ func TestServer_HandleDeleteTopic(t *testing.T) {
 
 	topic := "deleted_topic"
 	q := NewMockQueue(ctrl)
+	dist := NewMockDistributor(ctrl)
 	gomock.InOrder(
-		q.EXPECT().GetTopicOwner(topic).Return("", nil),
+		dist.EXPECT().GetTopicOwner(topic).Return("", nil),
 		q.EXPECT().DeleteTopic(topic).Return(nil).Times(1),
-		q.EXPECT().GetTopicOwner(topic).Return("", nil),
+		dist.EXPECT().GetTopicOwner(topic).Return("", nil),
 		q.EXPECT().DeleteTopic(topic).Return(headers.ErrTopicDoesNotExist).Times(1),
-		q.EXPECT().GetTopicOwner(topic).Return("", nil),
+		dist.EXPECT().GetTopicOwner(topic).Return("", nil),
 		q.EXPECT().DeleteTopic(topic).Return(errors.New("test delete error")).Times(1),
 		q.EXPECT().Close().Return(nil).Times(1),
 	)
-	s, err := NewServer(WithQueue(q))
+	s, err := NewServer(WithQueue(q), WithDistributor(dist))
 	if err != nil {
 		t.Fatal(err)
 	}

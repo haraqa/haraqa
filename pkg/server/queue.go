@@ -19,7 +19,6 @@ var _ Queue = &filequeue.FileQueue{}
 type Queue interface {
 	Close() error
 
-	GetTopicOwner(topic string) (string, error)
 	ListTopics(regex *regexp.Regexp) ([]string, error)
 	CreateTopic(topic string) error
 	DeleteTopic(topic string) error

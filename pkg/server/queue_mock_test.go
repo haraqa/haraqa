@@ -94,21 +94,6 @@ func (mr *MockQueueMockRecorder) DeleteTopic(topic interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteTopic", reflect.TypeOf((*MockQueue)(nil).DeleteTopic), topic)
 }
 
-// GetTopicOwner mocks base method.
-func (m *MockQueue) GetTopicOwner(topic string) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetTopicOwner", topic)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetTopicOwner indicates an expected call of GetTopicOwner.
-func (mr *MockQueueMockRecorder) GetTopicOwner(topic interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTopicOwner", reflect.TypeOf((*MockQueue)(nil).GetTopicOwner), topic)
-}
-
 // ListTopics mocks base method.
 func (m *MockQueue) ListTopics(regex *regexp.Regexp) ([]string, error) {
 	m.ctrl.T.Helper()
@@ -151,20 +136,6 @@ func (m *MockQueue) Produce(topic string, msgSizes []int64, timestamp uint64, r 
 func (mr *MockQueueMockRecorder) Produce(topic, msgSizes, timestamp, r interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Produce", reflect.TypeOf((*MockQueue)(nil).Produce), topic, msgSizes, timestamp, r)
-}
-
-// RootDir mocks base method.
-func (m *MockQueue) RootDir() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RootDir")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// RootDir indicates an expected call of RootDir.
-func (mr *MockQueueMockRecorder) RootDir() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RootDir", reflect.TypeOf((*MockQueue)(nil).RootDir))
 }
 
 // WatchTopics mocks base method.

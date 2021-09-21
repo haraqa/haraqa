@@ -27,21 +27,21 @@ func TestServer_HandleModifyTopic(t *testing.T) {
 	t.Run("empty json",
 		handleModifyTopic(http.StatusNoContent, nil, topic, info, bytes.NewBuffer([]byte("{}")), nil))
 	t.Run("happy path",
-		handleModifyTopic(http.StatusOK, nil, topic, info, bytes.NewBuffer([]byte(`{"truncate":123}`)), func(q *MockQueue) {
+		handleModifyTopic(http.StatusOK, nil, topic, info, bytes.NewBuffer([]byte(`{"truncate":123}`)), func(q *MockQueue, dist *MockDistributor) {
 			q.EXPECT().ModifyTopic(topic, gomock.Any()).Return(&headers.TopicInfo{MinOffset: 123, MaxOffset: 456}, nil).Times(1)
 		}))
 	t.Run("topic doesn't exist",
-		handleModifyTopic(http.StatusPreconditionFailed, headers.ErrTopicDoesNotExist, topic, info, bytes.NewBuffer([]byte(`{"truncate":123}`)), func(q *MockQueue) {
+		handleModifyTopic(http.StatusPreconditionFailed, headers.ErrTopicDoesNotExist, topic, info, bytes.NewBuffer([]byte(`{"truncate":123}`)), func(q *MockQueue, dist *MockDistributor) {
 			q.EXPECT().ModifyTopic(topic, gomock.Any()).Return(nil, headers.ErrTopicDoesNotExist).Times(1)
 		}))
 	errUnknown := errors.New("test modify error")
 	t.Run("unknown error",
-		handleModifyTopic(http.StatusInternalServerError, errUnknown, topic, info, bytes.NewBuffer([]byte(`{"truncate":123}`)), func(q *MockQueue) {
+		handleModifyTopic(http.StatusInternalServerError, errUnknown, topic, info, bytes.NewBuffer([]byte(`{"truncate":123}`)), func(q *MockQueue, dist *MockDistributor) {
 			q.EXPECT().ModifyTopic(topic, gomock.Any()).Return(nil, errUnknown).Times(1)
 		}))
 }
 
-func handleModifyTopic(status int, errExpected error, topic string, info headers.TopicInfo, body io.Reader, expect func(q *MockQueue)) func(t *testing.T) {
+func handleModifyTopic(status int, errExpected error, topic string, info headers.TopicInfo, body io.Reader, expect func(q *MockQueue, dist *MockDistributor)) func(t *testing.T) {
 	return func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -49,12 +49,13 @@ func handleModifyTopic(status int, errExpected error, topic string, info headers
 		// setup mock queue
 		q := NewMockQueue(ctrl)
 		q.EXPECT().Close().Return(nil).Times(1)
+		dist := NewMockDistributor(ctrl)
 		if expect != nil {
-			expect(q)
+			expect(q, dist)
 		}
 
 		// setup server
-		s, err := NewServer(WithQueue(q))
+		s, err := NewServer(WithQueue(q), WithDistributor(dist))
 		if err != nil {
 			t.Error(err)
 			return
@@ -74,7 +75,7 @@ func handleModifyTopic(status int, errExpected error, topic string, info headers
 		if err != nil {
 			s.HandleModifyTopic(w, r)
 		} else {
-			q.EXPECT().GetTopicOwner(topic).Return("", nil)
+			dist.EXPECT().GetTopicOwner(topic).Return("", nil)
 			s.ServeHTTP(w, r)
 		}
 

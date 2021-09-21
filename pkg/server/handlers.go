@@ -147,7 +147,7 @@ func (s *Server) HandleModifyTopic(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	addr, err := s.q.GetTopicOwner(topic)
+	addr, err := s.distributor.GetTopicOwner(topic)
 	if err != nil {
 		s.logger.Warnf("%s:%s:get topic owner: %s", r.Method, r.URL.Path, err.Error())
 		headers.SetError(w, headers.ErrInvalidBodyJSON)
@@ -198,7 +198,7 @@ func (s *Server) HandleDeleteTopic(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	addr, err := s.q.GetTopicOwner(topic)
+	addr, err := s.distributor.GetTopicOwner(topic)
 	if err != nil {
 		s.logger.Warnf("%s:%s:get topic owner: %s", r.Method, r.URL.Path, err.Error())
 		headers.SetError(w, headers.ErrInvalidBodyJSON)
@@ -238,7 +238,7 @@ func (s *Server) HandleProduce(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	addr, err := s.q.GetTopicOwner(topic)
+	addr, err := s.distributor.GetTopicOwner(topic)
 	if err != nil {
 		s.logger.Warnf("%s:%s:get topic owner: %s", r.Method, r.URL.Path, err.Error())
 		headers.SetError(w, headers.ErrInvalidBodyJSON)
@@ -281,7 +281,7 @@ func (s *Server) HandleConsume(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	addr, err := s.q.GetTopicOwner(topic)
+	addr, err := s.distributor.GetTopicOwner(topic)
 	if err != nil {
 		s.logger.Warnf("%s:%s:get topic owner: %s", r.Method, r.URL.Path, err.Error())
 		headers.SetError(w, headers.ErrInvalidBodyJSON)
@@ -375,7 +375,7 @@ func (s *Server) HandleWatchTopics(w http.ResponseWriter, r *http.Request) {
 
 	addrs := map[string]bool{}
 	for topic := range topics {
-		addr, err := s.q.GetTopicOwner(topic)
+		addr, err := s.distributor.GetTopicOwner(topic)
 		if err != nil {
 			s.logger.Warnf("%s:%s:get topic owner: %s", r.Method, r.URL.Path, err.Error())
 			headers.SetError(w, headers.ErrInvalidBodyJSON)

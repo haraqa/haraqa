@@ -27,12 +27,12 @@ func TestServer_HandleConsume(t *testing.T) {
 	t.Run("invalid limit",
 		handleConsume(group, http.StatusBadRequest, headers.ErrInvalidMessageLimit, "/topics/"+topic+"?id=123&limit=invalid", nil))
 	t.Run("topic doesn't exist",
-		handleConsume(group, http.StatusPreconditionFailed, headers.ErrTopicDoesNotExist, "/topics/"+topic+"?id=123", func(q *MockQueue, cm *MockConsumerManager) {
+		handleConsume(group, http.StatusPreconditionFailed, headers.ErrTopicDoesNotExist, "/topics/"+topic+"?id=123", func(q *MockQueue, cm *MockConsumerManager, dist *MockDistributor) {
 			cm.EXPECT().GetOffset(group, topic, id).Return(id, func() {}, nil)
 			q.EXPECT().Consume(group, topic, id, int64(-1), gomock.Any()).Return(0, headers.ErrTopicDoesNotExist).Times(1)
 		}))
 	t.Run("happy path: limit == -1",
-		handleConsume(group, http.StatusPartialContent, nil, "/topics/"+topic+"?id=123", func(q *MockQueue, cm *MockConsumerManager) {
+		handleConsume(group, http.StatusPartialContent, nil, "/topics/"+topic+"?id=123", func(q *MockQueue, cm *MockConsumerManager, dist *MockDistributor) {
 			cm.EXPECT().GetOffset(group, topic, id).Return(id, func() {}, nil)
 			q.EXPECT().Consume(group, topic, id, int64(-1), gomock.Any()).
 				DoAndReturn(func(group, topic string, offset, limit int64, w http.ResponseWriter) (int, error) {
@@ -41,24 +41,24 @@ func TestServer_HandleConsume(t *testing.T) {
 				}).Times(1)
 		}))
 	t.Run("happy path: limit == 0",
-		handleConsume(group, http.StatusOK, nil, "/topics/"+topic+"?id=123&limit=0", func(q *MockQueue, cm *MockConsumerManager) {
+		handleConsume(group, http.StatusOK, nil, "/topics/"+topic+"?id=123&limit=0", func(q *MockQueue, cm *MockConsumerManager, dist *MockDistributor) {
 			cm.EXPECT().GetOffset(group, topic, id).Return(id, func() {}, nil)
 			q.EXPECT().Consume(group, topic, id, int64(-1), gomock.Any()).Return(10, nil).Times(1)
 		}))
 	t.Run("no content",
-		handleConsume(group, http.StatusNoContent, headers.ErrNoContent, "/topics/"+topic+"?id=123", func(q *MockQueue, cm *MockConsumerManager) {
+		handleConsume(group, http.StatusNoContent, headers.ErrNoContent, "/topics/"+topic+"?id=123", func(q *MockQueue, cm *MockConsumerManager, dist *MockDistributor) {
 			cm.EXPECT().GetOffset(group, topic, id).Return(id, func() {}, nil)
 			q.EXPECT().Consume(group, topic, id, int64(-1), gomock.Any()).Return(0, nil).Times(1)
 		}))
 	errUnknown := errors.New("some unexpected error")
 	t.Run("unknown error",
-		handleConsume(group, http.StatusInternalServerError, errUnknown, "/topics/"+topic+"?id=123", func(q *MockQueue, cm *MockConsumerManager) {
+		handleConsume(group, http.StatusInternalServerError, errUnknown, "/topics/"+topic+"?id=123", func(q *MockQueue, cm *MockConsumerManager, dist *MockDistributor) {
 			cm.EXPECT().GetOffset(group, topic, id).Return(id, func() {}, nil)
 			q.EXPECT().Consume(group, topic, id, int64(-1), gomock.Any()).Return(0, errUnknown).Times(1)
 		}))
 }
 
-func handleConsume(group string, status int, errExpected error, url string, expect func(q *MockQueue, cm *MockConsumerManager)) func(*testing.T) {
+func handleConsume(group string, status int, errExpected error, url string, expect func(q *MockQueue, cm *MockConsumerManager, dist *MockDistributor)) func(*testing.T) {
 	return func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -67,12 +67,13 @@ func handleConsume(group string, status int, errExpected error, url string, expe
 		q := NewMockQueue(ctrl)
 		q.EXPECT().Close().Times(1).Return(nil)
 		cm := NewMockConsumerManager(ctrl)
+		dist := NewMockDistributor(ctrl)
 		if expect != nil {
-			expect(q, cm)
+			expect(q, cm, dist)
 		}
 
 		// setup server
-		s, err := NewServer(WithQueue(q), WithConsumerManager(cm))
+		s, err := NewServer(WithQueue(q), WithConsumerManager(cm), WithDistributor(dist))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -100,7 +101,7 @@ func handleConsume(group string, status int, errExpected error, url string, expe
 		if err != nil {
 			s.HandleConsume(w, r)
 		} else {
-			q.EXPECT().GetTopicOwner(topic).Return("", nil)
+			dist.EXPECT().GetTopicOwner(topic).Return("", nil)
 			s.ServeHTTP(w, r)
 		}
 

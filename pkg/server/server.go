@@ -28,6 +28,17 @@ func WithConsumerManager(consumerManager ConsumerManager) Option {
 	}
 }
 
+// WithDistributor overrides the default distributor
+func WithDistributor(distributor Distributor) Option {
+	return func(s *Server) error {
+		if distributor == nil {
+			return errors.New("distributor cannot be nil")
+		}
+		s.distributor = distributor
+		return nil
+	}
+}
+
 // WithQueue overrides the default file queue
 func WithQueue(q Queue) Option {
 	return func(s *Server) error {
@@ -140,6 +151,7 @@ type Server struct {
 	consumerGroupLock   *sync.Map
 	q                   Queue
 	consumerManager     ConsumerManager
+	distributor         Distributor
 	closed              chan struct{}
 	waitGroup           *sync.WaitGroup
 	wsPingInterval      time.Duration
@@ -177,6 +189,9 @@ func NewServer(options ...Option) (*Server, error) {
 	}
 	if s.consumerManager == nil {
 		s.consumerManager = memconsumer.New()
+	}
+	if s.distributor == nil {
+		s.distributor = &noopDistributor{}
 	}
 
 	s.handler = s.route()
